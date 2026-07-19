@@ -1,0 +1,648 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		D20460000000000000000001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = D20460000000000000000005 /* Supabase */; };
+		D20460000000000000000002 /* StripePaymentSheet in Frameworks */ = {isa = PBXBuildFile; productRef = D20460000000000000000006 /* StripePaymentSheet */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		BAB9A73E2F87F24100A25708 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BAB9A7262F87F23F00A25708 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BAB9A72D2F87F23F00A25708;
+			remoteInfo = "花计2046";
+		};
+		BAB9A7482F87F24100A25708 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BAB9A7262F87F23F00A25708 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BAB9A72D2F87F23F00A25708;
+			remoteInfo = "花计2046";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		BAB9A72E2F87F23F00A25708 /* 花计2046.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "花计2046.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		BAB9A73D2F87F24100A25708 /* 花计2046Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "花计2046Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		BAB9A7472F87F24100A25708 /* 花计2046UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "花计2046UITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		BAB9A7302F87F23F00A25708 /* 花计2046 */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "花计2046";
+			sourceTree = "<group>";
+		};
+		BAB9A7402F87F24100A25708 /* 花计2046Tests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "花计2046Tests";
+			sourceTree = "<group>";
+		};
+		BAB9A74A2F87F24100A25708 /* 花计2046UITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "花计2046UITests";
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		BAB9A72B2F87F23F00A25708 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D20460000000000000000001 /* Supabase in Frameworks */,
+				D20460000000000000000002 /* StripePaymentSheet in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BAB9A73A2F87F24100A25708 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BAB9A7442F87F24100A25708 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		BAB9A7252F87F23F00A25708 = {
+			isa = PBXGroup;
+			children = (
+				BAB9A7302F87F23F00A25708 /* 花计2046 */,
+				BAB9A7402F87F24100A25708 /* 花计2046Tests */,
+				BAB9A74A2F87F24100A25708 /* 花计2046UITests */,
+				BAB9A72F2F87F23F00A25708 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		BAB9A72F2F87F23F00A25708 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				BAB9A72E2F87F23F00A25708 /* 花计2046.app */,
+				BAB9A73D2F87F24100A25708 /* 花计2046Tests.xctest */,
+				BAB9A7472F87F24100A25708 /* 花计2046UITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		BAB9A72D2F87F23F00A25708 /* 花计2046 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BAB9A7512F87F24100A25708 /* Build configuration list for PBXNativeTarget "花计2046" */;
+			buildPhases = (
+				BAB9A72A2F87F23F00A25708 /* Sources */,
+				BAB9A72B2F87F23F00A25708 /* Frameworks */,
+				BAB9A72C2F87F23F00A25708 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				BAB9A7302F87F23F00A25708 /* 花计2046 */,
+			);
+			name = "花计2046";
+			packageProductDependencies = (
+				D20460000000000000000005 /* Supabase */,
+				D20460000000000000000006 /* StripePaymentSheet */,
+			);
+			productName = "花计2046";
+			productReference = BAB9A72E2F87F23F00A25708 /* 花计2046.app */;
+			productType = "com.apple.product-type.application";
+		};
+		BAB9A73C2F87F24100A25708 /* 花计2046Tests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BAB9A7542F87F24100A25708 /* Build configuration list for PBXNativeTarget "花计2046Tests" */;
+			buildPhases = (
+				BAB9A7392F87F24100A25708 /* Sources */,
+				BAB9A73A2F87F24100A25708 /* Frameworks */,
+				BAB9A73B2F87F24100A25708 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BAB9A73F2F87F24100A25708 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				BAB9A7402F87F24100A25708 /* 花计2046Tests */,
+			);
+			name = "花计2046Tests";
+			packageProductDependencies = (
+			);
+			productName = "花计2046Tests";
+			productReference = BAB9A73D2F87F24100A25708 /* 花计2046Tests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		BAB9A7462F87F24100A25708 /* 花计2046UITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BAB9A7572F87F24100A25708 /* Build configuration list for PBXNativeTarget "花计2046UITests" */;
+			buildPhases = (
+				BAB9A7432F87F24100A25708 /* Sources */,
+				BAB9A7442F87F24100A25708 /* Frameworks */,
+				BAB9A7452F87F24100A25708 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BAB9A7492F87F24100A25708 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				BAB9A74A2F87F24100A25708 /* 花计2046UITests */,
+			);
+			name = "花计2046UITests";
+			packageProductDependencies = (
+			);
+			productName = "花计2046UITests";
+			productReference = BAB9A7472F87F24100A25708 /* 花计2046UITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		BAB9A7262F87F23F00A25708 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2640;
+				LastUpgradeCheck = 2640;
+				TargetAttributes = {
+					BAB9A72D2F87F23F00A25708 = {
+						CreatedOnToolsVersion = 26.4;
+					};
+					BAB9A73C2F87F24100A25708 = {
+						CreatedOnToolsVersion = 26.4;
+						TestTargetID = BAB9A72D2F87F23F00A25708;
+					};
+					BAB9A7462F87F24100A25708 = {
+						CreatedOnToolsVersion = 26.4;
+						TestTargetID = BAB9A72D2F87F23F00A25708;
+					};
+				};
+			};
+			buildConfigurationList = BAB9A7292F87F23F00A25708 /* Build configuration list for PBXProject "花计2046" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = BAB9A7252F87F23F00A25708;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				D20460000000000000000003 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				D20460000000000000000004 /* XCRemoteSwiftPackageReference "stripe-ios" */,
+				BA4BC2282FFD7F3C00A636AF /* XCRemoteSwiftPackageReference "swift-algorithms" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = BAB9A72F2F87F23F00A25708 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				BAB9A72D2F87F23F00A25708 /* 花计2046 */,
+				BAB9A73C2F87F24100A25708 /* 花计2046Tests */,
+				BAB9A7462F87F24100A25708 /* 花计2046UITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		BAB9A72C2F87F23F00A25708 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BAB9A73B2F87F24100A25708 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BAB9A7452F87F24100A25708 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		BAB9A72A2F87F23F00A25708 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BAB9A7392F87F24100A25708 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BAB9A7432F87F24100A25708 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		BAB9A73F2F87F24100A25708 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BAB9A72D2F87F23F00A25708 /* 花计2046 */;
+			targetProxy = BAB9A73E2F87F24100A25708 /* PBXContainerItemProxy */;
+		};
+		BAB9A7492F87F24100A25708 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BAB9A72D2F87F23F00A25708 /* 花计2046 */;
+			targetProxy = BAB9A7482F87F24100A25708 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		BAB9A74F2F87F24100A25708 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		BAB9A7502F87F24100A25708 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		BAB9A7522F87F24100A25708 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 55MKGSFZJ9;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "张佩";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "高德 needs microphone access to turn voice expense notes into records.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "高德 使用语音识别将语音转为记账记录。";
+				INFOPLIST_KEY_STRIPE_PUBLISHABLE_KEY = pk_test_REPLACE_ME;
+				INFOPLIST_KEY_SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlpdnJvbHR4ZGxxem1zY2xpdXF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4MDAwMzIsImV4cCI6MjA5MTM3NjAzMn0.mFPtu9tP2vANBG30wAycfbgdpNVAGud3o4y2x6pRtbc;
+				INFOPLIST_KEY_SUPABASE_FUNCTIONS_URL = "https://iivroltxdlqzmscliuqw.functions.supabase.co/functions/v1";
+				INFOPLIST_KEY_SUPABASE_URL = "https://iivroltxdlqzmscliuqw.supabase.co";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_USE_MOCK_SERVICES = NO;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nsoft.gaode;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BAB9A7532F87F24100A25708 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 55MKGSFZJ9;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "张佩";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "高德 needs microphone access to turn voice expense notes into records.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "高德 使用语音识别将语音转为记账记录。";
+				INFOPLIST_KEY_STRIPE_PUBLISHABLE_KEY = pk_test_REPLACE_ME;
+				INFOPLIST_KEY_SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlpdnJvbHR4ZGxxem1zY2xpdXF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4MDAwMzIsImV4cCI6MjA5MTM3NjAzMn0.mFPtu9tP2vANBG30wAycfbgdpNVAGud3o4y2x6pRtbc;
+				INFOPLIST_KEY_SUPABASE_FUNCTIONS_URL = "https://iivroltxdlqzmscliuqw.functions.supabase.co/functions/v1";
+				INFOPLIST_KEY_SUPABASE_URL = "https://iivroltxdlqzmscliuqw.supabase.co";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nsoft.gaode;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		BAB9A7552F87F24100A25708 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "nsoft.test.--2046Tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/花计2046.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/花计2046";
+			};
+			name = Debug;
+		};
+		BAB9A7562F87F24100A25708 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "nsoft.test.--2046Tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/花计2046.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/花计2046";
+			};
+			name = Release;
+		};
+		BAB9A7582F87F24100A25708 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "nsoft.test.--2046UITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "花计2046";
+			};
+			name = Debug;
+		};
+		BAB9A7592F87F24100A25708 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "nsoft.test.--2046UITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "花计2046";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		BAB9A7292F87F23F00A25708 /* Build configuration list for PBXProject "花计2046" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BAB9A74F2F87F24100A25708 /* Debug */,
+				BAB9A7502F87F24100A25708 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BAB9A7512F87F24100A25708 /* Build configuration list for PBXNativeTarget "花计2046" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BAB9A7522F87F24100A25708 /* Debug */,
+				BAB9A7532F87F24100A25708 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BAB9A7542F87F24100A25708 /* Build configuration list for PBXNativeTarget "花计2046Tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BAB9A7552F87F24100A25708 /* Debug */,
+				BAB9A7562F87F24100A25708 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BAB9A7572F87F24100A25708 /* Build configuration list for PBXNativeTarget "花计2046UITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BAB9A7582F87F24100A25708 /* Debug */,
+				BAB9A7592F87F24100A25708 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		BA4BC2282FFD7F3C00A636AF /* XCRemoteSwiftPackageReference "swift-algorithms" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-algorithms.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.2.1;
+			};
+		};
+		D20460000000000000000003 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+		D20460000000000000000004 /* XCRemoteSwiftPackageReference "stripe-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stripe/stripe-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 24.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		D20460000000000000000005 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D20460000000000000000003 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+		D20460000000000000000006 /* StripePaymentSheet */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D20460000000000000000004 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripePaymentSheet;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = BAB9A7262F87F23F00A25708 /* Project object */;
+}

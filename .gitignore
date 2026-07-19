@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+*.xcuserstate
+xcuserdata/
+
+# Xcode
+DerivedData/
+build/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# SPM
+SourcePackages/
+.swiftpm/
+
+# Node (Edge Functions only)
+supabase/functions/*/node_modules/
+
+# Secrets
+*.xcconfig
+!Configs/Test.xcconfig
+Build-Device/
+*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+*.bak
+*.xcodeproj/project.xworkspace/
+*.bak
+*.bak2
