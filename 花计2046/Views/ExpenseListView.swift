@@ -284,7 +284,7 @@ struct ExpenseListView: View {
                 Image(systemName: "tray.full.fill").font(.system(size: 44, weight: .light)).foregroundColor(Color(hex: "#C0C0C0").opacity(0.5))
             }
             VStack(spacing: 6) {
-                Text("暂无记录").font(.system(size: 17, weight: .medium)).foregroundColor(Color(hex: "#C0C0C0"))
+                Text("暂无记录").font(.system(size: 19, weight: .medium)).foregroundColor(Color(hex: "#C0C0C0"))
                 if hasActiveFilters {
                     Text("试试调整搜索条件").font(.system(size: 17)).foregroundColor(Color(hex: "#C0C0C0"))
                 } else {
@@ -1162,5 +1162,16 @@ struct ScrollViewAccessor: UIViewRepresentable {
         return view
     }
 
-    func updateUIView(_ uiView: UIView, context: Context) {}
+    func updateUIView(_ uiView: UIView, context: Context) {
+        DispatchQueue.main.async {
+            var current: UIView? = uiView
+            while current != nil {
+                if let sv = current as? UIScrollView {
+                    onScrollView(sv)
+                    break
+                }
+                current = current?.superview
+            }
+        }
+    }
 }

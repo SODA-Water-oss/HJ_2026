@@ -287,13 +287,14 @@ struct AddExpenseView: View {
 
     @ViewBuilder
     private var statusBar: some View {
-        HStack(spacing: 8) {
+       HStack(spacing: 8) {
+            Group {
             if statusMsg == "等待录入......" {
                 Image(systemName: "hourglass.circle").font(.system(size: 17))
                     .foregroundStyle(AppTheme.brandGradient)
                     .spinningCCW()
             } else if audioRecorder.isRecording {
-                PulsingDot()
+                PulsingDot().frame(width: 24, height: 24)
             } else if statusMsg == "请录入解析内容......" {
                 Image(systemName: "pencil.and.outline")
                     .font(.system(size: 17))
@@ -311,14 +312,15 @@ struct AddExpenseView: View {
             } else if statusMsg.hasPrefix("解析失败") || statusMsg.hasPrefix("错误") {
                 Rectangle()
                     .fill(AppTheme.brandGradient)
-                    .frame(width: 13, height: 13)
-                    .cornerRadius(2)
+                    .frame(width: 16, height: 16)
+                    .cornerRadius(3)
             }
+            }
+            .frame(width: 24, height: 24)
             Text(statusMsg)
                 .font(.system(size: 17))
                 .foregroundColor(statusTextColor)
         }
-        .offset(x: statusMsg == "等待录入......" ? 0 : -2)
         .padding(.leading, 38).padding(.trailing, 16).padding(.vertical, 16).frame(maxWidth: .infinity, alignment: .leading)
         .background(AppTheme.brandGradient.opacity(0.16), in: RoundedRectangle(cornerRadius: 12))
         .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
@@ -330,7 +332,7 @@ struct AddExpenseView: View {
         if statusMsg.hasPrefix("未解析出有效") { return AppTheme.brandEnd }
         if statusMsg == "等待录入......" { return AppTheme.brandEnd }
         if isProcessing { return AppTheme.brandEnd }
-        if statusMsg == "录音中......" { return AppTheme.brandEnd }
+        if statusMsg == "收音中......" { return AppTheme.brandEnd }
         if audioRecorder.isRecording { return AppTheme.brandEnd }
         return AppTheme.textSecondary
     }
@@ -411,10 +413,18 @@ struct AddExpenseView: View {
             .opacity((isProcessing || audioRecorder.isRecording) ? 0.5 : 1.0)
             .padding(.bottom, 4)
 
+            let hasContent = !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             HStack(spacing: 12) {
-                parseButton
+                if hasContent {
+                    parseButton
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .leading).combined(with: .opacity),
+                            removal: .move(edge: .leading).combined(with: .opacity)
+                        ))
+                }
                 voiceButton
             }
+            .animation(.interpolatingSpring(mass: 0.7, stiffness: 160, damping: 13), value: hasContent)
         }
         .padding(20).background(Color.white).cornerRadius(16)
         .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 4)
@@ -566,7 +576,7 @@ struct AddExpenseView: View {
         let rp = AVAudioSession.sharedInstance().recordPermission
         if sp == .authorized && rp == .granted {
             audioRecorder.startRecording()
-            statusMsg = "录音中......"
+            statusMsg = "收音中......"
         } else {
             Task {
                 if await audioRecorder.requestPermission() {

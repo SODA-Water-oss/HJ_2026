@@ -248,7 +248,7 @@ struct AnalyticsView: View {
             }
             VStack(spacing: 6) {
                 Text("暂无记录")
-                    .font(.system(size: 17, weight: .medium))
+                    .font(.system(size: 19, weight: .medium))
                     .foregroundColor(Color(hex: "#C0C0C0"))
                 Text("点击底部「录入」开始记账")
                     .font(.system(size: 17))
