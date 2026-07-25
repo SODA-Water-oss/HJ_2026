@@ -45,3 +45,17 @@
 最后一次完整备份: 9050487 2026-07-20 00:23:07 +0800
 提交: chore: full backup before further development
 恢复方式: git checkout <hash> -- <file>
+
+## 待办清单（优先级排序）
+
+### P1 — 下次做
+- 提取编辑共享组件：CategoryPickerRow / AmountField（EditExpenseView / AIConfirmView / ManualEntryView 三处复用）
+- 给 SupabaseService 搜索过滤逻辑写单元测试（过滤不依赖 UI）
+
+### P2 — 有空做
+- 搜索状态迁移：创建 SearchState ObservableObject，从 SupabaseService 拆出
+
+### P3 — 远期
+- Xcode 项目添加新文件引用（SweepScrollDriver / WheelPickers / ExpenseRowView / BatchOperations）
+- 密钥从源码移到 Info.plist / Build Config
+- 价格页（SubscriptionView）完善国际化文案
