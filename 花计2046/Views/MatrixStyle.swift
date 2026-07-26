@@ -9,17 +9,45 @@ struct AppTheme {
         startPoint: .leading,
         endPoint: .trailing
     )
-    static let background = Color(hex: "#F3F4F6")
-    static let cardBackground = Color.white
-    static let textPrimary = Color(hex: "#1F2937")
-    static let textSecondary = Color(hex: "#6B7280")
-    static let textTertiary = Color(hex: "#9CA3AF")
+    private static var isDarkMode: Bool {
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = scene.windows.first {
+            return window.traitCollection.userInterfaceStyle == .dark
+        }
+        return false
+    }
+    
+    static var background: Color {
+        isDarkMode ? Color(hex: "#1C1C1E") : Color(hex: "#F3F4F6")
+    }
+    static var cardBackground: Color {
+        isDarkMode ? Color(hex: "#2C2C2E") : Color.white
+    }
+    static var textPrimary: Color {
+        isDarkMode ? Color(hex: "#F5F5F5") : Color(hex: "#1F2937")
+    }
+    static var textSecondary: Color {
+        isDarkMode ? Color(hex: "#A0A0A0") : Color(hex: "#6B7280")
+    }
+    static var textTertiary: Color {
+        isDarkMode ? Color(hex: "#7C7C7C") : Color(hex: "#9CA3AF")
+    }
     static let textWhite = Color.white
-    static let border = Color(hex: "#E5E7EB")
-    static let cardBorder = Color.black.opacity(0.04)
-    static let divider = Color(hex: "#E5E7EB")
-    static let rowHighlight = Color(hex: "#F9FAFB")
-    static let cardShadow = Color.black.opacity(0.06)
+    static var border: Color {
+        isDarkMode ? Color(hex: "#3A3A3C") : Color(hex: "#E5E7EB")
+    }
+    static var cardBorder: Color {
+        isDarkMode ? Color.white.opacity(0.08) : Color.black.opacity(0.04)
+    }
+    static var divider: Color {
+        isDarkMode ? Color(hex: "#3A3A3C") : Color(hex: "#E5E7EB")
+    }
+    static var rowHighlight: Color {
+        isDarkMode ? Color(hex: "#2C2C2E") : Color(hex: "#F9FAFB")
+    }
+    static var cardShadow: Color {
+        isDarkMode ? Color.black.opacity(0.3) : Color.black.opacity(0.06)
+    }
     static let brandShadow = Color(hex: "#5B6EF0").opacity(0.3)
     static let cardRadius: CGFloat = 16
     static let elementRadius: CGFloat = 8
@@ -75,7 +103,7 @@ struct AppSecondaryButtonStyle: ButtonStyle {
         configuration.label
             .font(.appBodyMedium).foregroundColor(AppTheme.brandStart)
             .padding(.horizontal, 20).padding(.vertical, 12)
-            .background(Color.white).cornerRadius(8)
+            .background(AppTheme.cardBackground).cornerRadius(8)
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(AppTheme.brandStart, lineWidth: 1.5))
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
     }
@@ -86,17 +114,19 @@ struct AppTextFieldStyle: TextFieldStyle {
         configuration
             .font(.appBody).foregroundColor(AppTheme.textPrimary)
             .padding(.horizontal, 16).padding(.vertical, 12)
-            .background(Color.white).cornerRadius(8)
+            .background(AppTheme.cardBackground).cornerRadius(8)
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(AppTheme.border, lineWidth: 1))
             .tint(AppTheme.brandStart)
     }
 }
 
 struct CardStyle: ViewModifier {
+    @Environment(\.colorScheme) var colorScheme
+    
     func body(content: Content) -> some View {
         content
             .padding(.horizontal, 32).padding(.vertical, 28)
-            .background(Color.white).cornerRadius(16)
+            .background(AppTheme.cardBackground).cornerRadius(16)
             .shadow(color: AppTheme.cardShadow, radius: 10, x: 0, y: 4)
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppTheme.cardBorder, lineWidth: 1))
     }
