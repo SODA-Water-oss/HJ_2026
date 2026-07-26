@@ -63,16 +63,15 @@ struct EditRowOverlay: View {
 
 ### TypeToggle
 
-```swift
 struct TypeToggle: View {
-    @Binding var type: RecordType
-    var onTypeChange: ((RecordType) -> Void)?
+    let type: RecordType
+    let onSelect: (RecordType) -> Void
 
-    // 内部维护 activeType 和动画
 }
-```
 
-- 纯 UI 组件，不处理 categoryByType 逻辑
+
+- 纯 UI 组件，不管理状态，不处理 categoryByType 逻辑
+- 父视图在 `onSelect` 回调中自行决定是否加 `withAnimation` 及如何维护 categoryByType
 - 类型变化时回调，父视图自行维护 category 切换
 
 ### Record.matchesSearch
@@ -134,3 +133,4 @@ extension Record {
 - ManualEntryView 的 amount 存为 `String`，传入 overlay 时直接绑定 `fields.amount`。
 - AIConfirmView 的 amount 存为 `Double`，overlay 出现/保存时做一次 String↔Double 转换。
 - 批量切换逻辑（转收入/转支出）中的 `typeHistory` 需保持独立，不与 overlay 冲突。
+- TypeToggle 使用 `let type + onSelect`（非 `@Binding`），父视图在 `onSelect` 中自行更新状态、维护 categoryByType 和动画。
