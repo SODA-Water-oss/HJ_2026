@@ -313,7 +313,10 @@ struct AddExpenseView: View {
                 )
             }
         }
-        .background(ShakeController(onShake: { showClearAlert = true }))
+        .overlay(ShakeController(onShake: {
+            guard !inputText.isEmpty || parsedItems != nil else { return }
+            showClearAlert = true
+        }).frame(width: 0, height: 0).allowsHitTesting(false))
         .alert("清除内容", isPresented: $showClearAlert) {
             Button("取消", role: .cancel) { }
             Button("确认清除", role: .destructive) {
