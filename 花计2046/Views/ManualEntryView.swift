@@ -23,12 +23,9 @@ struct ManualEntryView: View {
     @State private var errorMessage = ""
     @State private var hasInitialized = false
     @State private var editingIndex: Int? = nil
-    @State private var editType: RecordType = .expense
-    @State private var editMerchant: String = ""
-    @State private var editAmount: String = ""
-    @State private var editCategory: String = ""
-    @State private var editNote: String = ""
-    @State private var showEditCategoryPicker = false
+    @State private var editFields = EditRowOverlay.EditableFields(
+        type: .expense, merchant: "", amount: "", category: "餐饮", note: ""
+    )
     @State private var isNewRow = false
     @State private var typeHistory: [UUID: [RecordType: String]] = [:]
     @State private var batchType: RecordType?
@@ -77,11 +74,8 @@ struct ManualEntryView: View {
                         
                         Button(action: {
                             guard rows.count < 50 else { return }
-                            let cat = rows.last?.category ?? "餐饮"
-                            let typ = rows.last?.type ?? .expense
                             isNewRow = true
                             editingIndex = rows.count
-                            editType = typ; editMerchant = ""; editAmount = ""; editCategory = cat; editNote = ""
                         }) {
                             let atMax = rows.count >= 50
                             HStack {
@@ -237,164 +231,57 @@ struct ManualEntryView: View {
                 Color.black.opacity(0.35)
                     .ignoresSafeArea()
                     .onTapGesture { cancelEdit() }
-                VStack(spacing: 0) {
-                    Spacer()
-                    VStack(spacing: 0) {
-                       // 标题
-                       HStack(spacing: 6) {
-                           Image(systemName: "square.and.pencil")
-                               .font(.system(size: 17))
-                               .foregroundColor(AppTheme.textTertiary.opacity(0.5))
-                           Text("编辑记录")
-                               .font(.system(size: 17, weight: .bold))
-                               .foregroundColor(AppTheme.textPrimary)
-                       }
-                       .frame(maxWidth: .infinity).padding(.top, 16)
-                       .padding(.bottom, 12)
-                        AppDivider().padding(.horizontal, 16)
-                        
-                        ScrollView {
-                            VStack(spacing: 10) {
-                                // 类型切换 - 每个按钮独立背景
-                                HStack(spacing: 0) {
-                                    Button(action: { withAnimation(.easeInOut(duration: 0.15)) { editCategoryByType[editType] = editCategory; editType = .income; editCategory = editCategoryByType[.income] ?? "工资" } }) {
-                                        Text("收入")
-                                            .font(.system(size: 17, weight: .medium))
-                                            .foregroundColor(editType == .income ? .white : .green)
-                                            .frame(maxWidth: .infinity).padding(.vertical, 6)
-                                            .background(editType == .income ? Color.green : Color.clear)
-                                            .cornerRadius(6)
-                                    }
-                                    Button(action: { withAnimation(.easeInOut(duration: 0.15)) { editCategoryByType[editType] = editCategory; editType = .expense; editCategory = editCategoryByType[.expense] ?? "餐饮" } }) {
-                                        Text("支出")
-                                            .font(.system(size: 17, weight: .medium))
-                                            .foregroundColor(editType == .expense ? .white : AppTheme.brandStart)
-                                            .frame(maxWidth: .infinity).padding(.vertical, 6)
-                                            .background(editType == .expense ? AppTheme.brandStart : Color.clear)
-                                            .cornerRadius(6)
-                                    }
-                                }
-                                .background(AppTheme.background)
-                                .cornerRadius(7)
-                                                                // 类别
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("类别")
-                                        .font(.system(size: 17, weight: .medium))
-                                        .foregroundColor(AppTheme.textSecondary)
-                                    Button(action: { showEditCategoryPicker = true }) {
-                                        HStack {
-                                            Text(editCategory)
-                                                .font(.system(size: 17))
-                                                .foregroundColor(editType == .expense ? AppTheme.brandStart : .green)
-                                            Spacer()
-                                            Image(systemName: "chevron.right")
-                                                .font(.system(size: 13, weight: .medium))
-                                                .foregroundColor(AppTheme.textTertiary)
-                                        }
-                                        .padding(.horizontal, 12).padding(.vertical, 9)
-                                        .background(Color.white)
-                                        .cornerRadius(7)
-                                        .overlay(RoundedRectangle(cornerRadius: 7).stroke(AppTheme.border))
-                                    }
-                                }
-                                
-                                // 名称
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("名称")
-                                        .font(.system(size: 17, weight: .medium))
-                                        .foregroundColor(AppTheme.textSecondary)
-                                    KeyboardDoneTextField(text: $editMerchant, placeholder: "输入名称")
-                                       .padding(.horizontal, 12).padding(.vertical, 9)
-                                       .background(Color.white)
-                                        .cornerRadius(7)
-                                        .overlay(RoundedRectangle(cornerRadius: 7).stroke(AppTheme.border))
-                                        .onChange(of: editMerchant) {
-                                            let s = ($0 ?? ""); if s.utf8.count > 50 { editMerchant = String(s.prefix(50)) }
-                                        }
-                                        .toolbar {
-                                            ToolbarItemGroup(placement: .keyboard) {
-                                                Spacer()
-                                                Button("完成") { dismissKeyboard() }
-                                                    .foregroundColor(AppTheme.brandStart)
-                                            }
-                                        }
-                                }
-                                
-                               // 金额
-                               VStack(alignment: .leading, spacing: 4) {
-                                   Text("金额")
-                                       .font(.system(size: 17, weight: .medium))
-                                       .foregroundColor(AppTheme.textSecondary)
-                                   HStack(spacing: 6) {
-                                       Text("¥").font(.system(size: 17, weight: .medium)).foregroundColor(AppTheme.textTertiary)
-                                       AmountTextField(amount: editAmountBinding, font: .systemFont(ofSize: 17), textColor: editType == .income ? UIColor.systemGreen : UIColor(AppTheme.textSecondary))
-                                           .frame(maxWidth: .infinity)
-                                   }
-                                   .padding(.horizontal, 12).padding(.vertical, 9)
-                                   .background(Color.white)
-                                   .cornerRadius(7)
-                                   .overlay(RoundedRectangle(cornerRadius: 7).stroke(AppTheme.border))
-                               }
-                               
-                               // 备注
-                               VStack(alignment: .leading, spacing: 4) {
-                                   Text("备注")
-                                       .font(.system(size: 17, weight: .medium))
-                                       .foregroundColor(AppTheme.textSecondary)
-                                 KeyboardDoneTextEditor(text: $editNote)
-                                     .frame(minHeight: 72)
-                                     .onChange(of: editNote) {
-                                          let s = ($0 ?? ""); if s.utf8.count > 200 { editNote = String(s.prefix(200)) }
-                                      }
-                               }
 
-
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                        }
-
-                        
-                        
-                        AppDivider().padding(.horizontal, 16)
-                        
-                        HStack(spacing: 10) {
-                            Button(action: { cancelEdit() }) {
-                                Text("取消")
-                                    .font(.system(size: 17, weight: .medium))
-                                    .foregroundColor(AppTheme.textSecondary)
-                                    .frame(maxWidth: .infinity).padding(.vertical, 10)
-                                    .background(Color.white)
-                                    .cornerRadius(7)
-                                    .overlay(RoundedRectangle(cornerRadius: 7).stroke(AppTheme.border))
-                            }
-                            Button(action: { confirmEdit() }) {
-                                Text("保存")
-                                    .font(.system(size: 17, weight: .regular))
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity).padding(.vertical, 10)
-                                    .background(AppTheme.brandGradient)
-                                    .cornerRadius(7)
+                EditRowOverlay(
+                    fields: $editFields,
+                    categoryByType: $editCategoryByType,
+                    onSave: {
+                        if isNewRow {
+                            var r = ManualEntryRow()
+                            r.type = editFields.type
+                            r.merchant = editFields.merchant
+                            r.amount = editFields.amount
+                            r.category = editFields.category
+                            r.note = editFields.note
+                            rows.append(r)
+                        } else if let idx = editingIndex, idx < rows.count {
+                            let oldType = rows[idx].type
+                            rows[idx].type = editFields.type
+                            rows[idx].merchant = editFields.merchant
+                            rows[idx].amount = editFields.amount
+                            rows[idx].category = editFields.category
+                            rows[idx].note = editFields.note
+                            if oldType != editFields.type {
+                                var h = typeHistory[rows[idx].id, default: [:]]
+                                h[oldType] = rows[idx].category
+                                typeHistory[rows[idx].id] = h
                             }
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 6)
+                        isNewRow = false
+                        editingIndex = nil
+                    },
+                    onCancel: { cancelEdit() }
+                )
+                .onAppear {
+                    if let idx = editingIndex, idx < rows.count {
+                        let row = rows[idx]
+                        editFields = EditRowOverlay.EditableFields(
+                            type: row.type,
+                            merchant: row.merchant,
+                            amount: row.amount,
+                            category: row.category,
+                            note: row.note
+                        )
+                        editCategoryByType[row.type] = row.category
+                    } else {
+                        // New row
+                        editFields = EditRowOverlay.EditableFields(
+                            type: .expense, merchant: "", amount: "", category: rows.last?.category ?? "餐饮", note: ""
+                        )
                     }
-                    .frame(width: UIScreen.main.bounds.width - 56)
-                    .frame(maxHeight: 410)
-                    .background(AppTheme.cardBackground)
-                    .cornerRadius(14)
-                    .shadow(color: Color.black.opacity(0.12), radius: 16, x: 0, y: 6)
-                    Spacer()
                 }
+                .id(editingIndex)
             }
-        }
-        .sheet(isPresented: $showEditCategoryPicker) {
-            if editingIndex != nil {
-                CategoryWheelPicker(selection: $editCategory, options: editType == .expense ? expenseCategories : incomeCategories)
-                    .presentationDetents([.height(260)])
-            }
-        }
     }
     
     
@@ -407,37 +294,13 @@ struct ManualEntryView: View {
         guard !hasInitialized else { return }
         hasInitialized = true
         let hasData = rows.contains { !$0.merchant.isEmpty || !$0.amount.isEmpty }
-        if !hasData {
-            editingIndex = 0
-            editType = rows.first?.type ?? .expense
-            editMerchant = rows.first?.merchant ?? ""
-            editAmount = rows.first?.amount ?? ""
-            editCategory = rows.first?.category ?? "餐饮"
-            editNote = rows.first?.note ?? ""
-            isNewRow = true
-        }
-    }
-    private func confirmEdit() {
-        if isNewRow {
-            var r = ManualEntryRow()
-            r.type = editType; r.merchant = editMerchant; r.amount = editAmount
-            r.category = editCategory; r.note = editNote
-            rows.append(r)
-        } else if let idx = editingIndex, idx < rows.count {
-            let oldType = rows[idx].type
-            rows[idx].type = editType; rows[idx].merchant = editMerchant; rows[idx].amount = editAmount
-            rows[idx].category = editCategory; rows[idx].note = editNote
-            if oldType != editType {
-                var h = typeHistory[rows[idx].id, default: [:]]
-                h[oldType] = rows[idx].category
-                typeHistory[rows[idx].id] = h
-            }
-        }
-        isNewRow = false
-        editingIndex = nil
-    }
-    
-    @ViewBuilder
+       if !hasData {
+           editingIndex = 0
+           isNewRow = true
+       }
+   }
+   
+   @ViewBuilder
     private func rowCardView(at index: Int) -> some View {
         let row = rows[index]
         let typeColor: Color = row.type == .expense ? AppTheme.brandStart : .green
@@ -494,21 +357,12 @@ struct ManualEntryView: View {
         .cornerRadius(8)
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(AppTheme.border, lineWidth: 1))
         .contentShape(Rectangle())
-        .onTapGesture {
-            editingIndex = index
-            editType = row.type
-            editMerchant = row.merchant
-            editAmount = row.amount
-            editCategory = row.category
-            editNote = row.note
-        }
-    }
-    
-    private var editAmountBinding: Binding<Double> {
-        Binding(get: { Double(editAmount) ?? 0 }, set: { let v = min($0, 9_999_999.99); editAmount = v == 0 ? "" : String(format: "%.2f", v) })
-    }
-    
-    private func saveAll() {
+       .onTapGesture {
+           editingIndex = index
+       }
+   }
+   
+   private func saveAll() {
         supabaseService.isGloballyProcessing = true
         supabaseService.globalProcessingMessage = "正在保存..."
         dismissKeyboard()
