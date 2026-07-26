@@ -432,18 +432,29 @@ struct AddExpenseView: View {
     @ViewBuilder
     private var inputArea: some View {
         VStack(spacing: 16) {
-            MatrixTextView(
-                text: $inputText,
-                placeholder: "内容录入区......",
-                cursorOffset: $cursorPos,
-                onCursorChange: { cursorPos = $0 }
-            )
+                MatrixTextView(
+                    text: $inputText,
+                    placeholder: "内容录入区......",
+                    cursorOffset: $cursorPos,
+                    onCursorChange: { cursorPos = $0 }
+                )
+                .frame(minHeight: audioRecorder.isRecording ? 80 : 250)
+                .animation(.interpolatingSpring(mass: 0.8, stiffness: 180, damping: 16), value: audioRecorder.isRecording)
+                
             .frame(minHeight: audioRecorder.isRecording ? 80 : 250)
             .animation(.interpolatingSpring(mass: 0.8, stiffness: 180, damping: 16), value: audioRecorder.isRecording)
             HStack {
-                if inputText.count > 500 { Text("您的输入已超上限!").font(.system(size: 15)).foregroundColor(AppTheme.brandStart) }
-                Spacer()
-                Text("\(inputText.count)/500").font(.system(size: 13)).foregroundColor(inputText.count > 500 ? AppTheme.brandStart : AppTheme.textTertiary)
+               if inputText.count > 500 { Text("您的输入已超上限!").font(.system(size: 15)).foregroundColor(AppTheme.brandStart) }
+               Spacer()
+                HStack(spacing: 3) {
+                    Image(systemName: "iphone.gen3.radiowaves.left.and.right")
+                        .font(.system(size: 11, weight: .light))
+                    Text("摇")
+                        .font(.system(size: 11, weight: .light))
+                }
+                .foregroundColor(AppTheme.textTertiary.opacity(0.45))
+                .padding(.trailing, 6)
+               Text("\(inputText.count)/500").font(.system(size: 13)).foregroundColor(inputText.count > 500 ? AppTheme.brandStart : AppTheme.textTertiary)
             }.padding(.horizontal, 4)
 
             // 按钮行
@@ -473,8 +484,8 @@ struct AddExpenseView: View {
             }
             .animation(.interpolatingSpring(mass: 0.7, stiffness: 160, damping: 13), value: hasContent)
         }
-        .padding(20).background(Color.white).cornerRadius(16)
-        .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 4)
+       .padding(20).background(Color.white).cornerRadius(16)
+       .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 4)
         .padding(.horizontal, 16)
         .animation(.interpolatingSpring(mass: 0.8, stiffness: 180, damping: 16), value: audioRecorder.isRecording)
     }
@@ -626,10 +637,10 @@ struct AddExpenseView: View {
             statusMsg = "收音中......"
         } else {
             Task {
-                if await audioRecorder.requestPermission() {
-                    isPressingVoice = false
-                    statusMsg = "请录入解析内容......"
-                } else {
+               if await audioRecorder.requestPermission() {
+                    audioRecorder.startRecording()
+                    statusMsg = "收音中......"
+               } else {
                     statusMsg = "错误：麦克风权限被拒绝"
                 }
             }
