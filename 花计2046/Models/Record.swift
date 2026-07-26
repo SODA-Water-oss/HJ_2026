@@ -95,3 +95,34 @@ struct MonthRecordGroup: Identifiable {
         records.reduce(0) { $0 + $1.signedAmount }
     }
 }
+
+extension Record {
+    func matchesSearch(
+        searchText: String,
+        searchNote: String,
+        searchCategory: String,
+        searchYear: String,
+        searchMonth: String
+    ) -> Bool {
+        let matchMerchant = searchText.isEmpty || merchant.localizedCaseInsensitiveContains(searchText)
+        let matchNote = searchNote.isEmpty || (note?.localizedCaseInsensitiveContains(searchNote) ?? false)
+
+        let matchCategory: Bool
+        if searchCategory.isEmpty {
+            matchCategory = true
+        } else if searchCategory == "其他支出" {
+            matchCategory = category == "其他" && isExpense
+        } else if searchCategory == "其他收入" {
+            matchCategory = category == "其他" && isIncome
+        } else {
+            matchCategory = category == searchCategory
+        }
+
+        let cleanYear = searchYear.replacingOccurrences(of: "年", with: "")
+        let cleanMonth = searchMonth.replacingOccurrences(of: "月", with: "")
+        let matchYear = cleanYear.isEmpty || month.hasPrefix(cleanYear)
+        let matchMonth = cleanMonth.isEmpty || month.hasSuffix(cleanMonth)
+
+        return matchMerchant && matchNote && matchCategory && matchYear && matchMonth
+    }
+}
