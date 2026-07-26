@@ -240,6 +240,9 @@ struct AddExpenseView: View {
     @State private var manualEntryRows: [ManualEntryRow] = [ManualEntryRow()]
     @State private var parsedItems: [GeminiService.ParsedExpense]?
     @State private var showClearAlert = false
+    @State private var shakeHintShown = false
+    @State private var showShakeBanner = false
+    @State private var showPermissionDeniedAlert = false
     @State private var showAIConfirm = false
     @State private var lastParsedInput: String = ""
 
@@ -315,8 +318,39 @@ struct AddExpenseView: View {
         }
         .overlay(ShakeController(onShake: {
             guard !inputText.isEmpty || parsedItems != nil else { return }
-            showClearAlert = true
+            if shakeHintShown {
+                showClearAlert = true
+            } else {
+                shakeHintShown = true
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showShakeBanner = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        showShakeBanner = false
+                    }
+                }
+            }
         }).frame(width: 0, height: 0).allowsHitTesting(false))
+        .overlay(alignment: .top) {
+            if showShakeBanner {
+                Text("摇动可快速清除输入")
+                    .font(.system(size: 14))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 10)
+                    .background(Color.black.opacity(0.75))
+                    .cornerRadius(10)
+                    .padding(.top, 12)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .alert("麦克风权限", isPresented: $showPermissionDeniedAlert) {
+            Button("取消", role: .cancel) { }
+            Button("去设置") {
+                UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!)
+            }
+        } message: { Text("麦克风权限被拒绝后无法使用语音录入。点击「去设置」前往设置打开权限。") }
         .alert("清除内容", isPresented: $showClearAlert) {
             Button("取消", role: .cancel) { }
             Button("确认清除", role: .destructive) {
@@ -632,16 +666,18 @@ struct AddExpenseView: View {
         voicePreviewText = ""
         let sp = SFSpeechRecognizer.authorizationStatus()
         let rp = AVAudioSession.sharedInstance().recordPermission
-        if sp == .authorized && rp == .granted {
-            audioRecorder.startRecording()
-            statusMsg = "收音中......"
+       if sp == .authorized && rp == .granted {
+           audioRecorder.startRecording()
+           statusMsg = "收音中......"
+        } else if sp == .denied || rp == .denied {
+            showPermissionDeniedAlert = true
         } else {
             Task {
                if await audioRecorder.requestPermission() {
                     audioRecorder.startRecording()
                     statusMsg = "收音中......"
                } else {
-                    statusMsg = "错误：麦克风权限被拒绝"
+            showPermissionDeniedAlert = true
                 }
             }
         }
