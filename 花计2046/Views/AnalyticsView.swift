@@ -36,18 +36,13 @@ struct AnalyticsView: View {
         default: typeFiltered = supabaseService.allRecords
         }
         if supabaseService.sharedSearchText.isEmpty && supabaseService.sharedSearchCategory.isEmpty && supabaseService.sharedSearchYear.isEmpty && supabaseService.sharedSearchMonth.isEmpty && supabaseService.sharedSearchNote.isEmpty { return typeFiltered }
-        return typeFiltered.filter { e in
-                let matchNote = supabaseService.sharedSearchNote.isEmpty || (e.note?.localizedCaseInsensitiveContains(supabaseService.sharedSearchNote) ?? false)
-            let matchMerchant = supabaseService.sharedSearchText.isEmpty || e.merchant.localizedCaseInsensitiveContains(supabaseService.sharedSearchText)
-            let matchCategory: Bool
-            if supabaseService.sharedSearchCategory.isEmpty { matchCategory = true }
-            else if supabaseService.sharedSearchCategory == "其他支出" { matchCategory = e.category == "其他" && e.isExpense }
-            else if supabaseService.sharedSearchCategory == "其他收入" { matchCategory = e.category == "其他" && e.isIncome }
-            else { matchCategory = e.category == supabaseService.sharedSearchCategory }
-            let matchYear = supabaseService.sharedSearchYear.isEmpty || e.month.hasPrefix(supabaseService.sharedSearchYear.replacingOccurrences(of: "年", with: ""))
-            let matchMonth = supabaseService.sharedSearchMonth.isEmpty || e.month.hasSuffix(supabaseService.sharedSearchMonth.replacingOccurrences(of: "月", with: ""))
-            return matchMerchant && matchCategory && matchYear && matchMonth && matchNote
-       }
+        return typeFiltered.filter { $0.matchesSearch(
+            searchText: supabaseService.sharedSearchText,
+            searchNote: supabaseService.sharedSearchNote,
+            searchCategory: supabaseService.sharedSearchCategory,
+            searchYear: supabaseService.sharedSearchYear,
+            searchMonth: supabaseService.sharedSearchMonth
+        ) }
    }
     
     struct CategoryAnalytics: Identifiable {

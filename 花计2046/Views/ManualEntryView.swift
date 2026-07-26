@@ -283,6 +283,7 @@ struct ManualEntryView: View {
                 .id(editingIndex)
             }
     }
+    }
     
     
     private func cancelEdit() {
