@@ -199,9 +199,9 @@ struct AnalyticsView: View {
                 .background(AppTheme.background)
                 .cornerRadius(7)
             HStack(spacing: 8) {
-                SearchNameField(text: $supabaseService.sharedSearchText, placeholder: "名称搜索")
+                SearchNameField(text: $supabaseService.sharedSearchText, placeholder: "搜索名称...")
                     .byteLimited($supabaseService.sharedSearchText, max: 50)
-                SearchNameField(text: $supabaseService.sharedSearchNote, placeholder: "备注搜索")
+                SearchNameField(text: $supabaseService.sharedSearchNote, placeholder: "搜索备注...")
                     .byteLimited($supabaseService.sharedSearchNote, max: 200)
             }
             HStack(spacing: 8) {

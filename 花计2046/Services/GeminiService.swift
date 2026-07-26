@@ -53,7 +53,14 @@ class GeminiService: ObservableObject {
             "用户输入：" + input + "。" +
             "请以JSON格式输出：{\"items\":[{\"type\":\"expense\",\"merchant\":\"名称\",\"amount\":金额数字,\"category\":\"类别\"}]}"
 
-        let result = try await callDeepSeek(prompt: prompt)
+        let result: ParseResult
+        do {
+            result = try await callDeepSeek(prompt: prompt)
+        } catch {
+            let fallback = fallbackParse(input: input)
+            if !fallback.isEmpty { return fallback }
+            throw error
+        }
         Log.info("DeepSeek 解析成功: items=\(result.items.count)")
         return result.items.map { item in
             ParsedExpense(
@@ -61,14 +68,35 @@ class GeminiService: ObservableObject {
                 amount: item.amount,
                 category: item.category,
                 merchant: item.merchant,
-                note: nil
+                note: item.note
             )
         }
     }
 
+
+    /// 本地兜底解析：正则提取数字+文字，DeepSeek失败时使用
+    private func fallbackParse(input: String) -> [ParsedExpense] {
+        guard let pattern = try? NSRegularExpression(pattern: #"([\u4e00-\u9fa5a-zA-Z]+)[¥￥\s]*(\d+\.?\d*)"#) else { return [] }
+        let nsRange = NSRange(input.startIndex..<input.endIndex, in: input)
+        let matches = pattern.matches(in: input, range: nsRange)
+        var results: [ParsedExpense] = []
+        let expenseCats = ["餐饮","交通","购物","娱乐","住房","日用","服饰","通讯","医疗","教育","其他"]
+        for match in matches {
+           guard match.numberOfRanges == 3 else { continue }
+            guard let nameRange = Range(match.range(at: 1), in: input),
+                  let amountRange = Range(match.range(at: 2), in: input) else { continue }
+            let name = String(input[nameRange])
+            guard let amount = Double(String(input[amountRange])), amount > 0, amount < 99999999 else { continue }
+            var category = "其他"
+            for cat in expenseCats where cat == name || name.contains(cat.prefix(1)) { category = cat; break }
+            results.append(ParsedExpense(type: .expense, amount: amount, category: category, merchant: name, note: nil))
+        }
+        return results
+    }
+
     /// 调用 DeepSeek Chat API
     private func callDeepSeek(prompt: String) async throws -> ParseResult {
-        let url = URL(string: "https://api.deepseek.com/v1/chat/completions")!
+        guard let url = URL(string: "https://api.deepseek.com/v1/chat/completions") else { throw NSError(domain: "DeepSeek", code: -1, userInfo: [NSLocalizedDescriptionKey: "URL配置错误"]) }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -76,8 +104,8 @@ class GeminiService: ObservableObject {
         request.timeoutInterval = 30
 
         let body: [String: Any] = [
-            "model": "deepseek-chat",
-            "messages": [
+           "model": "deepseek-v4-flash",
+           "messages": [
                 ["role": "system", "content": "你是一个精准的记账解析助手，只输出JSON格式。"],
                 ["role": "user", "content": prompt]
             ],

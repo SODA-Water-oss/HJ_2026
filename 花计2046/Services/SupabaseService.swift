@@ -250,10 +250,10 @@ class SupabaseService: ObservableObject {
            return
        }
        
-       var cloudExp = expense
-       cloudExp.userId = currentUser?.id ?? cloudExp.userId
+      var cloudExp = expense
+      cloudExp.userId = currentUser?.id ?? cloudExp.userId
        try await client.from("records").insert(cloudExp).execute()
-       var updated = self.expenses
+      var updated = self.expenses
        updated.append(expense)
        updated.sort { $0.date > $1.date }
        self.expenses = updated
@@ -492,3 +492,4 @@ class SupabaseService: ObservableObject {
 }
 
 enum NoteMode { case append, replace }
+

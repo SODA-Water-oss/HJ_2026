@@ -219,7 +219,7 @@ struct ManualEntryView: View {
         .alert("确认删除", isPresented: $showDeleteAlert) {
             Button("取消", role: .cancel) { pendingDeleteId = nil }
             Button("确认删除", role: .destructive) {
-                if let id = pendingDeleteId { rows.removeAll { $0.id == id }; if rows.isEmpty { rows.append(ManualEntryRow()) } }
+                if let id = pendingDeleteId { rows.removeAll { $0.id == id } }
                 pendingDeleteId = nil
             }
         } message: { Text("是否确认删除该项内容？") }
@@ -342,7 +342,7 @@ struct ManualEntryView: View {
                 guard rows.count > 1 else { return }
                 if row.merchant.isEmpty && row.amount.isEmpty && row.note.isEmpty {
                     rows.remove(at: index)
-                    if rows.isEmpty { rows.append(ManualEntryRow()) }
+                    
                 } else {
                     pendingDeleteId = row.id; showDeleteAlert = true
                 }
@@ -358,8 +358,17 @@ struct ManualEntryView: View {
         .cornerRadius(8)
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(AppTheme.border, lineWidth: 1))
         .contentShape(Rectangle())
-       .onTapGesture {
-           editingIndex = index
+      .onTapGesture {
+           let row = rows[index]
+           editFields = EditRowOverlay.EditableFields(
+               type: row.type,
+               merchant: row.merchant,
+               amount: row.amount,
+               category: row.category,
+               note: row.note
+           )
+           editCategoryByType[row.type] = row.category
+          editingIndex = index
        }
    }
    

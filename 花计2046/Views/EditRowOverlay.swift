@@ -36,13 +36,12 @@ struct EditRowOverlay: View {
                     .font(.system(size: 17, weight: .bold))
                     .foregroundColor(AppTheme.textPrimary)
             }
-            .frame(maxWidth: .infinity)
             .padding(.top, 16)
             .padding(.bottom, 12)
 
             AppDivider().padding(.horizontal, 16)
 
-            ScrollView {
+           ScrollView {
                 VStack(spacing: 10) {
                     // Type toggle
                     HStack(spacing: 0) {
@@ -50,7 +49,6 @@ struct EditRowOverlay: View {
                             Text("收入")
                                 .font(.system(size: 17, weight: .medium))
                                 .foregroundColor(editType == .income ? .white : .green)
-                                .frame(maxWidth: .infinity).padding(.vertical, 6)
                                 .background(editType == .income ? Color.green : Color.clear)
                                 .cornerRadius(6)
                         }
@@ -58,7 +56,6 @@ struct EditRowOverlay: View {
                             Text("支出")
                                 .font(.system(size: 17, weight: .medium))
                                 .foregroundColor(editType == .expense ? .white : AppTheme.brandStart)
-                                .frame(maxWidth: .infinity).padding(.vertical, 6)
                                 .background(editType == .expense ? AppTheme.brandStart : Color.clear)
                                 .cornerRadius(6)
                         }
@@ -92,8 +89,9 @@ struct EditRowOverlay: View {
                         Text("名称")
                             .font(.system(size: 17, weight: .medium))
                             .foregroundColor(AppTheme.textSecondary)
-                        KeyboardDoneTextField(text: $editMerchant, placeholder: "输入名称")
-                            .padding(.horizontal, 12).padding(.vertical, 9)
+                       KeyboardDoneTextField(text: $editMerchant, placeholder: "输入名称")
+                            .frame(maxWidth: .infinity)
+                           .padding(.horizontal, 12).padding(.vertical, 9)
                             .background(Color.white).cornerRadius(7)
                             .overlay(RoundedRectangle(cornerRadius: 7).stroke(AppTheme.border))
                             .onChange(of: editMerchant) { _, newValue in
@@ -111,7 +109,6 @@ struct EditRowOverlay: View {
                         HStack(spacing: 6) {
                             Text("¥").font(.system(size: 17, weight: .medium)).foregroundColor(AppTheme.textTertiary)
                             AmountTextField(amount: $editAmount, font: .systemFont(ofSize: 17), textColor: editType == .income ? UIColor.systemGreen : UIColor(AppTheme.textSecondary))
-                                .frame(maxWidth: .infinity)
                         }
                         .padding(.horizontal, 12).padding(.vertical, 9)
                         .background(Color.white).cornerRadius(7)
@@ -124,6 +121,8 @@ struct EditRowOverlay: View {
                             .font(.system(size: 17, weight: .medium))
                             .foregroundColor(AppTheme.textSecondary)
                         KeyboardDoneTextEditor(text: $editNote)
+                            .frame(maxWidth: .infinity)
+
                             .frame(minHeight: 72)
                             .onChange(of: editNote) { _, newValue in
                                 if newValue.utf8.count > 200 {
@@ -144,7 +143,6 @@ struct EditRowOverlay: View {
                     Text("取消")
                         .font(.system(size: 17, weight: .medium))
                         .foregroundColor(AppTheme.textSecondary)
-                        .frame(maxWidth: .infinity).padding(.vertical, 10)
                         .background(Color.white).cornerRadius(7)
                         .overlay(RoundedRectangle(cornerRadius: 7).stroke(AppTheme.border))
                 }
@@ -152,7 +150,6 @@ struct EditRowOverlay: View {
                     Text("保存")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(.white)
-                        .frame(maxWidth: .infinity).padding(.vertical, 10)
                         .background(AppTheme.brandGradient).cornerRadius(7)
                 }
             }

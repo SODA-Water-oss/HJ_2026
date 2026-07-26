@@ -233,11 +233,12 @@ struct AddExpenseView: View {
 
     @State private var inputText: String = ""
     @State private var isProcessing = false
+    @State private var parseRetryCount = 0
     @State private var statusMsg = "等待录入......"
     @State private var cursorPos: Int = 0
     @State private var showPremiumAlert = false
     @State private var showManualEntry = false
-    @State private var manualEntryRows: [ManualEntryRow] = [ManualEntryRow()]
+    @State private var manualEntryRows: [ManualEntryRow] = []
     @State private var parsedItems: [GeminiService.ParsedExpense]?
     @State private var showClearAlert = false
     @State private var shakeHintShown = false
@@ -260,8 +261,8 @@ struct AddExpenseView: View {
         NavigationView {
             VStack(spacing: 16) {
                 Color.clear.frame(height: 4)
-                // 状态栏
-                statusBar
+               // 状态栏
+               statusBar
 
 
                 // 语音实时预览
@@ -301,8 +302,8 @@ struct AddExpenseView: View {
             .sheet(isPresented: $showManualEntry) {
                 ManualEntryView(
                     rows: $manualEntryRows,
-                    onDiscard: { manualEntryRows = [ManualEntryRow()]; showManualEntry = false },
-                    onSuccess: { manualEntryRows = [ManualEntryRow()]; showManualEntry = false }
+                    onDiscard: { manualEntryRows = []; showManualEntry = false },
+                    onSuccess: { manualEntryRows = []; showManualEntry = false }
                 )
             }
             .sheet(isPresented: $showAIConfirm) {
@@ -334,7 +335,7 @@ struct AddExpenseView: View {
         }).frame(width: 0, height: 0).allowsHitTesting(false))
         .overlay(alignment: .top) {
             if showShakeBanner {
-                Text("摇动可快速清除输入")
+                Text("摇一摇可快速清除录入")
                     .font(.system(size: 14))
                     .foregroundColor(.white)
                     .padding(.horizontal, 18)
@@ -348,7 +349,7 @@ struct AddExpenseView: View {
         .alert("麦克风权限", isPresented: $showPermissionDeniedAlert) {
             Button("取消", role: .cancel) { }
             Button("去设置") {
-                UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!)
+                if let settingsURL = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(settingsURL) }
             }
         } message: { Text("麦克风权限被拒绝后无法使用语音录入。点击「去设置」前往设置打开权限。") }
         .alert("清除内容", isPresented: $showClearAlert) {
@@ -381,11 +382,12 @@ struct AddExpenseView: View {
                     .font(.system(size: 17))
                     .foregroundStyle(AppTheme.brandGradient)
                     .breathing()
-            } else if statusMsg == "解析中......" {
+           } else if statusMsg == "解析中......" {
                 Image(systemName: "arrow.clockwise.circle")
-                    .font(.system(size: 17))
+                    .font(.system(size: 24))
                     .foregroundStyle(AppTheme.brandGradient)
-                    .spinning()
+                   .spinning()
+                    .breathing()
             } else if statusMsg.hasPrefix("未解析出有效") {
                Image(systemName: "xmark.circle")
                    .font(.system(size: 17))
@@ -398,9 +400,20 @@ struct AddExpenseView: View {
             }
             }
             .frame(width: 24, height: 24)
-            Text(statusMsg)
-                .font(.system(size: 17))
-                .foregroundColor(statusTextColor)
+            if statusMsg.hasPrefix("解析失败") {
+                HStack(spacing: 4) {
+                    Text(statusMsg)
+                        .font(.system(size: 17))
+                        .foregroundColor(statusTextColor)
+                    Text("（可点击[解析内容]再试试）")
+                        .font(.system(size: 13))
+                        .foregroundStyle(AppTheme.brandGradient)
+                }
+            } else {
+                Text(statusMsg)
+                    .font(.system(size: 17))
+                    .foregroundColor(statusTextColor)
+            }
         }
         .padding(.leading, 38).padding(.trailing, 16).padding(.vertical, 16).frame(maxWidth: .infinity, alignment: .leading)
         .background(AppTheme.brandGradient.opacity(0.16), in: RoundedRectangle(cornerRadius: 12))
@@ -482,9 +495,9 @@ struct AddExpenseView: View {
                Spacer()
                 HStack(spacing: 3) {
                     Image(systemName: "iphone.gen3.radiowaves.left.and.right")
-                        .font(.system(size: 11, weight: .light))
-                    Text("摇")
-                        .font(.system(size: 11, weight: .light))
+                        .font(.system(size: 13, weight: .light))
+                    Text("摇一摇可快速清除录入")
+                        .font(.system(size: 13, weight: .light))
                 }
                 .foregroundColor(AppTheme.textTertiary.opacity(0.45))
                 .padding(.trailing, 6)
@@ -518,8 +531,26 @@ struct AddExpenseView: View {
             }
             .animation(.interpolatingSpring(mass: 0.7, stiffness: 160, damping: 13), value: hasContent)
         }
-       .padding(20).background(Color.white).cornerRadius(16)
-       .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 4)
+      .padding(20).background(Color.white).cornerRadius(16)
+        .overlay {
+            if isProcessing {
+                Color.white.opacity(0.7)
+                    .overlay {
+                        VStack(spacing: 12) {
+                            Image(systemName: "arrow.clockwise.circle")
+                                .font(.system(size: 40))
+                                .foregroundStyle(AppTheme.brandGradient)
+                                .spinning()
+                            Text("解析中...")
+                                .font(.system(size: 17, weight: .medium))
+                                .foregroundColor(AppTheme.textSecondary)
+                        }
+                    }
+                    .allowsHitTesting(false)
+                    .transition(.opacity.animation(.easeInOut(duration: 0.2)))
+            }
+        }
+      .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 4)
         .padding(.horizontal, 16)
         .animation(.interpolatingSpring(mass: 0.8, stiffness: 180, damping: 16), value: audioRecorder.isRecording)
     }
@@ -628,21 +659,62 @@ struct AddExpenseView: View {
         dismissKeyboard()
 
         let capturedInput = t
+        let strategy = parseRetryCount
 
         Task {
             let items: [GeminiService.ParsedExpense]
-            do {
-                items = try await GeminiService.shared.parseExpense(input: capturedInput)
-            } catch {
+            let parseInput: String
+            if strategy == 0 {
+                parseInput = capturedInput
+            } else {
+                // 去除非必要字符：表情、特殊符号、多余空格
+               let cleaned = capturedInput.unicodeScalars.filter {
+                    let v = $0.value
+                    return !$0.properties.isEmoji && v != 0x2605 && v != 0x2606
+                }.map(String.init).joined()
+                // 保留中文、数字、小数点，¥替换为空格
+                let kept = cleaned.map { ch -> String in
+                    if ch == "¥" || ch == "￥" { return " " }
+                    let s = ch.unicodeScalars.first!.value
+                    if (s >= 0x4E00 && s <= 0x9FFF) || (s >= 0x3000 && s <= 0x303F) || ch.isNumber || ch == "." || ch.isWhitespace { return String(ch) }
+                    return " "
+                }.joined()
+                .components(separatedBy: .whitespaces)
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+                parseInput = kept.isEmpty ? capturedInput : String(kept.prefix(200))
+            }
+           do {
+               items = try await GeminiService.shared.parseExpense(input: parseInput)
+           } catch {
+                let msg: String
+                let errDesc = error.localizedDescription
+                if errDesc.contains("401") || errDesc.contains("Unauthorized") || errDesc.contains("API") {
+                    msg = "解析失败：API密钥无效"
+                } else if errDesc.contains("timeout") || errDesc.contains("timed out") || errDesc.contains("超时") {
+                    msg = "解析失败：连接超时，请检查网络后重试"
+                } else if errDesc.contains("not connected") || errDesc.contains("网络") || errDesc.contains("DNS") {
+                    msg = "解析失败：网络连接失败，请检查网络"
+                } else if errDesc.contains("model") || errDesc.contains("model name") {
+                    msg = "解析失败：AI模型配置错误"
+                } else if errDesc.contains("rate") || errDesc.contains("too many") || errDesc.contains("limit") {
+                    msg = "解析失败：请求过于频繁，请稍后重试"
+                } else if errDesc.contains("JSON") || errDesc.contains("decode") || errDesc.contains("格式") || errDesc.contains("correct format") {
+                    msg = "解析失败：返回数据格式异常，请检查输入内容"
+                } else {
+                    msg = "解析失败：\(errDesc)"
+                }
                 await MainActor.run {
-                    statusMsg = "解析失败: \(error.localizedDescription)"
+                    statusMsg = msg
                     isProcessing = false
+                    parseRetryCount += 1
                 }
                 return
             }
 
             await MainActor.run {
                 isProcessing = false
+                parseRetryCount = 0
                 if items.isEmpty {
                     statusMsg = "未解析出有效支出~"
                 } else {

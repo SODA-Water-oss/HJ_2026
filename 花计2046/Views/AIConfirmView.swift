@@ -72,7 +72,7 @@ struct AIConfirmView: View {
                     VStack(spacing: 8) {
                         ForEach(parsedItems.indices, id: \.self) { index in
                             if !deletedIndices.contains(index) {
-                                ExpenseEditRow(item: parsedItems[index], onTap: { editingIndex = index }, onDelete: { pendingDeleteIndex = index; showDeleteAlert = true })
+                                ExpenseEditRow(item: parsedItems[index], onTap: { let item = parsedItems[index]; editFields = EditRowOverlay.EditableFields(type: item.type, merchant: item.merchant, amount: String(format: "%.2f", item.amount), category: item.category, note: item.note ?? ""); editCategoryByType[item.type] = item.category; editingIndex = index }, onDelete: { pendingDeleteIndex = index; showDeleteAlert = true })
                             }
                         }
                     }
@@ -249,21 +249,21 @@ struct AIConfirmView: View {
                 .ignoresSafeArea()
                 .onTapGesture { editingIndex = nil }
 
-            EditRowOverlay(
-                fields: $editFields,
-                categoryByType: $editCategoryByType,
-                onSave: {
-                    guard let idx = editingIndex, idx < parsedItems.count else { return }
-                    parsedItems[idx].type = editFields.type
-                    parsedItems[idx].merchant = editFields.merchant.trimmingCharacters(in: .whitespacesAndNewlines)
-                    parsedItems[idx].amount = Double(editFields.amount) ?? 0
-                    parsedItems[idx].category = editFields.category
-                    parsedItems[idx].note = editFields.note.isEmpty ? nil : editFields.note
-                    editingIndex = nil
-                },
-                onCancel: { editingIndex = nil }
-            )
-            .onAppear {
+           EditRowOverlay(
+               fields: $editFields,
+               categoryByType: $editCategoryByType,
+               onSave: {
+                   guard let idx = editingIndex, idx < parsedItems.count else { return }
+                   parsedItems[idx].type = editFields.type
+                   parsedItems[idx].merchant = editFields.merchant.trimmingCharacters(in: .whitespacesAndNewlines)
+                   parsedItems[idx].amount = Double(editFields.amount) ?? 0
+                   parsedItems[idx].category = editFields.category
+                   parsedItems[idx].note = editFields.note.isEmpty ? nil : editFields.note
+                   editingIndex = nil
+               },
+               onCancel: { editingIndex = nil }
+           )
+           .onAppear {
                 if let idx = editingIndex, idx < parsedItems.count {
                     let item = parsedItems[idx]
                     editFields = EditRowOverlay.EditableFields(
@@ -275,7 +275,7 @@ struct AIConfirmView: View {
                     )
                     editCategoryByType[item.type] = item.category
                 }
-            }
+           }
             .id(editingIndex)
         }
 
