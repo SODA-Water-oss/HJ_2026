@@ -22,7 +22,6 @@
 - 修改 `EditExpenseView.swift` — 用 `TypeToggle` 替换收支切换 HStack
 - 修改 `AIConfirmView.swift` — 用 `TypeToggle` 替换编辑卡内的收支切换 HStack
 - 修改 `ManualEntryView.swift` — 用 `TypeToggle` 替换编辑卡内的收支切换 HStack
-- 移除 EditExpenseView 中的 `CategoryEditPicker`，统一使用已有的 `CategoryWheelPicker`
 - 为 `MathCalculator` 写单元测试（`__2046Tests` target）
 - 抽取搜索过滤逻辑为 `Record.matchesSearch(searchParams:)` 扩展方法
 - 为搜索过滤逻辑写单元测试
@@ -128,5 +127,10 @@ extension Record {
 
 ## 风险
 
-- EditRowOverlay 中 AmountTextField 的复用：三个 View 对 amount 的表示不同（EditExpenseView 用 String，AIConfirmView 用 Double，ManualEntryView 用 String）。overlay 选择 String 作为内部表示，父视图自行适配。
+### 注意
+
+- EditRowOverlay 内部用 `@State private var editAmount: Double` 管理临时金额，初始化时从 `fields.amount` 解析，保存时格式化为 String 写回。
+- `CategoryEditPicker`（EditExpenseView 私有）和 `CategoryWheelPicker`（WheelPickers）视觉及行为细节不同，不做合并。
+- ManualEntryView 的 amount 存为 `String`，传入 overlay 时直接绑定 `fields.amount`。
+- AIConfirmView 的 amount 存为 `Double`，overlay 出现/保存时做一次 String↔Double 转换。
 - 批量切换逻辑（转收入/转支出）中的 `typeHistory` 需保持独立，不与 overlay 冲突。
