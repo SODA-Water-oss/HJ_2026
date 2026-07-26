@@ -163,6 +163,38 @@ struct SpinningIconCCW: ViewModifier {
     }
 }
 
+struct ShakeController: UIViewControllerRepresentable {
+    let onShake: () -> Void
+
+    func makeUIViewController(context: Context) -> ShakeViewController {
+        ShakeViewController(onShake: onShake)
+    }
+
+    func updateUIViewController(_ uiViewController: ShakeViewController, context: Context) {}
+}
+
+class ShakeViewController: UIViewController {
+    let onShake: () -> Void
+
+    init(onShake: @escaping () -> Void) {
+        self.onShake = onShake
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override var canBecomeFirstResponder: Bool { true }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        becomeFirstResponder()
+    }
+
+    override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+        if motion == .motionShake { onShake() }
+    }
+}
+
 extension View {
     func spinning() -> some View {
         modifier(SpinningIcon())
@@ -207,6 +239,7 @@ struct AddExpenseView: View {
     @State private var showManualEntry = false
     @State private var manualEntryRows: [ManualEntryRow] = [ManualEntryRow()]
     @State private var parsedItems: [GeminiService.ParsedExpense]?
+    @State private var showClearAlert = false
     @State private var showAIConfirm = false
     @State private var lastParsedInput: String = ""
 
@@ -280,6 +313,17 @@ struct AddExpenseView: View {
                 )
             }
         }
+        .background(ShakeController(onShake: { showClearAlert = true }))
+        .alert("清除内容", isPresented: $showClearAlert) {
+            Button("取消", role: .cancel) { }
+            Button("确认清除", role: .destructive) {
+                inputText = ""
+                parsedItems = nil
+                showAIConfirm = false
+                statusMsg = "等待录入......"
+                cursorPos = 0
+            }
+        } message: { Text("确定要清除当前输入内容吗？") }
         .navigationViewStyle(.stack)
     }
 
