@@ -143,7 +143,8 @@ struct ExpenseListView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
                     Button(action: {
-                        let url = CSVExporter.exportCSV(records: supabaseService.allRecords)
+                        let filteredRecords = searchGrouped.flatMap(\.expenses)
+                        let url = CSVExporter.exportCSV(records: filteredRecords)
                         exportURL = url
                         showShareSheet = true
                     }) {
