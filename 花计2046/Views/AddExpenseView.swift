@@ -243,6 +243,7 @@ struct AddExpenseView: View {
    @State private var shakeHintShown = false
    @State private var showShakeBanner = false
    @State private var showPermissionDeniedAlert = false
+    @State private var showLimitInfo = false
    @State private var showAIConfirm = false
    @State private var lastParsedInput: String = ""
     @State private var lastParseTime: Date = .distantPast
@@ -362,6 +363,9 @@ struct AddExpenseView: View {
                 cursorPos = 0
             }
         } message: { Text("确定要清除当前输入内容吗？") }
+        .alert("每日免费解析", isPresented: $showLimitInfo) {
+            Button("知道了", role: .cancel) { }
+        } message: { Text("每个账户每天可免费解析 30 次。只有点击进账确认解析结果后才会消耗次数，解析失败或放弃不计次数。次日自动重置。") }
         .navigationViewStyle(.stack)
     }
 
@@ -414,6 +418,22 @@ struct AddExpenseView: View {
                     .font(.system(size: 17))
                     .foregroundColor(statusTextColor)
             }
+        Spacer()
+        if let userId = supabaseService.currentUser?.id {
+            HStack(spacing: 2) {
+                Text("今日解析")
+                    .font(.system(size: 13))
+                    .foregroundColor(AppTheme.textTertiary.opacity(0.5))
+                Text("\(DailyLimitManager.usedCount(for: userId))/\(DailyLimitManager.dailyLimit)")
+                    .font(.system(size: 13))
+                    .foregroundColor(AppTheme.textTertiary.opacity(0.5))
+                Button(action: { showLimitInfo = true }) {
+                    Image(systemName: "exclamationmark.circle")
+                        .font(.system(size: 12))
+                        .foregroundColor(AppTheme.textTertiary.opacity(0.35))
+                }
+            }
+        }
         }
         .padding(.leading, 38).padding(.trailing, 16).padding(.vertical, 16).frame(maxWidth: .infinity, alignment: .leading)
         .background(AppTheme.brandGradient.opacity(0.16), in: RoundedRectangle(cornerRadius: 12))
@@ -502,11 +522,7 @@ struct AddExpenseView: View {
                 .foregroundColor(AppTheme.textTertiary.opacity(0.45))
                 .padding(.trailing, 6)
                Text("\(inputText.count)/500").font(.system(size: 13)).foregroundColor(inputText.count > 500 ? AppTheme.brandStart : AppTheme.textTertiary)
-                                if let userId = supabaseService.currentUser?.id, DailyLimitManager.usedCount(for: userId) > 0 {
-                                    Text("今日解析 \(DailyLimitManager.usedCount(for: userId))/\(DailyLimitManager.dailyLimit) 次")
-                                        .font(.system(size: 11))
-                                        .foregroundColor(AppTheme.textTertiary.opacity(0.5))
-                                }
+
 
             }.padding(.horizontal, 4)
 
@@ -664,7 +680,7 @@ struct AddExpenseView: View {
         lastParseTime = Date()
 
         guard let userId = supabaseService.currentUser?.id, DailyLimitManager.canParse(for: userId) else {
-            statusMsg = "今日免费次数已用尽（\(DailyLimitManager.dailyLimit)）次/天），明天再来"
+            statusMsg = "感谢使用，您今日免费次数已用完"
             return
         }
 
@@ -756,9 +772,8 @@ struct AddExpenseView: View {
             showPermissionDeniedAlert = true
         } else {
             Task {
-               if await audioRecorder.requestPermission() {
-                    audioRecorder.startRecording()
-                    statusMsg = "收音中......"
+              if await audioRecorder.requestPermission() {
+                    statusMsg = "请录入解析内容......"
                } else {
             showPermissionDeniedAlert = true
                 }
