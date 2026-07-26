@@ -58,37 +58,17 @@ struct EditExpenseView: View {
                    }
                    .padding(.top, 24)
                     
-                    // 收支类型
-                    HStack(spacing: 0) {
-                        Button(action: { recordType = .income }) {
-                            Text("收入")
-                                .font(.system(size: 17, weight: .medium))
-                                .foregroundColor(recordType == .income ? .white : .green)
-                                .frame(maxWidth: .infinity).padding(.vertical, 8)
-                                .background(recordType == .income ? Color.green : Color.white)
-                                .cornerRadius(7)
+                    TypeToggle(type: recordType, onSelect: { recordType = $0 })
+                        .padding(.horizontal, 16)
+                        .onChange(of: recordType) { newType in
+                            let oldType: RecordType = (newType == .income) ? .expense : .income
+                            categoryByType[oldType] = category
+                            if let saved = categoryByType[newType] {
+                                category = saved
+                            } else if !categories.contains(category) {
+                                category = categories.first ?? "其他"
+                            }
                         }
-                        Button(action: { recordType = .expense }) {
-                            Text("支出")
-                                .font(.system(size: 17, weight: .medium))
-                                .foregroundColor(recordType == .expense ? .white : AppTheme.brandStart)
-                                .frame(maxWidth: .infinity).padding(.vertical, 8)
-                                .background(recordType == .expense ? AppTheme.brandStart : Color.white)
-                                .cornerRadius(7)
-                        }
-                    }
-                    .background(AppTheme.background)
-                    .cornerRadius(8)
-                    .padding(.horizontal, 16)
-                    .onChange(of: recordType) { newType in
-                        let oldType: RecordType = (newType == .income) ? .expense : .income
-                        categoryByType[oldType] = category
-                        if let saved = categoryByType[newType] {
-                            category = saved
-                        } else if !categories.contains(category) {
-                            category = categories.first ?? "其他"
-                        }
-                    }
                     
                     // Details Card
                     VStack(alignment: .leading, spacing: 12) {
