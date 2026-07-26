@@ -57,3 +57,64 @@ struct MathCalculatorTests {
         #expect(MathCalculator.evaluate("10/3") == (10.0 / 3.0))
     }
 }
+ 
+ struct SearchFilterTests {
+     private let testExpense = Record(
+         id: UUID(), userId: UUID(), type: .expense,
+         amount: 35.5, category: "餐饮", merchant: "星巴克咖啡",
+         date: Date(), note: "周末消费"
+     )
+     private let testIncome = Record(
+         id: UUID(), userId: UUID(), type: .income,
+         amount: 5000, category: "工资", merchant: "公司",
+         date: Date(), note: "七月工资"
+     )
+     private let testOtherExpense = Record(
+         id: UUID(), userId: UUID(), type: .expense,
+         amount: 100, category: "其他", merchant: "杂项",
+         date: Date(), note: nil
+     )
+ 
+     @Test func emptySearch_matchesAll() {
+         #expect(testExpense.matchesSearch(searchText: "", searchNote: "", searchCategory: "", searchYear: "", searchMonth: ""))
+         #expect(testIncome.matchesSearch(searchText: "", searchNote: "", searchCategory: "", searchYear: "", searchMonth: ""))
+         #expect(testOtherExpense.matchesSearch(searchText: "", searchNote: "", searchCategory: "", searchYear: "", searchMonth: ""))
+     }
+ 
+     @Test func searchByMerchant() {
+         #expect(testExpense.matchesSearch(searchText: "星巴克", searchNote: "", searchCategory: "", searchYear: "", searchMonth: ""))
+         #expect(testIncome.matchesSearch(searchText: "星巴克", searchNote: "", searchCategory: "", searchYear: "", searchMonth: "") == false)
+         #expect(testOtherExpense.matchesSearch(searchText: "星巴克", searchNote: "", searchCategory: "", searchYear: "", searchMonth: "") == false)
+     }
+ 
+     @Test func searchByCategory() {
+         #expect(testExpense.matchesSearch(searchText: "", searchNote: "", searchCategory: "餐饮", searchYear: "", searchMonth: ""))
+         #expect(testIncome.matchesSearch(searchText: "", searchNote: "", searchCategory: "餐饮", searchYear: "", searchMonth: "") == false)
+     }
+ 
+     @Test func searchOtherExpense() {
+         #expect(testOtherExpense.matchesSearch(searchText: "", searchNote: "", searchCategory: "其他支出", searchYear: "", searchMonth: ""))
+         #expect(testExpense.matchesSearch(searchText: "", searchNote: "", searchCategory: "其他支出", searchYear: "", searchMonth: "") == false)
+         #expect(testIncome.matchesSearch(searchText: "", searchNote: "", searchCategory: "其他支出", searchYear: "", searchMonth: "") == false)
+     }
+ 
+     @Test func searchByNote() {
+         #expect(testExpense.matchesSearch(searchText: "", searchNote: "周末", searchCategory: "", searchYear: "", searchMonth: ""))
+         #expect(testIncome.matchesSearch(searchText: "", searchNote: "周末", searchCategory: "", searchYear: "", searchMonth: "") == false)
+     }
+ 
+     @Test func combinedSearch() {
+         #expect(testExpense.matchesSearch(
+             searchText: "星巴克", searchNote: "周末", searchCategory: "餐饮",
+             searchYear: "2026", searchMonth: ""
+         ))
+         #expect(testIncome.matchesSearch(
+             searchText: "星巴克", searchNote: "", searchCategory: "",
+             searchYear: "", searchMonth: ""
+         ) == false)
+     }
+ 
+     @Test func nilNote_doesNotCrash() {
+         #expect(testOtherExpense.matchesSearch(searchText: "", searchNote: "消费", searchCategory: "", searchYear: "", searchMonth: "") == false)
+     }
+ }
