@@ -27,6 +27,9 @@ struct ExpenseListView: View {
     @State private var batchNoteText = ""
     @State private var batchNoteMode: NoteMode = .replace
     
+    @State private var showShareSheet = false
+    @State private var exportURL: URL?
+    
     var categories: [String] {
         switch supabaseService.sharedSearchType {
         case "支出": return ["全部", "餐饮", "交通", "购物", "娱乐", "住房", "日用", "服饰", "通讯", "医疗", "教育", "其他"]
@@ -135,10 +138,25 @@ struct ExpenseListView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "list.clipboard.fill").font(.system(size: 16, weight: .semibold)).foregroundStyle(AppTheme.brandGradient)
                         Text("账本").font(.system(size: 17, weight: .semibold)).foregroundColor(AppTheme.textPrimary)
-                    }
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Button(action: {
+                        let url = CSVExporter.exportCSV(records: supabaseService.allRecords)
+                        exportURL = url
+                        showShareSheet = true
+                    }) {
+                        Label("导出 CSV", systemImage: "square.and.arrow.up")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 17))
+                        .foregroundColor(AppTheme.textSecondary)
+       }
+    }
+}
+        .navigationBarTitleDisplayMode(.inline)
             .background(NavigationLink(destination: Group { if let e = selectedExpense { ExpenseDetailView(expense: e) } }, isActive: $showDetail) { EmptyView() })
             .background(NavigationLink(destination: Group { if let e = editingExpense { EditExpenseView(expense: e) { }.environmentObject(supabaseService) } }, isActive: $showEdit) { EmptyView() })
             .alert("确认删除", isPresented: $showDeleteAlert) {
@@ -155,8 +173,13 @@ struct ExpenseListView: View {
         .sheet(isPresented: $showYearPicker) { YearWheelPicker(selection: $supabaseService.sharedSearchYear, options: yearOptions).presentationDetents([.height(230)]) }
         .sheet(isPresented: $showMonthPicker) { MonthWheelPicker(selection: $supabaseService.sharedSearchMonth, options: monthOptions).presentationDetents([.height(270)]) }
         .sheet(isPresented: $showCategoryPicker) { CategoryWheelPicker(selection: $supabaseService.sharedSearchCategory, options: categories).presentationDetents([.height(230)]) }
-        .sheet(isPresented: $showBatchNoteSheet) { BatchOperationSheet(selectedCount: allSelected.count, batchNoteText: $batchNoteText, batchNoteMode: $batchNoteMode, onNoteConfirm: { Task { try? await supabaseService.batchUpdateNote(expenses: allSelected, note: batchNoteText, mode: batchNoteMode); selectedExpenseIds = [] } }, onDeleteConfirm: { Task { try? await supabaseService.batchDeleteExpenses(ids: Array(selectedExpenseIds)); selectedExpenseIds = [] } }, onDateConfirm: { date in Task { try? await supabaseService.batchUpdateTime(expenses: allSelected, date: date); selectedExpenseIds = [] } }, onCategoryConfirm: { cat in Task { try? await supabaseService.batchUpdateCategory(expenses: allSelected, category: cat); selectedExpenseIds = [] } }, onCancel: { showBatchNoteSheet = false }) }
-        .onAppear {
+   .sheet(isPresented: $showBatchNoteSheet) { BatchOperationSheet(selectedCount: allSelected.count, batchNoteText: $batchNoteText, batchNoteMode: $batchNoteMode, onNoteConfirm: { Task { try? await supabaseService.batchUpdateNote(expenses: allSelected, note: batchNoteText, mode: batchNoteMode); selectedExpenseIds = [] } }, onDeleteConfirm: { Task { try? await supabaseService.batchDeleteExpenses(ids: Array(selectedExpenseIds)); selectedExpenseIds = [] } }, onDateConfirm: { date in Task { try? await supabaseService.batchUpdateTime(expenses: allSelected, date: date); selectedExpenseIds = [] } }, onCategoryConfirm: { cat in Task { try? await supabaseService.batchUpdateCategory(expenses: allSelected, category: cat); selectedExpenseIds = [] } }, onCancel: { showBatchNoteSheet = false }) }
+    .sheet(isPresented: $showShareSheet) {
+        if let url = exportURL {
+            ShareSheet(items: [url])
+        }
+    }
+   .onAppear {
             SupabaseService.shared.unreadExpenseCount = 0
         }
                 .animation(.spring(response: 0.4, dampingFraction: 0.7), value: showSearch)
@@ -1171,4 +1194,15 @@ struct ScrollViewAccessor: UIViewRepresentable {
             }
         }
     }
+}
+
+// MARK: - Share Sheet for CSV export and other file sharing
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
