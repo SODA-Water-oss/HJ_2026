@@ -219,8 +219,9 @@ struct ManualEntryView: View {
         .alert("确认删除", isPresented: $showDeleteAlert) {
             Button("取消", role: .cancel) { pendingDeleteId = nil }
             Button("确认删除", role: .destructive) {
-                if let id = pendingDeleteId { rows.removeAll { $0.id == id } }
+               if let id = pendingDeleteId { rows.removeAll { $0.id == id } }
                 pendingDeleteId = nil
+                if rows.isEmpty { onDiscard?() }
             }
         } message: { Text("是否确认删除该项内容？") }
         .alert("确认放弃", isPresented: $showDiscardAlert) {
@@ -339,16 +340,16 @@ struct ManualEntryView: View {
                 .font(.system(size: 17, weight: .regular))
                 .foregroundColor(row.type == .expense ? AppTheme.textSecondary : .green)
             Button(action: {
-                guard rows.count > 1 else { return }
                 if row.merchant.isEmpty && row.amount.isEmpty && row.note.isEmpty {
                     rows.remove(at: index)
+                    if rows.isEmpty { onDiscard?() }
                     
                 } else {
                     pendingDeleteId = row.id; showDeleteAlert = true
                 }
             }) {
                 Image(systemName: "trash").font(.system(size: 15))
-                    .foregroundColor(rows.count <= 1 ? AppTheme.textTertiary : AppTheme.brandEnd)
+                    .foregroundColor(AppTheme.brandEnd)
             }
             .frame(width: 28)
             .buttonStyle(.plain)

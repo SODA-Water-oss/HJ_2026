@@ -49,6 +49,7 @@ struct EditRowOverlay: View {
                             Text("收入")
                                 .font(.system(size: 17, weight: .medium))
                                 .foregroundColor(editType == .income ? .white : .green)
+                                .frame(maxWidth: .infinity).padding(.vertical, 6)
                                 .background(editType == .income ? Color.green : Color.clear)
                                 .cornerRadius(6)
                         }
@@ -56,6 +57,7 @@ struct EditRowOverlay: View {
                             Text("支出")
                                 .font(.system(size: 17, weight: .medium))
                                 .foregroundColor(editType == .expense ? .white : AppTheme.brandStart)
+                                .frame(maxWidth: .infinity).padding(.vertical, 6)
                                 .background(editType == .expense ? AppTheme.brandStart : Color.clear)
                                 .cornerRadius(6)
                         }
@@ -140,17 +142,19 @@ struct EditRowOverlay: View {
             // Cancel / Save buttons
             HStack(spacing: 10) {
                 Button(action: onCancel) {
-                    Text("取消")
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundColor(AppTheme.textSecondary)
-                        .background(Color.white).cornerRadius(7)
-                        .overlay(RoundedRectangle(cornerRadius: 7).stroke(AppTheme.border))
-                }
-                Button(action: saveEdit) {
-                    Text("保存")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.white)
-                        .background(AppTheme.brandGradient).cornerRadius(7)
+                   Text("取消")
+                       .font(.system(size: 17, weight: .medium))
+                       .foregroundColor(AppTheme.textSecondary)
+                        .frame(maxWidth: .infinity).padding(.vertical, 10)
+                       .background(Color.white).cornerRadius(7)
+                       .overlay(RoundedRectangle(cornerRadius: 7).stroke(AppTheme.border))
+               }
+               Button(action: saveEdit) {
+                   Text("保存")
+                       .font(.system(size: 17, weight: .semibold))
+                       .foregroundColor(.white)
+                        .frame(maxWidth: .infinity).padding(.vertical, 10)
+                       .background(AppTheme.brandGradient).cornerRadius(7)
                 }
             }
             .padding(.horizontal, 16)

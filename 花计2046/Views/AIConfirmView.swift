@@ -229,6 +229,9 @@ struct AIConfirmView: View {
                     if let idx = pendingDeleteIndex {
                         deletedIndices.insert(idx)
                         pendingDeleteIndex = nil
+                        if deletedIndices.count == parsedItems.count {
+                            onDiscard?()
+                        }
                     }
                 }
             } message: {
@@ -376,10 +379,18 @@ struct ExpenseEditRow: View {
                 }
             }
             Spacer()
-            Text(item.type == .income ? String(format: "+¥%.2f", item.amount) : String(format: "-¥%.2f", item.amount))
-                .font(.system(size: 17, weight: .regular))
-                .foregroundColor(item.type == .expense ? AppTheme.textSecondary : .green)
-        }
+           Text(item.type == .income ? String(format: "+¥%.2f", item.amount) : String(format: "-¥%.2f", item.amount))
+               .font(.system(size: 17, weight: .regular))
+               .foregroundColor(item.type == .expense ? AppTheme.textSecondary : .green)
+            if let onDelete = onDelete {
+                Button(action: onDelete) {
+                    Image(systemName: "trash").font(.system(size: 15))
+                        .foregroundColor(AppTheme.brandEnd)
+                }
+                .frame(width: 28)
+                .buttonStyle(.plain)
+            }
+       }
         .padding(12)
         .background(Color.white)
         .cornerRadius(8)
@@ -410,8 +421,9 @@ struct KeyboardDoneTextField: UIViewRepresentable {
         tf.textColor = UIColor(AppTheme.textPrimary)
         tf.backgroundColor = UIColor.white
         tf.delegate = context.coordinator
-        tf.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let toolbar = UIToolbar()
+       tf.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        tf.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+       let toolbar = UIToolbar()
         toolbar.sizeToFit()
         let doneBtn = UIBarButtonItem(title: "完成", style: .plain, target: tf, action: #selector(UIResponder.resignFirstResponder))
         doneBtn.tintColor = UIColor(AppTheme.brandStart)
@@ -492,6 +504,7 @@ struct AmountTextField: UIViewRepresentable {
         tf.textColor = textColor
         tf.delegate = context.coordinator
         tf.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        tf.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let toolbar = UIToolbar()
         toolbar.sizeToFit()
         let doneBtn = UIBarButtonItem(title: "完成", style: .plain, target: tf, action: #selector(UIResponder.resignFirstResponder))
