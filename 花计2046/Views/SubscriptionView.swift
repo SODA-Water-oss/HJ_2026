@@ -1,122 +1,93 @@
 import SwiftUI
-#if !DEBUG
-import StripePaymentSheet
-#endif
 
 struct SubscriptionView: View {
     @EnvironmentObject var supabaseService: SupabaseService
-    #if !DEBUG
-    @ObservedObject var stripeService = StripeService.shared
-    #endif
     
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 24) {
-                    VStack(spacing: 20) {
-                        Image(systemName: "star.circle.fill")
-                            .font(.system(size: 80))
+                    Color.clear.frame(height: 4)
+                    
+                    // 标题区
+                    VStack(spacing: 12) {
+                        Image(systemName: "info.circle.fill")
+                            .font(.system(size: 60))
                             .foregroundColor(AppTheme.brandStart)
                         
-                        Text("高级权限")
+                        Text("关于花计2046")
                             .font(.appLargeTitle)
                             .foregroundColor(AppTheme.textPrimary)
                         
-                        Text("解锁语音录入功能，让系统倾听并自动记录。")
+                        Text("v1.0")
                             .font(.appBody)
                             .foregroundColor(AppTheme.textSecondary)
-                            .multilineTextAlignment(.center)
                     }
-                    .padding(32)
+                    .padding(.vertical, 28)
                     .frame(maxWidth: .infinity)
                     .background(Color.white)
                     .cornerRadius(16)
                     .shadow(color: AppTheme.cardShadow, radius: 10, x: 0, y: 4)
                     .padding(.horizontal, 16)
                     
-                    if supabaseService.userProfile?.isPremium == true {
-                        HStack {
-                            Circle().fill(Color.green).frame(width: 10, height: 10)
-                            Text("高级版已激活")
-                                .font(.appTitle)
-                                .foregroundColor(AppTheme.textPrimary)
-                        }
-                        .padding(24)
-                        .frame(maxWidth: .infinity)
-                        .background(Color.white)
-                        .cornerRadius(16)
-                        .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 4)
-                        .padding(.horizontal, 16)
-                    } else {
-                        #if !DEBUG
-                        VStack(spacing: 16) {
-                            if let paymentSheet = stripeService.paymentSheet {
-                                PaymentSheet.PaymentButton(
-                                    paymentSheet: paymentSheet,
-                                    onCompletion: stripeService.onPaymentCompletion
-                                ) {
-                                    Text("立即升级（¥9.99/月）")
-                                        .frame(maxWidth: .infinity)
-                                }
-                                .buttonStyle(AppPrimaryButtonStyle())
-                            } else {
-                                Button(action: loadPaymentSheet) {
-                                    Text("申请升级权限")
-                                        .frame(maxWidth: .infinity)
-                                }
-                                .buttonStyle(AppPrimaryButtonStyle())
-                            }
-                            
-                            if !stripeService.errorMessage.isEmpty {
-                                Text(stripeService.errorMessage)
-                                    .font(.appSmall)
-                                    .foregroundColor(.red)
-                                    .multilineTextAlignment(.center)
-                            }
-                        }
-                        .padding(24)
-                        .background(Color.white)
-                        .cornerRadius(16)
-                        .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 4)
-                        .padding(.horizontal, 16)
-                        #endif
-                    }
-                    
-                    // Test button - free upgrade for testing
-                    VStack(spacing: 8) {
-                        Button(action: {
-                            Task { await supabaseService.upgradeToPremium() }
-                        }) {
-                            Text("免费激活高级版（测试用）")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(AppPrimaryButtonStyle())
+                    // 功能介绍
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("功能特点")
+                            .font(.appTitle)
+                            .foregroundColor(AppTheme.textPrimary)
                         
-                        Text("测试环境使用，直接升级无需付款")
-                            .font(.appSmall)
-                            .foregroundColor(AppTheme.textTertiary)
+                        FeatureRow(icon: "mic.fill", text: "语音录入 — 按住说话，自动转文字")
+                        FeatureRow(icon: "text.magnifyingglass", text: "AI 解析 — 智能识别消费内容")
+                        FeatureRow(icon: "doc.text.magnifyingglass", text: "CSV 导出 — 数据随时备份")
+                        FeatureRow(icon: "chart.pie.fill", text: "数据分析 — 可视化消费习惯")
+                        
+                        Divider()
+                        
+                        HStack(spacing: 8) {
+                            Image(systemName: "clock.arrow.circlepath")
+                                .foregroundColor(AppTheme.brandStart)
+                                .font(.system(size: 16))
+                            Text("每日免费解析 \(DailyLimitManager.dailyLimit) 次")
+                                .font(.appBody)
+                                .foregroundColor(AppTheme.textSecondary)
+                        }
                     }
-                    .padding(16)
+                    .padding(20)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.white)
                     .cornerRadius(16)
                     .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 4)
                     .padding(.horizontal, 16)
-
-                    Spacer()
+                    
+                    // 反馈按钮
+                    Button(action: {
+                        let email = "support@example.com"
+                        if let url = URL(string: "mailto:\(email)") {
+                            UIApplication.shared.open(url)
+                        }
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "envelope.fill")
+                            Text("反馈意见")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(AppPrimaryButtonStyle())
+                    .padding(.horizontal, 16)
+                    
+                    Spacer(minLength: 32)
                 }
-                .padding(.vertical, 32)
             }
-            .offset(y: -11)
             .background(AppTheme.background)
-            .navigationTitle("升级")
+            .navigationTitle("帮助")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     HStack(spacing: 6) {
-                        Image(systemName: "star.fill")
+                        Image(systemName: "questionmark.circle")
                             .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(AppTheme.brandGradient)
-                        Text("升级")
+                            .foregroundColor(AppTheme.brandStart)
+                        Text("帮助")
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(AppTheme.textPrimary)
                     }
@@ -124,27 +95,21 @@ struct SubscriptionView: View {
             }
         }
     }
-    
-    #if !DEBUG
-    func loadPaymentSheet() {
-        Task { await stripeService.loadPaymentSheet() }
-    }
-    #endif
 }
 
-#if !DEBUG
-extension StripeService {
-    func onPaymentCompletion(result: PaymentSheetResult) {
-        self.paymentResult = result
-        switch result {
-        case .completed:
-            print("Payment completed!")
-            Task { await self.unlockPremium() }
-        case .canceled:
-            print("Payment canceled.")
-        case .failed(let error):
-            print("Payment failed: \(error.localizedDescription)")
+struct FeatureRow: View {
+    let icon: String
+    let text: String
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundColor(AppTheme.brandStart)
+                .font(.system(size: 16))
+                .frame(width: 24)
+            Text(text)
+                .font(.appBody)
+                .foregroundColor(AppTheme.textSecondary)
         }
     }
 }
-#endif

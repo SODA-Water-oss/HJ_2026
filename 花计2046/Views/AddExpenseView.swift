@@ -232,22 +232,22 @@ struct AddExpenseView: View {
     @StateObject private var audioRecorder = AudioRecorder()
 
     @State private var inputText: String = ""
-    @State private var isProcessing = false
-    @State private var parseRetryCount = 0
-    @State private var statusMsg = "等待录入......"
-    @State private var cursorPos: Int = 0
-    @State private var showPremiumAlert = false
-    @State private var showManualEntry = false
-    @State private var manualEntryRows: [ManualEntryRow] = []
-    @State private var parsedItems: [GeminiService.ParsedExpense]?
-    @State private var showClearAlert = false
-    @State private var shakeHintShown = false
-    @State private var showShakeBanner = false
-    @State private var showPermissionDeniedAlert = false
-    @State private var showAIConfirm = false
-    @State private var lastParsedInput: String = ""
+   @State private var isProcessing = false
+   @State private var parseRetryCount = 0
+   @State private var statusMsg = "等待录入......"
+   @State private var cursorPos: Int = 0
+   @State private var showManualEntry = false
+   @State private var manualEntryRows: [ManualEntryRow] = []
+   @State private var parsedItems: [GeminiService.ParsedExpense]?
+   @State private var showClearAlert = false
+   @State private var shakeHintShown = false
+   @State private var showShakeBanner = false
+   @State private var showPermissionDeniedAlert = false
+   @State private var showAIConfirm = false
+   @State private var lastParsedInput: String = ""
+    @State private var lastParseTime: Date = .distantPast
 
-    // 语音状态跟踪
+   // 语音状态跟踪
     @State private var isPressingVoice = false
     @State private var voicePressStartTime: Date?
     @State private var voicePreviewText: String = ""  // 实时语音预览
@@ -296,9 +296,6 @@ struct AddExpenseView: View {
                         .foregroundColor(AppTheme.brandStart)
                 }
             }
-            .alert(isPresented: $showPremiumAlert) {
-                Alert(title: Text("访问拒绝"), message: Text("语音录入需要高级版权限。请升级系统后使用。"), dismissButton: .default(Text("确认")))
-            }
             .sheet(isPresented: $showManualEntry) {
                 ManualEntryView(
                     rows: $manualEntryRows,
@@ -313,7 +310,10 @@ struct AddExpenseView: View {
                         set: { parsedItems = $0 }
                     ),
                     onDiscard: { inputText = ""; parsedItems = nil; showAIConfirm = false },
-                    onSuccess: { inputText = ""; parsedItems = nil; showAIConfirm = false }
+                    onSuccess: {
+                        if let userId = supabaseService.currentUser?.id { DailyLimitManager.incrementUsage(for: userId) }
+                        inputText = ""; parsedItems = nil; showAIConfirm = false
+                    }
                 )
             }
         }
@@ -502,6 +502,12 @@ struct AddExpenseView: View {
                 .foregroundColor(AppTheme.textTertiary.opacity(0.45))
                 .padding(.trailing, 6)
                Text("\(inputText.count)/500").font(.system(size: 13)).foregroundColor(inputText.count > 500 ? AppTheme.brandStart : AppTheme.textTertiary)
+                                if let userId = supabaseService.currentUser?.id, DailyLimitManager.usedCount(for: userId) > 0 {
+                                    Text("今日解析 \(DailyLimitManager.usedCount(for: userId))/\(DailyLimitManager.dailyLimit) 次")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(AppTheme.textTertiary.opacity(0.5))
+                                }
+
             }.padding(.horizontal, 4)
 
             // 按钮行
@@ -654,6 +660,15 @@ struct AddExpenseView: View {
             return
         }
 
+        guard Date().timeIntervalSince(lastParseTime) >= 3 else { return }
+        lastParseTime = Date()
+
+        guard let userId = supabaseService.currentUser?.id, DailyLimitManager.canParse(for: userId) else {
+            statusMsg = "今日免费次数已用尽（\(DailyLimitManager.dailyLimit)）次/天），明天再来"
+            return
+        }
+
+
         isProcessing = true
         statusMsg = "解析中......"
         dismissKeyboard()
@@ -729,10 +744,6 @@ struct AddExpenseView: View {
 
     // MARK: - 录音
     func startRecording() {
-        guard supabaseService.userProfile?.isPremium == true else {
-            showPremiumAlert = true
-            return
-        }
         guard !audioRecorder.isRecording else { return }
 
         voicePreviewText = ""

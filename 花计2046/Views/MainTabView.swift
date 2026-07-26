@@ -35,7 +35,7 @@ struct MainTabView: View {
             
             SubscriptionView().tag(3)
                 .tabItem {
-                    Label("升级", systemImage: "star.fill")
+                    Label("帮助", systemImage: "questionmark.circle")
                 }
             
             ProfileView().tag(4)
@@ -98,7 +98,7 @@ struct ProfileView: View {
                         
                         HStack {
                             Circle().fill(AppTheme.brandGradient).frame(width: 8, height: 8)
-                            Text(supabaseService.userProfile?.isPremium == true ? "高级版已激活" : "标准版用户")
+                            Text("标准版")
                                 .font(.appSmall)
                                 .foregroundColor(AppTheme.textSecondary)
                         }

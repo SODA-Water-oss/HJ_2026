@@ -28,6 +28,7 @@ struct ExpenseListView: View {
     @State private var batchNoteMode: NoteMode = .replace
     
     @State private var showShareSheet = false
+    @State private var isExporting = false
     @State private var exportURL: URL?
     
     var categories: [String] {
@@ -142,14 +143,20 @@ struct ExpenseListView: View {
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
-                    Button(action: {
-                        let filteredRecords = searchGrouped.flatMap(\.expenses)
-                        let url = CSVExporter.exportCSV(records: filteredRecords)
-                        exportURL = url
-                        showShareSheet = true
+                   Button(action: {
+                       Task.detached {
+                           let url = CSVExporter.exportCSV(records: searchGrouped.flatMap(\.expenses))
+                           await MainActor.run {
+                               exportURL = url
+                               showShareSheet = true
+                               isExporting = false
+                           }
+                       }
+                       isExporting = true
                     }) {
-                        Label("导出当前账本", systemImage: "square.and.arrow.up")
+                        Label(isExporting ? "生成中..." : "导出当前账本", systemImage: "square.and.arrow.up")
                     }
+                    .disabled(isExporting)
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .font(.system(size: 17))

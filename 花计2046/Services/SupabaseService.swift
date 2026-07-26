@@ -92,7 +92,7 @@ class SupabaseService: ObservableObject {
                 return u
             }()
             let user = MockUser(id: uid, email: email)
-            let profile = UserProfile(id: uid, email: email, isPremium: email == "123456@126.com", createdAt: Date())
+            let profile = UserProfile(id: uid, email: email, createdAt: Date())
             self.currentUser = user
             self.userProfile = profile
             self.isAuthenticated = true
@@ -102,7 +102,7 @@ class SupabaseService: ObservableObject {
         
         let session = try await client.auth.signIn(email: email, password: password)
         let uid = session.user.id
-        let profile = UserProfile(id: uid, email: email, isPremium: false, createdAt: Date())
+        let profile = UserProfile(id: uid, email: email, createdAt: Date())
         self.currentUser = MockUser(id: uid, email: email)
         self.userProfile = profile
         self.isAuthenticated = true
@@ -117,7 +117,7 @@ class SupabaseService: ObservableObject {
         }
         let session = try await client.auth.signUp(email: email, password: password)
         let uid = session.user.id
-        let profile = UserProfile(id: uid, email: email, isPremium: false, createdAt: Date())
+        let profile = UserProfile(id: uid, email: email, createdAt: Date())
         self.currentUser = MockUser(id: uid, email: email)
         self.userProfile = profile
         self.isAuthenticated = true
@@ -311,24 +311,6 @@ class SupabaseService: ObservableObject {
        Log.info("云端删除成功")
    }
 
-    // MARK: - Premium
-    func upgradeToPremium() async {
-        guard currentUser != nil else { return }
-        Log.info("升级为高级用户")
-        
-        if AppConfig.useMockServices {
-            if var profile = self.userProfile {
-                profile.isPremium = true
-                self.userProfile = profile
-            }
-            return
-        }
-        
-        guard let userId = currentUser?.id else { return }
-        try? await client.from("profiles").update(["is_premium": true]).eq("id", value: userId).execute()
-        Log.info("云端升级成功")
-    }
-    
     // MARK: - UserDefaults 持久化（替代文件存储）
     
     func loadExpensesFromDefaults() {
@@ -492,4 +474,3 @@ class SupabaseService: ObservableObject {
 }
 
 enum NoteMode { case append, replace }
-

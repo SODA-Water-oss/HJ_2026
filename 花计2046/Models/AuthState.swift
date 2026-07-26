@@ -42,6 +42,5 @@ struct AuthSession: Codable {
     let userId: UUID
     let email: String
     let token: String
-    var isPremium: Bool
     let createdAt: Date
 }

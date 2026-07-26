@@ -45,9 +45,6 @@ class StripeService: ObservableObject {
         }
     }
     
-    func unlockPremium() async {
-        await SupabaseService.shared.fetchUserProfile()
-    }
 }
 
 private struct PaymentSheetRequest: Encodable {}

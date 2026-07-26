@@ -36,7 +36,6 @@ class AuthManager: ObservableObject {
                 let profile = UserProfile(
                     id: session.userId,
                     email: session.email,
-                    isPremium: session.isPremium,
                     createdAt: session.createdAt
                 )
                 completeAuthentication(profile: profile)
@@ -49,7 +48,6 @@ class AuthManager: ObservableObject {
                         let profile = UserProfile(
                             id: session.userId,
                             email: session.email,
-                            isPremium: session.isPremium,
                             createdAt: session.createdAt
                         )
                         await MainActor.run { completeAuthentication(profile: profile) }
@@ -83,9 +81,8 @@ class AuthManager: ObservableObject {
             // 2. Supabase 云端认证
             let session = try await SupabaseService.shared.client.auth.signIn(email: email, password: password)
             let userId = session.user.id
-            let isPremium = (email == "123456@126.com")
-            let profile = UserProfile(id: userId, email: email, isPremium: isPremium, createdAt: Date())
-            let authSession = AuthSession(userId: userId, email: email, token: session.accessToken, isPremium: isPremium, createdAt: profile.createdAt)
+            let profile = UserProfile(id: userId, email: email, createdAt: Date())
+            let authSession = AuthSession(userId: userId, email: email, token: session.accessToken, createdAt: profile.createdAt)
             KeychainHelper.saveCodable(authSession, forKey: sessionKey)
             await MainActor.run { completeAuthentication(profile: profile) }
             Log.info("云端登录成功 userId=\(userId)")
@@ -107,7 +104,7 @@ class AuthManager: ObservableObject {
         if AppConfig.useMockServices {
             try await mockAuthenticate(email: email, password: password, isNewUser: true)
         } else {
-            let session = try await SupabaseService.shared.client.auth.signUp(email: email, password: password); let userId = session.user.id; let isPremium = (email == "123456@126.com"); let profile = UserProfile(id: userId, email: email, isPremium: isPremium, createdAt: Date()); let authSession = AuthSession(userId: userId, email: email, token: session.session?.accessToken ?? "", isPremium: isPremium, createdAt: profile.createdAt); KeychainHelper.saveCodable(authSession, forKey: sessionKey); await MainActor.run { completeAuthentication(profile: profile) }; Log.info("云端注册成功 userId=\(userId)")
+            let session = try await SupabaseService.shared.client.auth.signUp(email: email, password: password); let userId = session.user.id; let profile = UserProfile(id: userId, email: email, createdAt: Date()); let authSession = AuthSession(userId: userId, email: email, token: session.session?.accessToken ?? "", createdAt: profile.createdAt); KeychainHelper.saveCodable(authSession, forKey: sessionKey); await MainActor.run { completeAuthentication(profile: profile) }; Log.info("云端注册成功 userId=\(userId)")
         }
     }
     
@@ -168,11 +165,9 @@ class AuthManager: ObservableObject {
                 UserDefaults.standard.set(u.uuidString, forKey: uidKey)
                 return u
             }()
-        let isPremium = (email == "123456@126.com")
         let profile = UserProfile(
             id: userId,
             email: email,
-            isPremium: isPremium,
             createdAt: Date()
         )
         
@@ -181,7 +176,6 @@ class AuthManager: ObservableObject {
             userId: userId,
             email: email,
             token: "mock_token_\(userId.uuidString)",
-            isPremium: isPremium,
             createdAt: profile.createdAt
         )
         KeychainHelper.saveCodable(session, forKey: sessionKey)
@@ -190,7 +184,7 @@ class AuthManager: ObservableObject {
             completeAuthentication(profile: profile)
         }
         
-        Log.info("Mock 认证成功 email=\(email) isNew=\(isNewUser) premium=\(isPremium)")
+        Log.info("Mock 认证成功 email=\(email) isNew=\(isNewUser)")
     }
     
    private func completeAuthentication(profile: UserProfile) {
@@ -213,31 +207,5 @@ class AuthManager: ObservableObject {
        NotificationCenter.default.post(name: Notification.Name("ExpensesDidUpdate"), object: nil)
    }
     
-    // MARK: - 升级高级用户
-    func upgradeToPremium() async {
-        guard case .authenticated(let profile) = authState else {
-            Log.warn("upgradeToPremium: 未登录")
-            return
-        }
-        
-        Log.info("升级高级用户 userId=\(profile.id)")
-        
-        // 更新 profile
-        var updated = profile
-        updated.isPremium = true
-        
-        // 更新 Keychain 会话
-        if let stored: AuthSession = KeychainHelper.loadCodable(AuthSession.self, forKey: sessionKey) {
-            var session = stored
-            session.isPremium = true
-            KeychainHelper.saveCodable(session, forKey: sessionKey)
-        }
-        
-        await MainActor.run {
-            completeAuthentication(profile: updated)
-        }
-        
-        // 同步到 SupabaseService
-        await SupabaseService.shared.upgradeToPremium()
-    }
+    // 高级会员升级已移除，改用每日免费次数限制
 }
