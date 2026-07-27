@@ -393,34 +393,10 @@ struct ProfileView: View {
                     showPinSetup = false; newPin = ""
                 })
             }
-            .alert("验证账户密码", isPresented: $showPasswordVerifyAlert) {
-                SecureField("输入APP登录密码", text: $passwordInput)
-                Button("取消", role: .cancel) { }
-                Button("确认") {
-                    Task {
-                        guard let email = supabaseService.currentUser?.email else { return }
-                        do {
-                            try await supabaseService.client.auth.signIn(email: email, password: passwordInput)
-                           await MainActor.run {
-                                if lockSettingTarget == "ledger" {
-                                    PageLockManager.setLedgerLock(enabled: false)
-                                    ledgerLockEnabled = false
-                                } else if lockSettingTarget == "analytics" {
-                                    PageLockManager.setAnalyticsLock(enabled: false)
-                                    analyticsLockEnabled = false
-                                } else if lockSettingTarget == "clear_all" {
-                                    PageLockManager.clearAllLocks()
-                                    ledgerLockEnabled = false
-                                    analyticsLockEnabled = false
-                                }
-                            }
-                        } catch {
-                            // Wrong password - silently handle
-                        }
-                    }
+            .overlay {
+                if showPasswordVerifyAlert {
+                    passwordVerifyOverlay
                 }
-            } message: {
-                Text("关闭页面锁需要验证账户密码")
             }
             .sheet(isPresented: $showPatternSetup) {
                 PatternLockView(
@@ -446,6 +422,115 @@ struct ProfileView: View {
 
 // MARK: - 自定义解锁方式选择菜单 (替换系统 confirmationDialog)
 extension ProfileView {
+    @ViewBuilder
+    var passwordVerifyOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.35)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        showPasswordVerifyAlert = false
+                        passwordInput = ""
+                    }
+                }
+            
+            VStack(spacing: 0) {
+                Spacer()
+                
+                VStack(spacing: 0) {
+                    Text("验证账户密码")
+                        .font(.appTitle)
+                        .foregroundColor(AppTheme.textPrimary)
+                        .padding(.top, 24)
+                        .padding(.bottom, 12)
+                    
+                    Text("关闭页面锁需要验证账户密码")
+                        .font(.appBody)
+                        .foregroundColor(AppTheme.textSecondary)
+                        .padding(.bottom, 20)
+                    
+                    SecureField("输入APP登录密码", text: $passwordInput)
+                        .font(.appBody)
+                        .foregroundColor(AppTheme.textPrimary)
+                        .textContentType(.password)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(AppTheme.background)
+                        .cornerRadius(10)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 20)
+                    
+                    Divider().padding(.horizontal, 24)
+                    
+                    HStack(spacing: 0) {
+                        Button(action: {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                showPasswordVerifyAlert = false
+                                passwordInput = ""
+                            }
+                        }) {
+                            Text("取消")
+                                .font(.appBody)
+                                .foregroundColor(AppTheme.textTertiary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        
+                        Divider().frame(height: 44)
+                        
+                        Button(action: {
+                            Task {
+                                guard let email = supabaseService.currentUser?.email else { return }
+                                do {
+                                    try await supabaseService.client.auth.signIn(email: email, password: passwordInput)
+                                   await MainActor.run {
+                                        withAnimation(.easeOut(duration: 0.2)) {
+                                            if lockSettingTarget == "ledger" {
+                                                PageLockManager.setLedgerLock(enabled: false)
+                                                ledgerLockEnabled = false
+                                            } else if lockSettingTarget == "analytics" {
+                                                PageLockManager.setAnalyticsLock(enabled: false)
+                                                analyticsLockEnabled = false
+                                            } else if lockSettingTarget == "clear_all" {
+                                                PageLockManager.clearAllLocks()
+                                                ledgerLockEnabled = false
+                                                analyticsLockEnabled = false
+                                            }
+                                            showPasswordVerifyAlert = false
+                                            passwordInput = ""
+                                        }
+                                    }
+                                } catch {
+                                   await MainActor.run {
+                                        showPasswordVerifyAlert = false
+                                        passwordInput = ""
+                                    }
+                                }
+                            }
+                        }) {
+                            Text("确认")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundColor(AppTheme.brandStart)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.white)
+                        .shadow(color: Color.black.opacity(0.12), radius: 20, x: 0, y: -4)
+                )
+                .padding(.horizontal, 32)
+                
+                Spacer()
+            }
+        }
+        .transition(.opacity)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showPasswordVerifyAlert)
+    }
     @ViewBuilder
     var unlockMethodSheetOverlay: some View {
         ZStack {

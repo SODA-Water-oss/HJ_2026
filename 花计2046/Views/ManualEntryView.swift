@@ -402,7 +402,7 @@ struct ManualEntryView: View {
                         if nE && aB { return (row.id, false, "未录入有效名称、金额") }
                         if nE { return (row.id, false, "未录入有效名称") }
                         if aB { return (row.id, false, "未录入有效金额") }
-                        let expense = Expense(id: UUID(), userId: supabaseService.currentUser?.id ?? UUID(), type: row.type, amount: abs(Double(row.amount) ?? 0), category: row.category, merchant: row.merchant.isEmpty ? "未命名" : row.merchant, date: Date(), note: row.note.isEmpty ? nil : row.note)
+                        let expense = Expense(id: UUID(), userId: supabaseService.currentUser?.id ?? UUID(), type: row.type, amount: abs(Double(row.amount) ?? 0), category: row.category, merchant: row.merchant.isEmpty ? "未命名" : row.merchant, date: Date(), note: row.note.isEmpty ? nil : row.note, currency: CategoryManager.currencySymbol)
                         do { try await supabaseService.addExpense(expense); return (row.id, true, "") }
                         catch { return (row.id, false, error.localizedDescription) }
                     }

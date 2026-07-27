@@ -21,11 +21,25 @@ struct Record: Identifiable, Codable {
     var merchant: String
     var date: Date
     var note: String?
+    var currency: String = "¥"
 
     var isExpense: Bool { type == .expense }
     var isIncome: Bool { type == .income }
 
     /// 带符号的金额（支出显示 -，收入显示 +）
+    /// 当前记录的货币符号
+    var displayCurrency: String { currency.isEmpty ? CategoryManager.currencySymbol : currency }
+
+    /// 带货币符号的金额显示
+    var formattedAmount: String {
+        String(format: displayCurrency + "%.2f", amount)
+    }
+
+    /// 带符号和货币的金额
+    var signedFormattedAmount: String {
+        String(format: (isIncome ? "+" : "-") + displayCurrency + "%.2f", amount)
+    }
+
     var signedAmount: Double { isIncome ? amount : -amount }
 
     // 所属月份标识（格式：yyyy-MM）
@@ -51,6 +65,7 @@ struct Record: Identifiable, Codable {
         case merchant
         case date
         case note
+        case currency
     }
 
     /// 自定义 decoder：type 字段可缺省，兼容旧数据
@@ -64,9 +79,10 @@ struct Record: Identifiable, Codable {
         merchant = try container.decode(String.self, forKey: .merchant)
         date = try container.decode(Date.self, forKey: .date)
         note = try container.decodeIfPresent(String.self, forKey: .note)
+        currency = try container.decodeIfPresent(String.self, forKey: .currency) ?? "¥"
     }
 
-    init(id: UUID = UUID(), userId: UUID, type: RecordType = .expense, amount: Double, category: String, merchant: String, date: Date = Date(), note: String? = nil) {
+    init(id: UUID = UUID(), userId: UUID, type: RecordType = .expense, amount: Double, category: String, merchant: String, date: Date = Date(), note: String? = nil, currency: String = "¥") {
         self.id = id
         self.userId = userId
         self.type = type
@@ -74,7 +90,7 @@ struct Record: Identifiable, Codable {
         self.category = category
         self.merchant = merchant
         self.date = date
-        self.note = note
+        self.note = note; self.currency = currency
     }
 }
 

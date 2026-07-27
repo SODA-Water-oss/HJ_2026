@@ -307,7 +307,7 @@ struct AIConfirmView: View {
             let toSave = parsedItems.enumerated().filter { !deletedIndices.contains($0.offset) }
             await withTaskGroup(of: (Int, Bool, String).self) { group in
                 for (offset, item) in toSave {
-                    let expense = Expense(id: UUID(), userId: userId, type: item.type, amount: item.amount, category: item.category, merchant: item.merchant, date: Date(), note: item.note)
+                    let expense = Expense(id: UUID(), userId: userId, type: item.type, amount: item.amount, category: item.category, merchant: item.merchant, date: Date(), note: item.note, currency: CategoryManager.currencySymbol)
                     group.addTask { [offset] in
                         let _nE = item.merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty; let _aB = item.amount <= 0; if _nE && _aB { return (offset, false, "未录入有效名称、金额") }; if _nE { return (offset, false, "未录入有效名称") }; if _aB { return (offset, false, "未录入有效金额") }
                         do { try await supabaseService.addExpense(expense); return (offset, true, "保存成功") }

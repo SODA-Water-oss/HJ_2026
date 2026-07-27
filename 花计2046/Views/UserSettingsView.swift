@@ -6,6 +6,8 @@ struct UserSettingsView: View {
     @EnvironmentObject var supabaseService: SupabaseService
     @EnvironmentObject var authManager: AuthManager
     @State private var showLogoutAlert = false
+    @State private var currencyPickerStep = 0
+    @State private var selectedCurrency: (name: String, symbol: String)? = nil
     @State private var showCurrencyPicker = false
     
     private let currencyOptions: [(name: String, symbol: String)] = [("人民币", "¥"), ("美元", "$"), ("欧元", "€"), ("英镑", "£")]
@@ -50,7 +52,7 @@ struct UserSettingsView: View {
                                 .font(.appBody)
                                 .foregroundColor(AppTheme.textPrimary)
                            Spacer()
-                            Button(action: { showCurrencyPicker = true }) {
+                            Button(action: { currencyPickerStep = 1 }) {
                                 HStack(spacing: 8) {
                                     if let current = currencyOptions.first(where: { $0.symbol == currencySymbol }) {
                                         Text(current.name + " " + current.symbol)
@@ -151,6 +153,13 @@ struct UserSettingsView: View {
                     }
                 }
             }
+            .overlay {
+                if currencyPickerStep == 1 {
+                    currencyPickerOverlay
+                } else if currencyPickerStep == 2 {
+                    currencyConfirmOverlay
+                }
+            }
         }
         .alert("退出登录", isPresented: $showLogoutAlert) {
             Button("取消", role: .cancel) { }
@@ -161,6 +170,136 @@ struct UserSettingsView: View {
             Text("是否确定退出当前登录？")
         }
     }
+
+    @ViewBuilder
+    private var currencyPickerOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.35).ignoresSafeArea()
+                .onTapGesture { withAnimation(.easeOut(duration: 0.2)) { currencyPickerStep = 0 } }
+            
+            VStack(spacing: 0) {
+                Spacer()
+                VStack(spacing: 0) {
+                    Text("选择货币")
+                        .font(.appTitle)
+                        .foregroundColor(AppTheme.textPrimary)
+                        .padding(.top, 20)
+                        .padding(.bottom, 16)
+                    
+                    Divider().padding(.horizontal, 20)
+                    
+                    ForEach(currencyOptions, id: \.symbol) { option in
+                        Button(action: { withAnimation(.easeOut(duration: 0.2)) { selectedCurrency = option; currencyPickerStep = 2 } }) {
+                            HStack(spacing: 14) {
+                                Text(option.name + " (" + option.symbol + ")")
+                                    .font(.appBody)
+                                    .foregroundColor(currencySymbol == option.symbol ? AppTheme.brandStart : AppTheme.textPrimary)
+                                Spacer()
+                                if currencySymbol == option.symbol {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(AppTheme.brandStart)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 14)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        
+                        Divider().padding(.horizontal, 20)
+                    }
+                    
+                    Button(action: { withAnimation(.easeOut(duration: 0.2)) { currencyPickerStep = 0 } }) {
+                        Text("取消")
+                            .font(.appBody)
+                            .foregroundColor(AppTheme.textTertiary)
+                            .padding(.vertical, 16)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .padding(.bottom, 20)
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.white)
+                        .shadow(color: Color.black.opacity(0.12), radius: 20, x: 0, y: -4)
+                )
+                .padding(.horizontal, 24)
+                
+                Spacer()
+            }
+        }
+        .transition(.opacity)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: currencyPickerStep)
+    }
+
+    @ViewBuilder
+    private var currencyConfirmOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.35).ignoresSafeArea()
+                .onTapGesture { withAnimation(.easeOut(duration: 0.2)) { currencyPickerStep = 1; selectedCurrency = nil } }
+            
+            VStack(spacing: 0) {
+                Spacer()
+                VStack(spacing: 0) {
+                    Text("确认切换货币")
+                        .font(.appTitle)
+                        .foregroundColor(AppTheme.textPrimary)
+                        .padding(.top, 24)
+                        .padding(.bottom, 16)
+                    
+                    if let sc = selectedCurrency {
+                        Text("确认切换为" + sc.name + " (" + sc.symbol + ")？")
+                            .font(.appBody)
+                            .foregroundColor(AppTheme.textSecondary)
+                            .padding(.bottom, 24)
+                    }
+                    
+                    Divider().padding(.horizontal, 24)
+                    
+                    HStack(spacing: 0) {
+                        Button(action: { withAnimation(.easeOut(duration: 0.2)) { currencyPickerStep = 1; selectedCurrency = nil } }) {
+                            Text("取消")
+                                .font(.appBody)
+                                .foregroundColor(AppTheme.textTertiary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        
+                        Divider().frame(height: 44)
+                        
+                        Button(action: {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                if let sc = selectedCurrency { currencySymbol = sc.symbol }
+                                currencyPickerStep = 0
+                                selectedCurrency = nil
+                            }
+                        }) {
+                            Text("确认")
+                                .font(.appBodyMedium)
+                                .foregroundColor(AppTheme.brandStart)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.white)
+                        .shadow(color: Color.black.opacity(0.12), radius: 20, x: 0, y: -4)
+                )
+                .padding(.horizontal, 32)
+                
+                Spacer()
+            }
+        }
+        .transition(.opacity)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: currencyPickerStep)
+    }
+
 }
 
 // MARK: - 使用帮助页

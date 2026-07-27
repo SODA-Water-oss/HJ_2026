@@ -92,7 +92,7 @@ struct ExpenseRowView: View {
                 if let note = expense.note, !note.isEmpty { Text(note).font(.appSmall).foregroundColor(AppTheme.textSecondary) }
             }
             Spacer()
-            Text(expense.isExpense ? String(format: "-" + CategoryManager.currencySymbol + "%.2f", expense.amount) : String(format: "+" + CategoryManager.currencySymbol + "%.2f", expense.amount)).font(.appBodyMedium).foregroundColor(expense.isExpense ? AppTheme.textSecondary : .green)
+            Text(expense.signedFormattedAmount).font(.appBodyMedium).foregroundColor(expense.isExpense ? AppTheme.textSecondary : .green)
             if !isSelectionMode {
                 Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundColor(AppTheme.textTertiary.opacity(0.5)).padding(.leading, 4)
             }
