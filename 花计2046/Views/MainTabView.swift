@@ -117,9 +117,11 @@ struct ProfileView: View {
     @State private var analyticsLockEnabled = PageLockManager.isAnalyticsLocked
     @State private var showSetPinAlert = false
     @State private var showPasswordVerifyAlert = false
+    @State private var showClearPinAlert = false
     @State private var lockSettingTarget = ""
     @State private var newPin = ""
     @State private var passwordInput = ""
+    @State private var clearPinInput = ""
     
     var body: some View {
         NavigationView {
@@ -149,110 +151,97 @@ struct ProfileView: View {
                     .shadow(color: AppTheme.cardShadow, radius: 10, x: 0, y: 4)
                     .padding(.horizontal, 16)
 
-                    NavigationLink(destination: UserLogView().environmentObject(supabaseService)) {
-                        HStack {
-                            Image(systemName: "doc.text.magnifyingglass")
-                                .font(.system(size: 17))
-                                .foregroundColor(AppTheme.brandStart)
-                            Text("操作日志")
-                                .font(.appBody)
-                                .foregroundColor(AppTheme.textPrimary)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 13))
-                                .foregroundColor(AppTheme.textTertiary)
-                        }
-                        .padding(16)
-                        .background(Color.white)
-                        .cornerRadius(12)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
 
-                    
                     Spacer(minLength: 24)
                     
-                    // MARK: - 页面锁设置
                     VStack(spacing: 0) {
+                        // 账本页锁
                         HStack {
-                            Image(systemName: "lock.shield")
+                            Image(systemName: "list.clipboard")
                                 .font(.system(size: 17))
                                 .foregroundColor(AppTheme.brandStart)
-                            Text("页面锁")
+                                .frame(width: 24)
+                            Text("账本页锁")
                                 .font(.appBody)
                                 .foregroundColor(AppTheme.textPrimary)
                             Spacer()
+                            Button(action: {
+                                if !ledgerLockEnabled {
+                                    lockSettingTarget = "ledger"
+                                    newPin = ""
+                                    showSetPinAlert = true
+                                } else {
+                                    lockSettingTarget = "ledger"
+                                    passwordInput = ""
+                                    showPasswordVerifyAlert = true
+                                }
+                            }) {
+                                HStack(spacing: 0) {
+                                    Text("关")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(ledgerLockEnabled ? AppTheme.textTertiary : .white)
+                                        .frame(width: 28, height: 24)
+                                        .background(ledgerLockEnabled ? Color.clear : AppTheme.brandStart)
+                                        .cornerRadius(12)
+                                    Text("开")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(ledgerLockEnabled ? .white : AppTheme.textTertiary)
+                                        .frame(width: 28, height: 24)
+                                        .background(ledgerLockEnabled ? AppTheme.brandStart : Color.clear)
+                                        .cornerRadius(12)
+                                }
+                                .background(AppTheme.border)
+                                .cornerRadius(12)
+                            }
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 12)
-                        .padding(.bottom, 8)
+                        .padding(16)
                         
                         Divider().padding(.horizontal, 16)
                         
-                        Button(action: {
-                            if !ledgerLockEnabled {
-                                lockSettingTarget = "ledger"
-                                newPin = ""
-                                showSetPinAlert = true
-                            } else {
-                                lockSettingTarget = "ledger"
-                                passwordInput = ""
-                                showPasswordVerifyAlert = true
+                        // 分析页锁
+                        HStack {
+                            Image(systemName: "chart.bar")
+                                .font(.system(size: 17))
+                                .foregroundColor(AppTheme.brandStart)
+                                .frame(width: 24)
+                            Text("分析页锁")
+                                .font(.appBody)
+                                .foregroundColor(AppTheme.textPrimary)
+                            Spacer()
+                            Button(action: {
+                                if !analyticsLockEnabled {
+                                    lockSettingTarget = "analytics"
+                                    newPin = ""
+                                    showSetPinAlert = true
+                                } else {
+                                    lockSettingTarget = "analytics"
+                                    passwordInput = ""
+                                    showPasswordVerifyAlert = true
+                                }
+                            }) {
+                                HStack(spacing: 0) {
+                                    Text("关")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(analyticsLockEnabled ? AppTheme.textTertiary : .white)
+                                        .frame(width: 28, height: 24)
+                                        .background(analyticsLockEnabled ? Color.clear : AppTheme.brandStart)
+                                        .cornerRadius(12)
+                                    Text("开")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(analyticsLockEnabled ? .white : AppTheme.textTertiary)
+                                        .frame(width: 28, height: 24)
+                                        .background(analyticsLockEnabled ? AppTheme.brandStart : Color.clear)
+                                        .cornerRadius(12)
+                                }
+                                .background(AppTheme.border)
+                                .cornerRadius(12)
                             }
-                        }) {
-                            HStack {
-                                Image(systemName: "list.clipboard")
-                                    .font(.system(size: 17))
-                                    .foregroundColor(AppTheme.brandStart)
-                                    .frame(width: 24)
-                                Text("账本页锁")
-                                    .font(.appBody)
-                                    .foregroundColor(AppTheme.textPrimary)
-                                Spacer()
-                                Text(ledgerLockEnabled ? "已开启" : "已关闭")
-                                    .font(.appSmall)
-                                    .foregroundColor(ledgerLockEnabled ? .green : AppTheme.textTertiary)
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(AppTheme.textTertiary)
-                            }
-                            .padding(16)
                         }
+                        .padding(16)
                         
                         Divider().padding(.horizontal, 16)
                         
-                        Button(action: {
-                            if !analyticsLockEnabled {
-                                lockSettingTarget = "analytics"
-                                newPin = ""
-                                showSetPinAlert = true
-                            } else {
-                                lockSettingTarget = "analytics"
-                                passwordInput = ""
-                                showPasswordVerifyAlert = true
-                            }
-                        }) {
-                            HStack {
-                                Image(systemName: "chart.bar")
-                                    .font(.system(size: 17))
-                                    .foregroundColor(AppTheme.brandStart)
-                                    .frame(width: 24)
-                                Text("分析页锁")
-                                    .font(.appBody)
-                                    .foregroundColor(AppTheme.textPrimary)
-                                Spacer()
-                                Text(analyticsLockEnabled ? "已开启" : "已关闭")
-                                    .font(.appSmall)
-                                    .foregroundColor(analyticsLockEnabled ? .green : AppTheme.textTertiary)
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(AppTheme.textTertiary)
-                            }
-                            .padding(16)
-                        }
-                        
-                        Divider().padding(.horizontal, 16)
-                        
+                        // 解除所有页面锁
                         Button(action: {
                             lockSettingTarget = "clear_all"
                             passwordInput = ""
@@ -273,33 +262,79 @@ struct ProfileView: View {
                             }
                             .padding(16)
                         }
+                        
+                        Divider().padding(.horizontal, 16)
+                        
+                        // 操作日志
+                        NavigationLink(destination: UserLogView().environmentObject(supabaseService)) {
+                            HStack {
+                                Image(systemName: "doc.text.magnifyingglass")
+                                    .font(.system(size: 17))
+                                    .foregroundColor(AppTheme.brandStart)
+                                    .frame(width: 24)
+                                Text("操作日志")
+                                    .font(.appBody)
+                                    .foregroundColor(AppTheme.textPrimary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AppTheme.textTertiary)
+                            }
+                            .padding(16)
+                        }
+                        
+                        Divider().padding(.horizontal, 16)
+                        
+                        // 用户设置
+                        NavigationLink(destination: UserSettingsView().environmentObject(supabaseService).environmentObject(authManager)) {
+                            HStack {
+                                Image(systemName: "gearshape")
+                                    .font(.system(size: 17))
+                                    .foregroundColor(AppTheme.brandStart)
+                                    .frame(width: 24)
+                                Text("用户设置")
+                                    .font(.appBody)
+                                    .foregroundColor(AppTheme.textPrimary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AppTheme.textTertiary)
+                            }
+                            .padding(16)
+                        }
+                        
+                        Divider().padding(.horizontal, 16)
+                        
+                        // 退出登录
+                        Button(action: {
+                            showLogoutAlert = true
+                        }) {
+                            HStack {
+                                Image(systemName: "rectangle.portrait.and.arrow.right")
+                                    .font(.system(size: 17))
+                                    .foregroundColor(.red)
+                                    .frame(width: 24)
+                                Text("退出登录")
+                                    .font(.appBody)
+                                    .foregroundColor(.red)
+                                Spacer()
+                            }
+                            .padding(16)
+                        }
                     }
                     .background(Color.white)
                     .cornerRadius(12)
                     .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
                     .padding(.horizontal, 16)
-                    
-                    Spacer(minLength: 24)
-                    
-                    VStack(spacing: 12) {
-                        Button(action: {
-                            showLogoutAlert = true
-                        }) {
-                            Text("退出登录")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(AppPrimaryButtonStyle())
-                        .alert("退出登录", isPresented: $showLogoutAlert) {
-                            Button("取消", role: .cancel) { }
-                            Button("确认退出", role: .destructive) {
-                                authManager.signOut()
-                            }
-                        } message: {
-                            Text("是否确定退出当前登录？")
-                        }
-                    }
-                    .padding(.horizontal, 16)
                     .padding(.bottom, 32)
+                    .alert("退出登录", isPresented: $showLogoutAlert) {
+                        Button("取消", role: .cancel) { }
+                        Button("确认退出", role: .destructive) {
+                            authManager.signOut()
+                        }
+                    } message: {
+                        Text("是否确定退出当前登录？")
+                    }
                 }
             }
             .background(AppTheme.background.ignoresSafeArea())
@@ -317,7 +352,7 @@ struct ProfileView: View {
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
-            .alert("设置密码", isPresented: $showSetPinAlert) {
+            .alert("设置页面锁密码", isPresented: $showSetPinAlert) {
                 SecureField("输入4位数字密码", text: $newPin)
                     .keyboardType(.numberPad)
                 Button("取消", role: .cancel) { }
@@ -334,8 +369,27 @@ struct ProfileView: View {
             } message: {
                 Text("请设置4位数字密码")
             }
+            .alert("关闭页面锁", isPresented: $showClearPinAlert) {
+                SecureField("输入当前页面锁密码", text: $clearPinInput)
+                    .keyboardType(.numberPad)
+                Button("取消", role: .cancel) { }
+                Button("确认") {
+                    let pinOk = lockSettingTarget == "ledger" ? PageLockManager.verifyLedgerPin(clearPinInput) : PageLockManager.verifyAnalyticsPin(clearPinInput)
+                    if pinOk {
+                        if lockSettingTarget == "ledger" {
+                            PageLockManager.setLedgerLock(enabled: false)
+                            ledgerLockEnabled = false
+                        } else {
+                            PageLockManager.setAnalyticsLock(enabled: false)
+                            analyticsLockEnabled = false
+                        }
+                    }
+                }
+            } message: {
+                Text("关闭页面锁需要输入当前页面锁的4位数字密码")
+            }
             .alert("验证账户密码", isPresented: $showPasswordVerifyAlert) {
-                SecureField("输入当前账户密码", text: $passwordInput)
+                SecureField("输入APP登录密码", text: $passwordInput)
                 Button("取消", role: .cancel) { }
                 Button("确认") {
                     Task {
@@ -343,13 +397,7 @@ struct ProfileView: View {
                         do {
                             try await supabaseService.client.auth.signIn(email: email, password: passwordInput)
                             await MainActor.run {
-                                if lockSettingTarget == "ledger" {
-                                    PageLockManager.setLedgerLock(enabled: false)
-                                    ledgerLockEnabled = false
-                                } else if lockSettingTarget == "analytics" {
-                                    PageLockManager.setAnalyticsLock(enabled: false)
-                                    analyticsLockEnabled = false
-                                } else if lockSettingTarget == "clear_all" {
+                                if lockSettingTarget == "clear_all" {
                                     PageLockManager.clearAllLocks()
                                     ledgerLockEnabled = false
                                     analyticsLockEnabled = false
