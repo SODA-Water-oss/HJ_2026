@@ -2,11 +2,11 @@ import SwiftUI
 
 struct UserSettingsView: View {
     @AppStorage("currency_symbol") private var currencySymbol = "¥"
-    @AppStorage("show_daily_parse_count") private var showDailyParseCount = true
     
     @EnvironmentObject var supabaseService: SupabaseService
     @EnvironmentObject var authManager: AuthManager
     @State private var showLogoutAlert = false
+    @State private var showCurrencyPicker = false
     
     private let currencyOptions: [(name: String, symbol: String)] = [("人民币", "¥"), ("美元", "$"), ("欧元", "€"), ("英镑", "£")]
     
@@ -50,20 +50,27 @@ struct UserSettingsView: View {
                                 .font(.appBody)
                                 .foregroundColor(AppTheme.textPrimary)
                            Spacer()
-                            HStack(spacing: 8) {
-                                ForEach(currencyOptions, id: \.symbol) { option in
-                                    Button(action: { currencySymbol = option.symbol }) {
-                                        Text(option.name + " " + option.symbol)
-                                            .font(.system(size: 14, weight: .medium))
-                                            .foregroundColor(currencySymbol == option.symbol ? .white : AppTheme.textPrimary)
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 6)
-                                            .background(currencySymbol == option.symbol ? AppTheme.brandStart : AppTheme.background)
-                                            .cornerRadius(6)
+                            Button(action: { showCurrencyPicker = true }) {
+                                HStack(spacing: 8) {
+                                    if let current = currencyOptions.first(where: { $0.symbol == currencySymbol }) {
+                                        Text(current.name + " " + current.symbol)
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(AppTheme.brandStart)
+                                    } else {
+                                        Text(currencySymbol)
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundColor(AppTheme.brandStart)
                                     }
-                                    .buttonStyle(PlainButtonStyle())
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(AppTheme.textTertiary)
                                 }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(AppTheme.background)
+                                .cornerRadius(8)
                             }
+                            .buttonStyle(PlainButtonStyle())
                         }
                         .padding(16)
                     }
@@ -72,43 +79,14 @@ struct UserSettingsView: View {
                     .cornerRadius(12)
                     .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
                     .padding(.horizontal, 16)
-                    
-                    // MARK: - 每日解析次数显示
-                    VStack(spacing: 0) {
-                        HStack {
-                            Image(systemName: "number")
-                                .font(.system(size: 17))
-                                .foregroundColor(AppTheme.brandStart)
-                                .frame(width: 24)
-                            Text("解析次数显示")
-                                .font(.appBody)
-                                .foregroundColor(AppTheme.textPrimary)
-                            Spacer()
-                            Button(action: { showDailyParseCount.toggle() }) {
-                                HStack(spacing: 0) {
-                                    Text("关")
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundColor(showDailyParseCount ? Color(hex: "#9CA3AF") : .white)
-                                        .frame(width: 28, height: 24)
-                                        .background(showDailyParseCount ? Color.clear : Color(hex: "#9CA3AF"))
-                                        .cornerRadius(12)
-                                    Text("开")
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundColor(showDailyParseCount ? .white : Color(hex: "#9CA3AF"))
-                                        .frame(width: 28, height: 24)
-                                        .background(showDailyParseCount ? AppTheme.brandStart : Color.clear)
-                                        .cornerRadius(12)
-                                }
-                                .background(Color(hex: "#E5E7EB"))
-                                .cornerRadius(12)
+                    .confirmationDialog("选择货币", isPresented: $showCurrencyPicker, titleVisibility: .visible) {
+                        ForEach(currencyOptions, id: \.symbol) { option in
+                            Button(option.name + " (" + option.symbol + ")") {
+                                currencySymbol = option.symbol
                             }
                         }
-                        .padding(16)
+                        Button("取消", role: .cancel) { }
                     }
-                    .background(Color.white)
-                    .cornerRadius(12)
-                    .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
-                    .padding(.horizontal, 16)
                     
                     // MARK: - 使用帮助
                     VStack(spacing: 0) {
@@ -214,19 +192,13 @@ struct HelpView: View {
                     helpCard(
                         icon: "lock.shield",
                         title: "页面锁",
-                        desc: "在「我的」页面可以为账本页和分析页单独设置4位数字密码锁。开启后每次进入需输入密码。"
+                        desc: "在「我的」页面可以为账本和分析页单独设置4位数字密码锁。开启后每次进入需输入密码。"
                     )
                     
                     helpCard(
                         icon: "square.and.arrow.up",
                         title: "导出数据",
                         desc: "在账本页右上角菜单选择「导出当前账本」，导出筛选后的记录为CSV文件。"
-                    )
-                    
-                    helpCard(
-                        icon: "number",
-                        title: "解析次数显示",
-                        desc: "每个账户每天可免费解析30次。解析成功并「进账」后消耗次数，放弃解析不计次数。次日自动恢复。"
                     )
                 }
             }
@@ -235,10 +207,10 @@ struct HelpView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     HStack(spacing: 6) {
-                        Image(systemName: "questionmark.circle")
+                        Image(systemName: "gearshape")
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(AppTheme.brandStart)
-                        Text("使用帮助")
+                        Text("用户设置")
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(AppTheme.textPrimary)
                     }

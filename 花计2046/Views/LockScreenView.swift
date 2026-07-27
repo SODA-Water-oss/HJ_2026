@@ -12,23 +12,23 @@ struct LockScreenView: View {
     @State private var errorMessage = ""
     
     var body: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            
-            if mode == "pattern" {
-                PatternLockView(
-                    isVerifyMode: true,
-                    onComplete: { pattern in
-                        if onVerifyPattern(pattern) {
-                        } else {
-                            showError = true
-                            errorMessage = "图案错误，请重试"
-                        }
-                    },
-                    onCancel: onCancel
-                )
-            } else {
-                // PIN mode - existing design
+        if mode == "pattern" {
+            PatternLockView(
+                isVerifyMode: true,
+                onComplete: { pattern in
+                    if onVerifyPattern(pattern) {
+                    } else {
+                        showError = true
+                        errorMessage = "图案错误，请重试"
+                    }
+                },
+                onCancel: onCancel
+            )
+        } else {
+            // PIN mode
+            VStack(spacing: 24) {
+                Spacer()
+                
                 Image(systemName: "lock.fill")
                     .font(.system(size: 48))
                     .foregroundColor(AppTheme.brandStart)
@@ -53,7 +53,7 @@ struct LockScreenView: View {
                 if showError {
                     Text(errorMessage)
                         .font(.appSmall)
-                        .foregroundColor(Color(hex: "#7C3AED"))
+                        .foregroundColor(AppTheme.brandStart)
                 }
                 
                 VStack(spacing: 12) {
@@ -70,17 +70,17 @@ struct LockScreenView: View {
                         backspaceButton
                     }
                 }
+                
+                Spacer()
+                
+                Button("取消", action: onCancel)
+                    .font(.appBody)
+                    .foregroundColor(AppTheme.textSecondary)
+                    .padding(.bottom, 32)
             }
-            
-            Spacer()
-            
-            Button("取消", action: onCancel)
-                .font(.appBody)
-                .foregroundColor(AppTheme.textSecondary)
-                .padding(.bottom, 32)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(AppTheme.background)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(AppTheme.background)
     }
     
     private func numberButton(_ text: String) -> some View {

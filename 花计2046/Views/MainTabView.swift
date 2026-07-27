@@ -77,7 +77,7 @@ struct MainTabView: View {
             
             if showLockScreen {
                 LockScreenView(
-                    pageName: lockTargetTab == 0 ? "账本页" : "分析页",
+                    pageName: lockTargetTab == 0 ? "账本" : "分析",
                     mode: lockTargetTab == 0 ? PageLockManager.ledgerLockMode : PageLockManager.analyticsLockMode,
                     onVerifyPin: { pin in
                         let ok = lockTargetTab == 0 ? PageLockManager.verifyLedgerPin(pin) : PageLockManager.verifyAnalyticsPin(pin)
@@ -175,13 +175,13 @@ struct ProfileView: View {
                     Spacer(minLength: 8)
                     
                     VStack(spacing: 0) {
-                        // 账本页锁
+                        // 账本锁
                         HStack {
                             Image(systemName: "list.clipboard")
-                                .font(.system(size: 17))
+                                .font(.system(size: 24))
                                 .foregroundColor(AppTheme.brandStart)
-                                .frame(width: 24)
-                            Text("账本页锁")
+                                .frame(width: 32)
+                            Text("账本锁")
                                 .font(.appBody)
                                 .foregroundColor(AppTheme.textPrimary)
                             Spacer()
@@ -201,7 +201,7 @@ struct ProfileView: View {
                                         .font(.system(size: 13, weight: .medium))
                                         .foregroundColor(ledgerLockEnabled ? AppTheme.textTertiary : .white)
                                         .frame(width: 28, height: 24)
-                                        .background(ledgerLockEnabled ? Color.clear : AppTheme.brandStart)
+                                        .background(ledgerLockEnabled ? Color.clear : AppTheme.textTertiary)
                                         .cornerRadius(12)
                                     Text("开")
                                         .font(.system(size: 13, weight: .medium))
@@ -218,13 +218,13 @@ struct ProfileView: View {
                         
                         Divider().padding(.horizontal, 16)
                         
-                        // 分析页锁
+                        // 分析锁
                         HStack {
                             Image(systemName: "chart.bar")
-                                .font(.system(size: 17))
+                                .font(.system(size: 24))
                                 .foregroundColor(AppTheme.brandStart)
-                                .frame(width: 24)
-                            Text("分析页锁")
+                                .frame(width: 32)
+                            Text("分析锁")
                                 .font(.appBody)
                                 .foregroundColor(AppTheme.textPrimary)
                             Spacer()
@@ -244,7 +244,7 @@ struct ProfileView: View {
                                         .font(.system(size: 13, weight: .medium))
                                         .foregroundColor(analyticsLockEnabled ? AppTheme.textTertiary : .white)
                                         .frame(width: 28, height: 24)
-                                        .background(analyticsLockEnabled ? Color.clear : AppTheme.brandStart)
+                                        .background(analyticsLockEnabled ? Color.clear : AppTheme.textTertiary)
                                         .cornerRadius(12)
                                     Text("开")
                                         .font(.system(size: 13, weight: .medium))
@@ -269,9 +269,9 @@ struct ProfileView: View {
                         }) {
                             HStack {
                                 Image(systemName: "lock.open")
-                                    .font(.system(size: 17))
+                                    .font(.system(size: 24))
                                     .foregroundColor(AppTheme.brandStart)
-                                    .frame(width: 24)
+                                    .frame(width: 32)
                                 Text("解除所有页面锁")
                                     .font(.appBody)
                                     .foregroundColor(AppTheme.textPrimary)
@@ -289,9 +289,9 @@ struct ProfileView: View {
                         NavigationLink(destination: UserLogView().environmentObject(supabaseService)) {
                             HStack {
                                 Image(systemName: "doc.text.magnifyingglass")
-                                    .font(.system(size: 17))
+                                    .font(.system(size: 24))
                                     .foregroundColor(AppTheme.brandStart)
-                                    .frame(width: 24)
+                                    .frame(width: 32)
                                 Text("操作日志")
                                     .font(.appBody)
                                     .foregroundColor(AppTheme.textPrimary)
@@ -313,9 +313,9 @@ struct ProfileView: View {
                         }) {
                             HStack {
                                 Image(systemName: "envelope")
-                                    .font(.system(size: 17))
+                                    .font(.system(size: 24))
                                     .foregroundColor(Color(hex: "#7C3AED"))
-                                    .frame(width: 24)
+                                    .frame(width: 32)
                                 Text("意见反馈")
                                     .font(.appBody)
                                     .foregroundColor(AppTheme.textPrimary)
@@ -333,9 +333,9 @@ struct ProfileView: View {
                         NavigationLink(destination: UserSettingsView().environmentObject(supabaseService).environmentObject(authManager)) {
                             HStack {
                                 Image(systemName: "gearshape")
-                                    .font(.system(size: 17))
+                                    .font(.system(size: 24))
                                     .foregroundColor(AppTheme.brandStart)
-                                    .frame(width: 24)
+                                    .frame(width: 32)
                                 Text("用户设置")
                                     .font(.appBody)
                                     .foregroundColor(AppTheme.textPrimary)

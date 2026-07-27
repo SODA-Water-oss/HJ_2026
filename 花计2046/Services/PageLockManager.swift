@@ -21,7 +21,7 @@ struct PageLockManager {
         target == "ledger" ? ledgerLockMode : analyticsLockMode
     }
     
-    // MARK: - 账本页锁
+    // MARK: - 账本锁
     static var isLedgerLocked: Bool {
         UserDefaults.standard.bool(forKey: ledgerEnabledKey)
     }
@@ -42,7 +42,7 @@ struct PageLockManager {
         return pin == stored
     }
     
-    // MARK: - 分析页锁
+    // MARK: - 分析锁
     static var isAnalyticsLocked: Bool {
         UserDefaults.standard.bool(forKey: analyticsEnabledKey)
     }
