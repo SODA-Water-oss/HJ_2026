@@ -14,4 +14,16 @@ struct MonthExpenseGroup: Identifiable {
    var totalAmount: Double {
         expenses.reduce(0) { $0 + ($1.type == .expense ? -$1.amount : $1.amount) }
    }
+
+    /// 按货币分组的小计
+    var totalByCurrency: [(currency: String, amount: Double)] {
+        guard !expenses.isEmpty else { return [] }
+        var dict: [String: Double] = [:]
+        for exp in expenses {
+            let key = exp.currency.isEmpty ? "¥" : exp.currency
+            dict[key, default: 0] += exp.type == .expense ? -exp.amount : exp.amount
+        }
+        return dict.sorted { $0.key < $1.key }
+            .map { ($0.key, $0.value) }
+    }
 }

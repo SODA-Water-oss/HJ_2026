@@ -46,12 +46,42 @@ struct PawPrintLoading: View {
 struct MonthSectionCard: View {
     @AppStorage("currency_symbol") private var currencySymbol = "¥"
     let group: MonthExpenseGroup
+    
+    private var currencyCount: Int { max(group.totalByCurrency.count, 1) }
+    
+    private var shortDate: String {
+        let s = group.monthDisplay
+        guard s.count >= 6 else { return s }
+        return String(s.suffix(6).prefix(2)) + String(s.suffix(4))
+    }
+    
+    private var titleSize: CGFloat {
+        [20, 26, 30, 34][min(currencyCount - 1, 3)]
+    }
+    private var amountSize: CGFloat {
+        [17, 15, 14, 12][min(currencyCount - 1, 3)]
+    }
+    
     var body: some View {
-        HStack {
-            Image(systemName: "calendar").font(.system(size: 14)).foregroundStyle(AppTheme.brandGradient)
-            Text(group.monthDisplay).font(.system(size: 17, weight: .medium)).foregroundColor(AppTheme.textPrimary)
+        HStack(alignment: .center) {
+            HStack(spacing: 4) {
+                Image(systemName: "equal.square")
+                    .font(.system(size: 14))
+                    .foregroundStyle(AppTheme.brandGradient)
+                Text(shortDate)
+                    .font(.system(size: titleSize, weight: .bold))
+                    .foregroundStyle(AppTheme.brandGradient)
+            }
+            
             Spacer()
-            Text(group.totalAmount > 0 ? "小计: +\(currencySymbol)\(String(format: "%.2f", group.totalAmount))" : group.totalAmount < 0 ? "小计: -\(currencySymbol)\(String(format: "%.2f", -group.totalAmount))" : "小计: \(currencySymbol)0.00").font(.system(size: 17, weight: .medium)).foregroundStyle(AppTheme.brandGradient)
+            
+            VStack(alignment: .trailing, spacing: 3) {
+                ForEach(group.totalByCurrency, id: \.currency) { item in
+                    Text("\(item.amount > 0 ? "+" : "")\(item.currency)\(String(format: "%.2f", item.amount))")
+                        .font(.system(size: amountSize, weight: .medium))
+                        .foregroundStyle(AppTheme.brandGradient)
+                }
+            }
         }
         .padding(.horizontal, 20).padding(.vertical, 10)
         .background(AppTheme.brandStart.opacity(0.06))
