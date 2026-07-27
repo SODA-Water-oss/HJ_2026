@@ -380,7 +380,7 @@ struct ExpenseEditRow: View {
                 }
             }
             Spacer()
-           Text(item.type == .income ? String(format: "+¥%.2f", item.amount) : String(format: "-¥%.2f", item.amount))
+           Text(item.type == .income ? String(format: "+" + CategoryManager.currencySymbol + "%.2f", item.amount) : String(format: "-" + CategoryManager.currencySymbol + "%.2f", item.amount))
                .font(.system(size: 17, weight: .regular))
                .foregroundColor(item.type == .expense ? AppTheme.textSecondary : .green)
             if let onDelete = onDelete {

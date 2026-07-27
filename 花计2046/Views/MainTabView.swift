@@ -6,7 +6,8 @@ struct MainTabView: View {
     @State private var selectedTab = 2
     @State private var showLockScreen = false
     @State private var lockTargetTab: Int? = nil
-    @State private var lockVerified = false
+    @State private var ledgerLockVerified = false
+    @State private var analyticsLockVerified = false
    
     init() {
         let appearance = UITabBarAppearance()
@@ -37,9 +38,9 @@ struct MainTabView: View {
                     Label("录入", systemImage: "square.and.pencil")
                 }
             
-            SubscriptionView().tag(3)
+            ToolsView().tag(3)
                 .tabItem {
-                    Label("帮助", systemImage: "questionmark.circle")
+                    Label("工具", systemImage: "wrench.and.screwdriver")
                 }
             
             ProfileView().tag(4)
@@ -52,11 +53,10 @@ struct MainTabView: View {
             try? await supabaseService.preloadAllRecords()
         }
         .onChange(of: selectedTab) { _, newTab in
-            guard !lockVerified else { lockVerified = false; return }
-            if newTab == 0 && PageLockManager.isLedgerLocked {
+            if newTab == 0 && PageLockManager.isLedgerLocked && !ledgerLockVerified {
                 lockTargetTab = 0
                 showLockScreen = true
-            } else if newTab == 1 && PageLockManager.isAnalyticsLocked {
+            } else if newTab == 1 && PageLockManager.isAnalyticsLocked && !analyticsLockVerified {
                 lockTargetTab = 1
                 showLockScreen = true
             }
@@ -72,14 +72,16 @@ struct MainTabView: View {
                 onVerifyPin: { pin in
                     let ok = lockTargetTab == 0 ? PageLockManager.verifyLedgerPin(pin) : PageLockManager.verifyAnalyticsPin(pin)
                     if !ok { return false }
-                    lockVerified = true
+                    if lockTargetTab == 0 { ledgerLockVerified = true }
+                    else { analyticsLockVerified = true }
                     showLockScreen = false
                     return true
                 },
                 onVerifyPattern: { pattern in
                     let ok = lockTargetTab == 0 ? PageLockManager.verifyLedgerPin(pattern) : PageLockManager.verifyAnalyticsPin(pattern)
                     if !ok { return false }
-                    lockVerified = true
+                    if lockTargetTab == 0 { ledgerLockVerified = true }
+                    else { analyticsLockVerified = true }
                     showLockScreen = false
                     return true
                 },
@@ -160,7 +162,7 @@ struct ProfileView: View {
                     .padding(.horizontal, 16)
 
 
-                    Spacer(minLength: 24)
+                    Spacer(minLength: 8)
                     
                     VStack(spacing: 0) {
                         // 账本页锁
@@ -281,6 +283,30 @@ struct ProfileView: View {
                                     .foregroundColor(AppTheme.brandStart)
                                     .frame(width: 24)
                                 Text("操作日志")
+                                    .font(.appBody)
+                                    .foregroundColor(AppTheme.textPrimary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AppTheme.textTertiary)
+                            }
+                            .padding(16)
+                        }
+                        
+                        Divider().padding(.horizontal, 16)
+                        
+                        // 意见反馈
+                        Button(action: {
+                            if let url = URL(string: "mailto:poundszero@126.com?subject=花计2046意见反馈") {
+                                UIApplication.shared.open(url)
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: "envelope")
+                                    .font(.system(size: 17))
+                                    .foregroundColor(Color(hex: "#7C3AED"))
+                                    .frame(width: 24)
+                                Text("意见反馈")
                                     .font(.appBody)
                                     .foregroundColor(AppTheme.textPrimary)
                                 Spacer()

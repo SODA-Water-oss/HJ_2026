@@ -313,11 +313,11 @@ struct EditExpenseView: View {
         onSave()
        dismiss()
        // 异步同步到服务端
-        Task { await UserLogManager.log(action: "编辑", detail: "编辑(1)", supabaseService: supabaseService) }
        Task {
+           await UserLogManager.log(action: "编辑", detail: "编辑(1)", supabaseService: supabaseService)
            try? await supabaseService.updateExpense(updatedExpense)
        }
-    }
+       }
 }
 
 

@@ -39,7 +39,14 @@ class UserLogManager: ObservableObject {
             createdAt: Date()
         )
         
-        // 写云端
+        // 先存本地缓存（立即生效，不依赖网络）
+        var cached = UserDefaults.standard.loadLogs()
+        cached.insert(entry, at: 0)
+        if cached.count > 200 { cached = Array(cached.prefix(200)) }
+        UserDefaults.standard.saveLogs(cached)
+        await MainActor.run { shared.logs = cached }
+        
+        // 再写云端（网络操作不阻塞本地）
         if !AppConfig.useMockServices {
             do {
                 try await supabaseService.client.from("user_logs").insert(entry).execute()
@@ -47,7 +54,7 @@ class UserLogManager: ObservableObject {
                 Log.error("写入操作日志失败: \(error.localizedDescription)")
             }
             
-            // 清理 12 个月前的旧日志（以当前时间为基准）
+            // 清理 12 个月前的旧日志
             do {
                 let twelveMonthsAgo = Calendar.current.date(byAdding: .month, value: -12, to: Date()) ?? Date()
                 let df = ISO8601DateFormatter()
@@ -62,14 +69,6 @@ class UserLogManager: ObservableObject {
                 Log.error("清理旧日志失败: \(error.localizedDescription)")
             }
         }
-        
-        // 本地也缓存一份
-        var cached = UserDefaults.standard.loadLogs()
-        cached.insert(entry, at: 0)
-        if cached.count > 200 { cached = Array(cached.prefix(200)) }
-        UserDefaults.standard.saveLogs(cached)
-        // 实时更新共享实例的 published logs（让已打开的 UserLogView 刷新）
-        await MainActor.run { shared.logs = cached }
     }
     
     /// 从云端拉取日志

@@ -50,10 +50,14 @@ struct PatternLockView: View {
             
 
                 
-                Button("取消", action: onCancel)
-                    .font(.appBody)
-                    .foregroundColor(AppTheme.textSecondary)
-                    .padding(.bottom, 32)
+                if mode != .verify {
+                    Button("取消", action: onCancel)
+                        .font(.appBody)
+                        .foregroundColor(AppTheme.textSecondary)
+                        .padding(.bottom, 32)
+                } else {
+                    Spacer().frame(height: 32)
+                }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(AppTheme.background)

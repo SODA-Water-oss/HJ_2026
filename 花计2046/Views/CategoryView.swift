@@ -25,21 +25,21 @@ struct CategoryView: View {
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
                     Button(action: { selectedTab = 0 }) {
-                        Text("支出")
+                        Text("收入")
                             .font(.system(size: 17, weight: .medium))
-                            .foregroundColor(selectedTab == 0 ? .white : AppTheme.brandStart)
+                            .foregroundColor(selectedTab == 0 ? .white : .green)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
-                            .background(selectedTab == 0 ? AppTheme.brandStart : Color.white)
+                            .background(selectedTab == 0 ? Color.green : Color.white)
                             .cornerRadius(7)
                     }
                     Button(action: { selectedTab = 1 }) {
-                        Text("收入")
+                        Text("支出")
                             .font(.system(size: 17, weight: .medium))
-                            .foregroundColor(selectedTab == 1 ? .white : .green)
+                            .foregroundColor(selectedTab == 1 ? .white : AppTheme.brandStart)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
-                            .background(selectedTab == 1 ? Color.green : Color.white)
+                            .background(selectedTab == 1 ? AppTheme.brandStart : Color.white)
                             .cornerRadius(7)
                     }
                 }
@@ -53,9 +53,9 @@ struct CategoryView: View {
                         Color.clear.frame(height: 4)
                         
                         if selectedTab == 0 {
-                            expenseSection
-                        } else {
                             incomeSection
+                        } else {
+                            expenseSection
                         }
                         helpSection
                         
@@ -71,7 +71,7 @@ struct CategoryView: View {
                         Image(systemName: "tag")
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(AppTheme.brandStart)
-                        Text("分类设置")
+                        Text("类别设置")
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(AppTheme.textPrimary)
                     }
@@ -99,7 +99,13 @@ struct CategoryView: View {
             .padding(.bottom, 4)
             
             ForEach(allExpenseCats, id: \.self) { cat in
-                catRow(cat: cat, enabled: enabledExpense, isDefault: defaultExpenseCat == cat, accentColor: AppTheme.brandStart, onToggle: { CategoryManager.setExpenseCatEnabled(cat, enabled: $0) }, onSetDefault: { defaultExpenseCat = cat })
+                catRow(cat: cat, enabled: enabledExpense, isDefault: defaultExpenseCat == cat, accentColor: AppTheme.brandStart, onToggle: { enabled in
+                                CategoryManager.setExpenseCatEnabled(cat, enabled: enabled)
+                                if !enabled && defaultExpenseCat == cat {
+                                    let remaining = enabledExpense.isEmpty ? CategoryManager.defaultExpenseCats.filter { $0 != cat } : enabledExpense
+                                    defaultExpenseCat = remaining.first ?? "其他"
+                                }
+                            }, onSetDefault: { defaultExpenseCat = cat })
             }
             
             if !customExpense.isEmpty {
@@ -121,7 +127,15 @@ struct CategoryView: View {
                 TextField("添加自定义支出分类", text: $newExpenseName)
                     .font(.appBody).textFieldStyle(.plain)
                 Button("添加") {
-                    CategoryManager.addCustomExpenseCat(newExpenseName)
+                    let trimmed = newExpenseName.trimmingCharacters(in: .whitespaces)
+                    if !trimmed.isEmpty {
+                        var current = customExpenseRaw.isEmpty ? [] : customExpenseRaw.components(separatedBy: ",").filter { !$0.isEmpty }
+                        if !current.contains(trimmed), current.count < 10 {
+                            current.append(trimmed)
+                            customExpenseRaw = current.joined(separator: ",")
+                            CategoryManager.customExpenseCats = customExpenseRaw
+                        }
+                    }
                     newExpenseName = ""
                 }
                 .font(.appSmall).foregroundColor(AppTheme.brandStart)
@@ -154,7 +168,13 @@ struct CategoryView: View {
             .padding(.bottom, 4)
             
             ForEach(allIncomeCats, id: \.self) { cat in
-                catRow(cat: cat, enabled: enabledIncome, isDefault: defaultIncomeCat == cat, accentColor: .green, onToggle: { CategoryManager.setIncomeCatEnabled(cat, enabled: $0) }, onSetDefault: { defaultIncomeCat = cat })
+                catRow(cat: cat, enabled: enabledIncome, isDefault: defaultIncomeCat == cat, accentColor: .green, onToggle: { enabled in
+                                CategoryManager.setIncomeCatEnabled(cat, enabled: enabled)
+                                if !enabled && defaultIncomeCat == cat {
+                                    let remaining = enabledIncome.isEmpty ? CategoryManager.defaultIncomeCats.filter { $0 != cat } : enabledIncome
+                                    defaultIncomeCat = remaining.first ?? "其他"
+                                }
+                            }, onSetDefault: { defaultIncomeCat = cat })
             }
             
             if !customIncome.isEmpty {
@@ -176,7 +196,15 @@ struct CategoryView: View {
                 TextField("添加自定义收入分类", text: $newIncomeName)
                     .font(.appBody).textFieldStyle(.plain)
                 Button("添加") {
-                    CategoryManager.addCustomIncomeCat(newIncomeName)
+                    let trimmed = newIncomeName.trimmingCharacters(in: .whitespaces)
+                    if !trimmed.isEmpty {
+                        var current = customIncomeRaw.isEmpty ? [] : customIncomeRaw.components(separatedBy: ",").filter { !$0.isEmpty }
+                        if !current.contains(trimmed), current.count < 10 {
+                            current.append(trimmed)
+                            customIncomeRaw = current.joined(separator: ",")
+                            CategoryManager.customIncomeCats = customIncomeRaw
+                        }
+                    }
                     newIncomeName = ""
                 }
                 .font(.appSmall).foregroundColor(AppTheme.brandStart)
@@ -196,7 +224,7 @@ struct CategoryView: View {
             Text("• 勾选的类别将出现在手动记账、解析内容、批量修改、编辑记录中").font(.appSmall).foregroundColor(AppTheme.textSecondary)
             Text("• 已录入的历史数据不受影响").font(.appSmall).foregroundColor(AppTheme.textSecondary)
             Text("• 自定义类别上限各10个").font(.appSmall).foregroundColor(AppTheme.textSecondary)
-            Text("• 勾选启用类别，点击星标设为默认").font(.appSmall).foregroundColor(AppTheme.textSecondary)
+            Text("• 勾选启用类别，长按某类别可将其设为默认").font(.appSmall).foregroundColor(AppTheme.textSecondary)
             Text("类别设置需至少保留一个选项").font(.appSmall).foregroundColor(AppTheme.textTertiary.opacity(0.6))
         }
         .padding(16)

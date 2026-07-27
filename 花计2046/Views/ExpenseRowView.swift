@@ -50,7 +50,7 @@ struct MonthSectionCard: View {
             Image(systemName: "calendar").font(.system(size: 14)).foregroundStyle(AppTheme.brandGradient)
             Text(group.monthDisplay).font(.system(size: 17, weight: .medium)).foregroundColor(AppTheme.textPrimary)
             Spacer()
-            Text(group.totalAmount > 0 ? "小计: +¥\(String(format: "%.2f", group.totalAmount))" : group.totalAmount < 0 ? "小计: -¥\(String(format: "%.2f", -group.totalAmount))" : "小计: ¥0.00").font(.system(size: 17, weight: .medium)).foregroundStyle(AppTheme.brandGradient)
+            Text(group.totalAmount > 0 ? "小计: +\(CategoryManager.currencySymbol)\(String(format: "%.2f", group.totalAmount))" : group.totalAmount < 0 ? "小计: -\(CategoryManager.currencySymbol)\(String(format: "%.2f", -group.totalAmount))" : "小计: \(CategoryManager.currencySymbol)0.00").font(.system(size: 17, weight: .medium)).foregroundStyle(AppTheme.brandGradient)
         }
         .padding(.horizontal, 20).padding(.vertical, 10)
         .background(AppTheme.brandStart.opacity(0.06))
@@ -92,7 +92,7 @@ struct ExpenseRowView: View {
                 if let note = expense.note, !note.isEmpty { Text(note).font(.appSmall).foregroundColor(AppTheme.textSecondary) }
             }
             Spacer()
-            Text(expense.isExpense ? String(format: "-¥%.2f", expense.amount) : String(format: "+¥%.2f", expense.amount)).font(.appBodyMedium).foregroundColor(expense.isExpense ? AppTheme.textSecondary : .green)
+            Text(expense.isExpense ? String(format: "-" + CategoryManager.currencySymbol + "%.2f", expense.amount) : String(format: "+" + CategoryManager.currencySymbol + "%.2f", expense.amount)).font(.appBodyMedium).foregroundColor(expense.isExpense ? AppTheme.textSecondary : .green)
             if !isSelectionMode {
                 Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundColor(AppTheme.textTertiary.opacity(0.5)).padding(.leading, 4)
             }

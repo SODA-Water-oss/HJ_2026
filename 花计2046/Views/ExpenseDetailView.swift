@@ -34,7 +34,7 @@ struct ExpenseDetailView: View {
                             .font(.system(size: 17))
                             .foregroundColor(currentExpense.isExpense ? AppTheme.brandStart : .green)
                     }
-                    Text(currentExpense.isIncome ? String(format: "+¥%.2f", currentExpense.amount) : String(format: "-¥%.2f", currentExpense.amount))
+                    Text(currentExpense.isIncome ? String(format: "+" + CategoryManager.currencySymbol + "%.2f", currentExpense.amount) : String(format: "-" + CategoryManager.currencySymbol + "%.2f", currentExpense.amount))
                         .font(.system(size: 48, weight: .semibold))
                         .foregroundColor(currentExpense.isIncome ? .green : AppTheme.textSecondary)
                 }

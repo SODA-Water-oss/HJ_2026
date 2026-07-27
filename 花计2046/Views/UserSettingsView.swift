@@ -33,6 +33,7 @@ struct UserSettingsView: View {
                         }
                         .padding(16)
                     }
+                    .frame(minHeight: 52)
                     .background(Color.white)
                     .cornerRadius(12)
                     .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
@@ -77,6 +78,7 @@ struct UserSettingsView: View {
                         }
                         .padding(16)
                     }
+                    .frame(minHeight: 52)
                     .background(Color.white)
                     .cornerRadius(12)
                     .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
@@ -93,9 +95,24 @@ struct UserSettingsView: View {
                                 .font(.appBody)
                                 .foregroundColor(AppTheme.textPrimary)
                             Spacer()
-                            Toggle("", isOn: $showDailyParseCount)
-                                .toggleStyle(.switch)
-                                .tint(AppTheme.brandStart)
+                            Button(action: { showDailyParseCount.toggle() }) {
+                                HStack(spacing: 0) {
+                                    Text("关")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(showDailyParseCount ? Color(hex: "#9CA3AF") : .white)
+                                        .frame(width: 28, height: 24)
+                                        .background(showDailyParseCount ? Color.clear : Color(hex: "#9CA3AF"))
+                                        .cornerRadius(12)
+                                    Text("开")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(showDailyParseCount ? .white : Color(hex: "#9CA3AF"))
+                                        .frame(width: 28, height: 24)
+                                        .background(showDailyParseCount ? Color(hex: "#7C3AED") : Color.clear)
+                                        .cornerRadius(12)
+                                }
+                                .background(Color(hex: "#E5E7EB"))
+                                .cornerRadius(12)
+                            }
                         }
                         .padding(16)
                     }
@@ -144,6 +161,7 @@ struct UserSettingsView: View {
                             .padding(16)
                         }
                     }
+                    .frame(minHeight: 52)
                     .background(Color.white)
                     .cornerRadius(12)
                     .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)

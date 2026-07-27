@@ -18,11 +18,11 @@ struct PinSetupView: View {
                 .font(.system(size: 40))
                 .foregroundColor(Color(hex: "#7C3AED"))
             
-            Text(isFirstRound ? "设置页面锁密码" : "请再次输入密码")
+            Text(isFirstRound ? "设置密码" : "确认密码")
                 .font(.appTitle)
                 .foregroundColor(AppTheme.textPrimary)
             
-            Text(isFirstRound ? "请设置4位数字密码" : "请再次输入以确认")
+            Text(isFirstRound ? "请输入4位数字密码" : "请再次输入相同的密码")
                 .font(.appBody)
                 .foregroundColor(AppTheme.textSecondary)
             
@@ -30,7 +30,7 @@ struct PinSetupView: View {
             HStack(spacing: 16) {
                 ForEach(0..<4, id: \.self) { i in
                     Circle()
-                        .fill(i < (isFirstRound ? pin.count : confirmPin.count) && !isFirstRound ? Color.green : (i < pin.count ? Color(hex: "#7C3AED") : AppTheme.border))
+                        .fill(i < pin.count ? Color(hex: "#7C3AED") : AppTheme.border)
                         .frame(width: 16, height: 16)
                 }
             }
