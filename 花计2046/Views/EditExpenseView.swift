@@ -313,11 +313,12 @@ struct EditExpenseView: View {
         }
        isSaving = false
         onSave()
-        dismiss()
-        // 异步同步到服务端
-        Task {
-            try? await supabaseService.updateExpense(updatedExpense)
-        }
+       dismiss()
+       // 异步同步到服务端
+        Task { await UserLogManager.log(action: "编辑", detail: "编辑了一笔" + (updatedExpense.merchant.isEmpty ? "" : "「\(updatedExpense.merchant)」") + "记录", supabaseService: supabaseService) }
+       Task {
+           try? await supabaseService.updateExpense(updatedExpense)
+       }
     }
 }
 

@@ -423,10 +423,10 @@ struct AddExpenseView: View {
             HStack(spacing: 2) {
                 Text("今日解析")
                     .font(.system(size: 13))
-                    .foregroundColor(AppTheme.textTertiary.opacity(0.5))
+                    .foregroundColor(AppTheme.textTertiary.opacity(0.8))
                 Text("\(DailyLimitManager.usedCount(for: userId))/\(DailyLimitManager.dailyLimit)")
                     .font(.system(size: 13))
-                    .foregroundColor(AppTheme.textTertiary.opacity(0.5))
+                    .foregroundColor(AppTheme.textTertiary.opacity(0.8))
                 Button(action: { showLimitInfo = true }) {
                     Image(systemName: "exclamationmark.circle")
                         .font(.system(size: 12))

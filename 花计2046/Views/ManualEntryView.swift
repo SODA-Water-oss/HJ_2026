@@ -417,6 +417,7 @@ struct ManualEntryView: View {
                 supabaseService.isGloballyProcessing = false
                 if failCount == 0 && !hasEmptyRows {
                     errorMessage = "全部已进账"
+                    Task { await UserLogManager.log(action: "进账", detail: "成功进账 \(successCount) 笔", supabaseService: supabaseService) }
                     onSuccess?()
                 } else {
                     rows.removeAll { successIds.contains($0.id) }

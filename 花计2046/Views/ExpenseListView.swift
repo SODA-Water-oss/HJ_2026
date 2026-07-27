@@ -144,6 +144,7 @@ struct ExpenseListView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
                    Button(action: {
+                       let exportCount = searchGrouped.flatMap(\.expenses).count
                        Task.detached {
                            let url = CSVExporter.exportCSV(records: searchGrouped.flatMap(\.expenses))
                            await MainActor.run {
@@ -152,6 +153,7 @@ struct ExpenseListView: View {
                                isExporting = false
                            }
                        }
+                       Task { await UserLogManager.log(action: "导出", detail: "导出了 \(exportCount) 条记录的CSV", supabaseService: supabaseService) }
                        isExporting = true
                     }) {
                         Label(isExporting ? "生成中..." : "导出当前账本", systemImage: "square.and.arrow.up")
@@ -167,11 +169,14 @@ struct ExpenseListView: View {
         .navigationBarTitleDisplayMode(.inline)
             .background(NavigationLink(destination: Group { if let e = selectedExpense { ExpenseDetailView(expense: e) } }, isActive: $showDetail) { EmptyView() })
             .background(NavigationLink(destination: Group { if let e = editingExpense { EditExpenseView(expense: e) { }.environmentObject(supabaseService) } }, isActive: $showEdit) { EmptyView() })
-            .alert("确认删除", isPresented: $showDeleteAlert) {
+           .alert("确认删除", isPresented: $showDeleteAlert) {
                 Button("取消", role: .cancel) { pendingDeleteExpense = nil }
                 Button("确认删除", role: .destructive) {
                     if let expense = pendingDeleteExpense {
-                        Task { try? await supabaseService.deleteExpense(expense) }
+                        Task {
+                            try? await supabaseService.deleteExpense(expense)
+                            await UserLogManager.log(action: "删除", detail: "删除了一笔" + (expense.merchant.isEmpty ? "" : "「\(expense.merchant)」") + "记录", supabaseService: supabaseService)
+                        }
                     }
                     pendingDeleteExpense = nil
                 }
@@ -181,7 +186,7 @@ struct ExpenseListView: View {
         .sheet(isPresented: $showYearPicker) { YearWheelPicker(selection: $supabaseService.sharedSearchYear, options: yearOptions).presentationDetents([.height(230)]) }
         .sheet(isPresented: $showMonthPicker) { MonthWheelPicker(selection: $supabaseService.sharedSearchMonth, options: monthOptions).presentationDetents([.height(270)]) }
         .sheet(isPresented: $showCategoryPicker) { CategoryWheelPicker(selection: $supabaseService.sharedSearchCategory, options: categories).presentationDetents([.height(230)]) }
-   .sheet(isPresented: $showBatchNoteSheet) { BatchOperationSheet(selectedCount: allSelected.count, batchNoteText: $batchNoteText, batchNoteMode: $batchNoteMode, onNoteConfirm: { Task { try? await supabaseService.batchUpdateNote(expenses: allSelected, note: batchNoteText, mode: batchNoteMode); selectedExpenseIds = [] } }, onDeleteConfirm: { Task { try? await supabaseService.batchDeleteExpenses(ids: Array(selectedExpenseIds)); selectedExpenseIds = [] } }, onDateConfirm: { date in Task { try? await supabaseService.batchUpdateTime(expenses: allSelected, date: date); selectedExpenseIds = [] } }, onCategoryConfirm: { cat in Task { try? await supabaseService.batchUpdateCategory(expenses: allSelected, category: cat); selectedExpenseIds = [] } }, onCancel: { showBatchNoteSheet = false }) }
+   .sheet(isPresented: $showBatchNoteSheet) { BatchOperationSheet(selectedCount: allSelected.count, batchNoteText: $batchNoteText, batchNoteMode: $batchNoteMode, onNoteConfirm: { let count = allSelected.count; Task { try? await supabaseService.batchUpdateNote(expenses: allSelected, note: batchNoteText, mode: batchNoteMode); await UserLogManager.log(action: "批量修改", detail: "修改了 \(count) 条记录的备注", supabaseService: supabaseService); selectedExpenseIds = [] } }, onDeleteConfirm: { let count = selectedExpenseIds.count; Task { try? await supabaseService.batchDeleteExpenses(ids: Array(selectedExpenseIds)); await UserLogManager.log(action: "批量删除", detail: "删除了 \(count) 条记录", supabaseService: supabaseService); selectedExpenseIds = [] } }, onDateConfirm: { date in let count = allSelected.count; Task { try? await supabaseService.batchUpdateTime(expenses: allSelected, date: date); await UserLogManager.log(action: "批量修改", detail: "修改了 \(count) 条记录的时间", supabaseService: supabaseService); selectedExpenseIds = [] } }, onCategoryConfirm: { cat in let count = allSelected.count; Task { try? await supabaseService.batchUpdateCategory(expenses: allSelected, category: cat); await UserLogManager.log(action: "批量修改", detail: "修改了 \(count) 条记录的类别", supabaseService: supabaseService); selectedExpenseIds = [] } }, onCancel: { showBatchNoteSheet = false }) }
     .sheet(isPresented: $showShareSheet) {
         if let url = exportURL {
             ShareSheet(items: [url])

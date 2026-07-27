@@ -325,6 +325,7 @@ struct AIConfirmView: View {
                 isSaving = false
                 if failedItems.isEmpty {
                     Log.info("全部保存成功: \(savedCount) 笔")
+                    Task { await UserLogManager.log(action: "进账", detail: "成功进账 \(savedCount) 笔", supabaseService: supabaseService) }
                     onSuccess?()
                 } else if savedCount > 0 {
                     // 部分成功：移除已保存的，保留失败的
