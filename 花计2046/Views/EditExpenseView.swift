@@ -22,9 +22,7 @@ struct EditExpenseView: View {
     @State private var showTimePicker = false
     @FocusState private var isNoteFocused: Bool
     
-    let expenseCategories = ["餐饮", "交通", "购物", "娱乐", "住房", "日用", "服饰", "通讯", "医疗", "教育", "其他"]
-    let incomeCategories = ["工资", "奖金", "兼职", "投资收益", "理财", "礼金", "退款", "其他"]
-    var categories: [String] { recordType == .expense ? expenseCategories : incomeCategories }
+    var categories: [String] { CategoryManager.cats(for: recordType) }
     
     init(expense: Expense, onSave: @escaping () -> Void) {
         self.expense = expense
@@ -66,7 +64,7 @@ struct EditExpenseView: View {
                             if let saved = categoryByType[newType] {
                                 category = saved
                             } else if !categories.contains(category) {
-                                category = categories.first ?? "其他"
+                                category = categories.first ?? CategoryManager.defaultCat(for: recordType)
                             }
                         }
                     
@@ -315,7 +313,7 @@ struct EditExpenseView: View {
         onSave()
        dismiss()
        // 异步同步到服务端
-        Task { await UserLogManager.log(action: "编辑", detail: "编辑了一笔" + (updatedExpense.merchant.isEmpty ? "" : "「\(updatedExpense.merchant)」") + "记录", supabaseService: supabaseService) }
+        Task { await UserLogManager.log(action: "编辑", detail: "编辑(1)", supabaseService: supabaseService) }
        Task {
            try? await supabaseService.updateExpense(updatedExpense)
        }

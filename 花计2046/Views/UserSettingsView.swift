@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct UserSettingsView: View {
-    @AppStorage("default_category") private var defaultCategory = "餐饮"
     @AppStorage("currency_symbol") private var currencySymbol = "¥"
     @AppStorage("show_daily_parse_count") private var showDailyParseCount = true
     
@@ -9,7 +8,6 @@ struct UserSettingsView: View {
     @EnvironmentObject var authManager: AuthManager
     @State private var showLogoutAlert = false
     
-    private let expenseCategories = ["餐饮", "交通", "购物", "娱乐", "住房", "日用", "服饰", "通讯", "医疗", "教育", "其他"]
     private let currencyOptions = ["¥", "$", "€", "£"]
     
     var body: some View {
@@ -18,24 +16,20 @@ struct UserSettingsView: View {
                 VStack(spacing: 16) {
                     Color.clear.frame(height: 4)
                     
-                    // MARK: - 默认分类
-                    VStack(spacing: 0) {
+                    // MARK: - 分类设置
+                    NavigationLink(destination: CategoryView()) {
                         HStack {
                             Image(systemName: "tag")
                                 .font(.system(size: 17))
                                 .foregroundColor(AppTheme.brandStart)
                                 .frame(width: 24)
-                            Text("默认分类")
+                            Text("分类设置")
                                 .font(.appBody)
                                 .foregroundColor(AppTheme.textPrimary)
                             Spacer()
-                            Picker("", selection: $defaultCategory) {
-                                ForEach(expenseCategories, id: \.self) { cat in
-                                    Text(cat).tag(cat)
-                                }
-                            }
-                            .pickerStyle(.menu)
-                            .tint(AppTheme.textSecondary)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 13))
+                                .foregroundColor(AppTheme.textTertiary)
                         }
                         .padding(16)
                     }
@@ -57,11 +51,12 @@ struct UserSettingsView: View {
                             Spacer()
                             Picker("", selection: $currencySymbol) {
                                 ForEach(currencyOptions, id: \.self) { sym in
-                                    Text(sym).tag(sym)
+                                    Text(sym).tag(sym).font(.system(size: 20))
                                 }
                             }
-                            .pickerStyle(.segmented)
-                            .frame(width: 160)
+                            .pickerStyle(.wheel)
+                            .frame(width: 100, height: 80)
+                            .clipped()
                         }
                         .padding(16)
                     }
@@ -122,11 +117,11 @@ struct UserSettingsView: View {
                             HStack {
                                 Image(systemName: "rectangle.portrait.and.arrow.right")
                                     .font(.system(size: 17))
-                                    .foregroundColor(.red)
+                                    .foregroundColor(Color(hex: "#7C3AED"))
                                     .frame(width: 24)
                                 Text("退出登录")
                                     .font(.appBody)
-                                    .foregroundColor(.red)
+                                    .foregroundColor(Color(hex: "#7C3AED"))
                                 Spacer()
                             }
                             .padding(16)

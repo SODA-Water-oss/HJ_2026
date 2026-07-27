@@ -1,8 +1,10 @@
 import SwiftUI
-
+ 
 struct LockScreenView: View {
     let pageName: String
-    let onVerify: (String) -> Bool
+    let mode: String  // "pin" or "pattern"
+    let onVerifyPin: (String) -> Bool
+    let onVerifyPattern: (String) -> Bool
     let onCancel: () -> Void
     
     @State private var pin = ""
@@ -13,48 +15,64 @@ struct LockScreenView: View {
         VStack(spacing: 24) {
             Spacer()
             
-            Image(systemName: "lock.fill")
-                .font(.system(size: 48))
-                .foregroundColor(AppTheme.brandStart)
-            
-            Text("\(pageName)已锁定")
-                .font(.appTitle)
-                .foregroundColor(AppTheme.textPrimary)
-            
-            Text("请输入密码进入")
-                .font(.appBody)
-                .foregroundColor(AppTheme.textSecondary)
-            
-            // PIN 圆点显示
-            HStack(spacing: 16) {
-                ForEach(0..<4, id: \.self) { i in
-                    Circle()
-                        .fill(i < pin.count ? AppTheme.brandStart : AppTheme.border)
-                        .frame(width: 16, height: 16)
-                }
-            }
-            .padding(.vertical, 8)
-            
-            if showError {
-                Text(errorMessage)
-                    .font(.appSmall)
-                    .foregroundColor(.red)
-            }
-            
-            // 数字键盘
-            VStack(spacing: 12) {
-                ForEach(0..<3, id: \.self) { row in
-                    HStack(spacing: 12) {
-                        ForEach(1..<4, id: \.self) { col in
-                            let num = row * 3 + col
-                            numberButton("\(num)")
+            if mode == "pattern" {
+                PatternLockView(
+                    mode: .verify,
+                    onComplete: { result in
+                        if result.hasPrefix("verify:") {
+                            let pattern = String(result.dropFirst(7))
+                            if onVerifyPattern(pattern) {
+                                // Verified - dismiss happens via state change
+                            } else {
+                                showError = true
+                                errorMessage = "图案错误，請重试"
+                            }
                         }
+                    },
+                    onCancel: onCancel
+                )
+            } else {
+                // PIN mode - existing design
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 48))
+                    .foregroundColor(AppTheme.brandStart)
+                
+                Text("\(pageName)已锁定")
+                    .font(.appTitle)
+                    .foregroundColor(AppTheme.textPrimary)
+                
+                Text("请输入密码进入")
+                    .font(.appBody)
+                    .foregroundColor(AppTheme.textSecondary)
+                
+                HStack(spacing: 16) {
+                    ForEach(0..<4, id: \.self) { i in
+                        Circle()
+                            .fill(i < pin.count ? AppTheme.brandStart : AppTheme.border)
+                            .frame(width: 16, height: 16)
                     }
                 }
-                HStack(spacing: 12) {
-                    Spacer().frame(width: 76)
-                    numberButton("0")
-                    backspaceButton
+                .padding(.vertical, 8)
+                
+                if showError {
+                    Text(errorMessage)
+                        .font(.appSmall)
+                        .foregroundColor(.red)
+                }
+                
+                VStack(spacing: 12) {
+                    ForEach(0..<3, id: \.self) { row in
+                        HStack(spacing: 12) {
+                            ForEach(1..<4, id: \.self) { col in
+                                numberButton("\(row * 3 + col)")
+                            }
+                        }
+                    }
+                    HStack(spacing: 12) {
+                        Spacer().frame(width: 76)
+                        numberButton("0")
+                        backspaceButton
+                    }
                 }
             }
             
@@ -98,8 +116,8 @@ struct LockScreenView: View {
         pin.append(num)
         
         if pin.count == 4 {
-            if onVerify(pin) {
-                // Verified, dismiss
+            if onVerifyPin(pin) {
+                // Verified
             } else {
                 showError = true
                 errorMessage = "密码错误，请重试"

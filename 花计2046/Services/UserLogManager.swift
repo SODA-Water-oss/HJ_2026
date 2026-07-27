@@ -68,6 +68,8 @@ class UserLogManager: ObservableObject {
         cached.insert(entry, at: 0)
         if cached.count > 200 { cached = Array(cached.prefix(200)) }
         UserDefaults.standard.saveLogs(cached)
+        // 实时更新共享实例的 published logs（让已打开的 UserLogView 刷新）
+        await MainActor.run { shared.logs = cached }
     }
     
     /// 从云端拉取日志

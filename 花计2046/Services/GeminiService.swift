@@ -62,11 +62,16 @@ class GeminiService: ObservableObject {
             throw error
         }
         Log.info("DeepSeek 解析成功: items=\(result.items.count)")
+        let validCats = CategoryManager.expenseCats + CategoryManager.incomeCats
         return result.items.map { item in
-            ParsedExpense(
+            var finalCat = item.category
+            if !validCats.contains(item.category) {
+                finalCat = item.type == .expense ? CategoryManager.defaultExpenseCat : CategoryManager.defaultIncomeCat
+            }
+            return ParsedExpense(
                 type: item.type,
                 amount: item.amount,
-                category: item.category,
+                category: finalCat,
                 merchant: item.merchant,
                 note: item.note
             )

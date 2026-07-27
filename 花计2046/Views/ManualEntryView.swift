@@ -33,8 +33,8 @@ struct ManualEntryView: View {
     @State private var editCategoryByType: [RecordType: String] = [:]
     
     private let categories = ["餐饮", "交通", "购物", "娱乐", "住房", "日用", "服饰", "通讯", "医疗", "教育", "其他"]
-    private let expenseCategories = ["餐饮","交通","购物","娱乐","住房","日用","服饰","通讯","医疗","教育","其他"]
-    private let incomeCategories = ["工资","奖金","兼职","投资收益","理财","礼金","退款","其他"]
+    private var expenseCategories: [String] { CategoryManager.expenseCats }
+    private var incomeCategories: [String] { CategoryManager.incomeCats }
     
     private var validCount: Int { rows.filter { !$0.amount.isEmpty }.count }
     private var totalAmount: Double { rows.compactMap { Double($0.amount) }.reduce(0, +) }
@@ -52,8 +52,8 @@ struct ManualEntryView: View {
                         Text("记账统计").font(.system(size: 17, weight: .bold)).foregroundColor(AppTheme.textPrimary)
                         if validCount > 0 {
                             HStack(spacing: 12) {
-                                if incomeTotal > 0 { Text("收入 ¥\(String(format: "%.2f", incomeTotal))").font(.appBodyMedium).foregroundColor(.green) }
-                                if expenseTotal > 0 { Text("支出 ¥\(String(format: "%.2f", expenseTotal))").font(.appBodyMedium).foregroundColor(AppTheme.brandStart) }
+                                if incomeTotal > 0 { Text("收入 \(CategoryManager.currencySymbol)\(String(format: "%.2f", incomeTotal))").font(.appBodyMedium).foregroundColor(.green) }
+                                if expenseTotal > 0 { Text("支出 \(CategoryManager.currencySymbol)\(String(format: "%.2f", expenseTotal))").font(.appBodyMedium).foregroundColor(AppTheme.brandStart) }
                             }
                         }
                     }
@@ -417,7 +417,7 @@ struct ManualEntryView: View {
                 supabaseService.isGloballyProcessing = false
                 if failCount == 0 && !hasEmptyRows {
                     errorMessage = "全部已进账"
-                    Task { await UserLogManager.log(action: "进账", detail: "成功进账 \(successCount) 笔", supabaseService: supabaseService) }
+                    Task { await UserLogManager.log(action: "进账", detail: "进账(\(successCount))", supabaseService: supabaseService) }
                     onSuccess?()
                 } else {
                     rows.removeAll { successIds.contains($0.id) }

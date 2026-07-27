@@ -7,13 +7,28 @@ struct PageLockManager {
     private static let ledgerPinKey = "page_lock_ledger_pin"
     private static let analyticsPinKey = "page_lock_analytics_pin"
     
+    // MARK: - 锁模式
+    static var ledgerLockMode: String {
+        get { UserDefaults.standard.string(forKey: "ledger_lock_mode") ?? "pin" }
+        set { UserDefaults.standard.set(newValue, forKey: "ledger_lock_mode") }
+    }
+    static var analyticsLockMode: String {
+        get { UserDefaults.standard.string(forKey: "analytics_lock_mode") ?? "pin" }
+        set { UserDefaults.standard.set(newValue, forKey: "analytics_lock_mode") }
+    }
+    
+    static func lockMode(for target: String) -> String {
+        target == "ledger" ? ledgerLockMode : analyticsLockMode
+    }
+    
     // MARK: - 账本页锁
     static var isLedgerLocked: Bool {
         UserDefaults.standard.bool(forKey: ledgerEnabledKey)
     }
     
-    static func setLedgerLock(enabled: Bool, pin: String? = nil) {
+    static func setLedgerLock(enabled: Bool, pin: String? = nil, mode: String = "pin") {
         UserDefaults.standard.set(enabled, forKey: ledgerEnabledKey)
+        ledgerLockMode = mode
         if enabled, let pin = pin {
             KeychainHelper.saveCodable(pin, forKey: ledgerPinKey)
         }
@@ -32,8 +47,9 @@ struct PageLockManager {
         UserDefaults.standard.bool(forKey: analyticsEnabledKey)
     }
     
-    static func setAnalyticsLock(enabled: Bool, pin: String? = nil) {
+    static func setAnalyticsLock(enabled: Bool, pin: String? = nil, mode: String = "pin") {
         UserDefaults.standard.set(enabled, forKey: analyticsEnabledKey)
+        analyticsLockMode = mode
         if enabled, let pin = pin {
             KeychainHelper.saveCodable(pin, forKey: analyticsPinKey)
         }
@@ -51,6 +67,8 @@ struct PageLockManager {
     static func clearAllLocks() {
         UserDefaults.standard.set(false, forKey: ledgerEnabledKey)
         UserDefaults.standard.set(false, forKey: analyticsEnabledKey)
+        UserDefaults.standard.removeObject(forKey: "ledger_lock_mode")
+        UserDefaults.standard.removeObject(forKey: "analytics_lock_mode")
         KeychainHelper.delete(key: ledgerPinKey)
         KeychainHelper.delete(key: analyticsPinKey)
     }

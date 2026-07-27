@@ -87,7 +87,7 @@ class AuthManager: ObservableObject {
             await MainActor.run { completeAuthentication(profile: profile) }
             Log.info("云端登录成功 userId=\(userId)")
        }
-           await UserLogManager.log(action: "登录", detail: "登录成功", supabaseService: SupabaseService.shared)
+           await UserLogManager.log(action: "登录", detail: "登录", supabaseService: SupabaseService.shared)
    }
     
     // MARK: - 注册
@@ -126,7 +126,7 @@ class AuthManager: ObservableObject {
     // MARK: - 登出
     func signOut() {
         Log.info("AuthManager 登出")
-        Task { await UserLogManager.log(action: "登出", detail: "用户登出", supabaseService: SupabaseService.shared) }
+        Task { await UserLogManager.log(action: "登出", detail: "登出", supabaseService: SupabaseService.shared) }
         
         // 清除 Keychain
         KeychainHelper.delete(key: sessionKey)

@@ -68,8 +68,16 @@ struct MainTabView: View {
         if showLockScreen {
             LockScreenView(
                 pageName: lockTargetTab == 0 ? "账本页" : "分析页",
-                onVerify: { pin in
+                mode: lockTargetTab == 0 ? PageLockManager.ledgerLockMode : PageLockManager.analyticsLockMode,
+                onVerifyPin: { pin in
                     let ok = lockTargetTab == 0 ? PageLockManager.verifyLedgerPin(pin) : PageLockManager.verifyAnalyticsPin(pin)
+                    if !ok { return false }
+                    lockVerified = true
+                    showLockScreen = false
+                    return true
+                },
+                onVerifyPattern: { pattern in
+                    let ok = lockTargetTab == 0 ? PageLockManager.verifyLedgerPin(pattern) : PageLockManager.verifyAnalyticsPin(pattern)
                     if !ok { return false }
                     lockVerified = true
                     showLockScreen = false
@@ -117,11 +125,12 @@ struct ProfileView: View {
     @State private var analyticsLockEnabled = PageLockManager.isAnalyticsLocked
     @State private var showSetPinAlert = false
     @State private var showPasswordVerifyAlert = false
-    @State private var showClearPinAlert = false
     @State private var lockSettingTarget = ""
     @State private var newPin = ""
     @State private var passwordInput = ""
-    @State private var clearPinInput = ""
+    @State private var showModePicker = false
+    @State private var showPatternSetup = false
+    @State private var patternSetupMode: PatternLockView.PatternMode = .set(first: nil)
     
     var body: some View {
         NavigationView {
@@ -169,7 +178,7 @@ struct ProfileView: View {
                                 if !ledgerLockEnabled {
                                     lockSettingTarget = "ledger"
                                     newPin = ""
-                                    showSetPinAlert = true
+                                    showModePicker = true
                                 } else {
                                     lockSettingTarget = "ledger"
                                     passwordInput = ""
@@ -178,13 +187,13 @@ struct ProfileView: View {
                             }) {
                                 HStack(spacing: 0) {
                                     Text("关")
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.system(size: 13, weight: .medium))
                                         .foregroundColor(ledgerLockEnabled ? AppTheme.textTertiary : .white)
                                         .frame(width: 28, height: 24)
                                         .background(ledgerLockEnabled ? Color.clear : AppTheme.brandStart)
                                         .cornerRadius(12)
                                     Text("开")
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.system(size: 13, weight: .medium))
                                         .foregroundColor(ledgerLockEnabled ? .white : AppTheme.textTertiary)
                                         .frame(width: 28, height: 24)
                                         .background(ledgerLockEnabled ? AppTheme.brandStart : Color.clear)
@@ -212,7 +221,7 @@ struct ProfileView: View {
                                 if !analyticsLockEnabled {
                                     lockSettingTarget = "analytics"
                                     newPin = ""
-                                    showSetPinAlert = true
+                                    showModePicker = true
                                 } else {
                                     lockSettingTarget = "analytics"
                                     passwordInput = ""
@@ -221,13 +230,13 @@ struct ProfileView: View {
                             }) {
                                 HStack(spacing: 0) {
                                     Text("关")
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.system(size: 13, weight: .medium))
                                         .foregroundColor(analyticsLockEnabled ? AppTheme.textTertiary : .white)
                                         .frame(width: 28, height: 24)
                                         .background(analyticsLockEnabled ? Color.clear : AppTheme.brandStart)
                                         .cornerRadius(12)
                                     Text("开")
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.system(size: 13, weight: .medium))
                                         .foregroundColor(analyticsLockEnabled ? .white : AppTheme.textTertiary)
                                         .frame(width: 28, height: 24)
                                         .background(analyticsLockEnabled ? AppTheme.brandStart : Color.clear)
@@ -359,34 +368,15 @@ struct ProfileView: View {
                 Button("确认") {
                     guard newPin.count == 4 else { return }
                     if lockSettingTarget == "ledger" {
-                        PageLockManager.setLedgerLock(enabled: true, pin: newPin)
+                        PageLockManager.setLedgerLock(enabled: true, pin: newPin, mode: "pin")
                         ledgerLockEnabled = true
                     } else {
-                        PageLockManager.setAnalyticsLock(enabled: true, pin: newPin)
+                        PageLockManager.setAnalyticsLock(enabled: true, pin: newPin, mode: "pin")
                         analyticsLockEnabled = true
                     }
                 }
             } message: {
                 Text("请设置4位数字密码")
-            }
-            .alert("关闭页面锁", isPresented: $showClearPinAlert) {
-                SecureField("输入当前页面锁密码", text: $clearPinInput)
-                    .keyboardType(.numberPad)
-                Button("取消", role: .cancel) { }
-                Button("确认") {
-                    let pinOk = lockSettingTarget == "ledger" ? PageLockManager.verifyLedgerPin(clearPinInput) : PageLockManager.verifyAnalyticsPin(clearPinInput)
-                    if pinOk {
-                        if lockSettingTarget == "ledger" {
-                            PageLockManager.setLedgerLock(enabled: false)
-                            ledgerLockEnabled = false
-                        } else {
-                            PageLockManager.setAnalyticsLock(enabled: false)
-                            analyticsLockEnabled = false
-                        }
-                    }
-                }
-            } message: {
-                Text("关闭页面锁需要输入当前页面锁的4位数字密码")
             }
             .alert("验证账户密码", isPresented: $showPasswordVerifyAlert) {
                 SecureField("输入APP登录密码", text: $passwordInput)
@@ -396,8 +386,14 @@ struct ProfileView: View {
                         guard let email = supabaseService.currentUser?.email else { return }
                         do {
                             try await supabaseService.client.auth.signIn(email: email, password: passwordInput)
-                            await MainActor.run {
-                                if lockSettingTarget == "clear_all" {
+                           await MainActor.run {
+                                if lockSettingTarget == "ledger" {
+                                    PageLockManager.setLedgerLock(enabled: false)
+                                    ledgerLockEnabled = false
+                                } else if lockSettingTarget == "analytics" {
+                                    PageLockManager.setAnalyticsLock(enabled: false)
+                                    analyticsLockEnabled = false
+                                } else if lockSettingTarget == "clear_all" {
                                     PageLockManager.clearAllLocks()
                                     ledgerLockEnabled = false
                                     analyticsLockEnabled = false
@@ -410,6 +406,36 @@ struct ProfileView: View {
                 }
             } message: {
                 Text("关闭页面锁需要验证账户密码")
+            }
+            .confirmationDialog("选择解锁方式", isPresented: $showModePicker, titleVisibility: .visible) {
+                Button("4位数字密码") { showSetPinAlert = true }
+                Button("连线图案") { showPatternSetup = true }
+                Button("取消", role: .cancel) { }
+            }
+            .sheet(isPresented: $showPatternSetup) {
+                PatternLockView(
+                    mode: patternSetupMode,
+                    onComplete: { result in
+                        if result.hasPrefix("set_first:") {
+                            let pattern = String(result.dropFirst(10))
+                            patternSetupMode = .set(first: pattern)
+                        } else if result.hasPrefix("set_confirm:") {
+                            let pattern = String(result.dropFirst(13))
+                            showPatternSetup = false
+                            if lockSettingTarget == "ledger" {
+                                PageLockManager.setLedgerLock(enabled: true, pin: pattern, mode: "pattern")
+                                ledgerLockEnabled = true
+                            } else {
+                                PageLockManager.setAnalyticsLock(enabled: true, pin: pattern, mode: "pattern")
+                                analyticsLockEnabled = true
+                            }
+                        }
+                    },
+                    onCancel: {
+                        showPatternSetup = false
+                        patternSetupMode = .set(first: nil)
+                    }
+                )
             }
         }
     }

@@ -32,10 +32,23 @@ struct ExpenseListView: View {
     @State private var exportURL: URL?
     
     var categories: [String] {
+        // 从数据库中提取有数据的类别，支出在上、收入在下
+        let allExpenseCats = Set(supabaseService.allRecords.filter(\.isExpense).map(\.category))
+        let allIncomeCats = Set(supabaseService.allRecords.filter(\.isIncome).map(\.category))
+        let matchedExpense = CategoryManager.expenseCats.filter { allExpenseCats.contains($0) }
+        let matchedIncome = CategoryManager.incomeCats.filter { allIncomeCats.contains($0) }
+        let hasData = !allExpenseCats.isEmpty || !allIncomeCats.isEmpty
+        
         switch supabaseService.sharedSearchType {
-        case "支出": return ["全部", "餐饮", "交通", "购物", "娱乐", "住房", "日用", "服饰", "通讯", "医疗", "教育", "其他"]
-        case "收入": return ["全部", "工资", "奖金", "兼职", "投资收益", "理财", "礼金", "退款", "其他"]
-        default: return ["全部", "餐饮", "交通", "购物", "娱乐", "住房", "日用", "服饰", "通讯", "医疗", "教育", "其他支出", "工资", "奖金", "兼职", "投资收益", "理财", "礼金", "退款", "其他收入"]
+        case "支出":
+            if hasData { return ["全部"] + matchedExpense }
+            return ["全部"] + CategoryManager.expenseCats
+        case "收入":
+            if hasData { return ["全部"] + matchedIncome }
+            return ["全部"] + CategoryManager.incomeCats
+        default:
+            if hasData { return ["全部"] + matchedExpense + matchedIncome }
+            return ["全部"] + CategoryManager.expenseCats + CategoryManager.incomeCats
         }
     }
     var monthOptions: [String] { ["全部"] + (1...12).map { String(format: "%02d月", $0) } }
@@ -153,7 +166,7 @@ struct ExpenseListView: View {
                                isExporting = false
                            }
                        }
-                       Task { await UserLogManager.log(action: "导出", detail: "导出了 \(exportCount) 条记录的CSV", supabaseService: supabaseService) }
+                       Task { await UserLogManager.log(action: "导出", detail: "导出(\(exportCount))", supabaseService: supabaseService) }
                        isExporting = true
                     }) {
                         Label(isExporting ? "生成中..." : "导出当前账本", systemImage: "square.and.arrow.up")
@@ -175,7 +188,7 @@ struct ExpenseListView: View {
                     if let expense = pendingDeleteExpense {
                         Task {
                             try? await supabaseService.deleteExpense(expense)
-                            await UserLogManager.log(action: "删除", detail: "删除了一笔" + (expense.merchant.isEmpty ? "" : "「\(expense.merchant)」") + "记录", supabaseService: supabaseService)
+                            await UserLogManager.log(action: "删除", detail: "删除(1)", supabaseService: supabaseService)
                         }
                     }
                     pendingDeleteExpense = nil
@@ -186,7 +199,7 @@ struct ExpenseListView: View {
         .sheet(isPresented: $showYearPicker) { YearWheelPicker(selection: $supabaseService.sharedSearchYear, options: yearOptions).presentationDetents([.height(230)]) }
         .sheet(isPresented: $showMonthPicker) { MonthWheelPicker(selection: $supabaseService.sharedSearchMonth, options: monthOptions).presentationDetents([.height(270)]) }
         .sheet(isPresented: $showCategoryPicker) { CategoryWheelPicker(selection: $supabaseService.sharedSearchCategory, options: categories).presentationDetents([.height(230)]) }
-   .sheet(isPresented: $showBatchNoteSheet) { BatchOperationSheet(selectedCount: allSelected.count, batchNoteText: $batchNoteText, batchNoteMode: $batchNoteMode, onNoteConfirm: { let count = allSelected.count; Task { try? await supabaseService.batchUpdateNote(expenses: allSelected, note: batchNoteText, mode: batchNoteMode); await UserLogManager.log(action: "批量修改", detail: "修改了 \(count) 条记录的备注", supabaseService: supabaseService); selectedExpenseIds = [] } }, onDeleteConfirm: { let count = selectedExpenseIds.count; Task { try? await supabaseService.batchDeleteExpenses(ids: Array(selectedExpenseIds)); await UserLogManager.log(action: "批量删除", detail: "删除了 \(count) 条记录", supabaseService: supabaseService); selectedExpenseIds = [] } }, onDateConfirm: { date in let count = allSelected.count; Task { try? await supabaseService.batchUpdateTime(expenses: allSelected, date: date); await UserLogManager.log(action: "批量修改", detail: "修改了 \(count) 条记录的时间", supabaseService: supabaseService); selectedExpenseIds = [] } }, onCategoryConfirm: { cat in let count = allSelected.count; Task { try? await supabaseService.batchUpdateCategory(expenses: allSelected, category: cat); await UserLogManager.log(action: "批量修改", detail: "修改了 \(count) 条记录的类别", supabaseService: supabaseService); selectedExpenseIds = [] } }, onCancel: { showBatchNoteSheet = false }) }
+   .sheet(isPresented: $showBatchNoteSheet) { BatchOperationSheet(selectedCount: allSelected.count, batchNoteText: $batchNoteText, batchNoteMode: $batchNoteMode, onNoteConfirm: { let count = allSelected.count; Task { try? await supabaseService.batchUpdateNote(expenses: allSelected, note: batchNoteText, mode: batchNoteMode); await UserLogManager.log(action: "批量修改", detail: "批量修改备注(\(count))", supabaseService: supabaseService); selectedExpenseIds = [] } }, onDeleteConfirm: { let count = selectedExpenseIds.count; Task { try? await supabaseService.batchDeleteExpenses(ids: Array(selectedExpenseIds)); await UserLogManager.log(action: "批量删除", detail: "批量删除(\(count))", supabaseService: supabaseService); selectedExpenseIds = [] } }, onDateConfirm: { date in let count = allSelected.count; Task { try? await supabaseService.batchUpdateTime(expenses: allSelected, date: date); await UserLogManager.log(action: "批量修改", detail: "批量修改时间(\(count))", supabaseService: supabaseService); selectedExpenseIds = [] } }, onCategoryConfirm: { cat in let count = allSelected.count; Task { try? await supabaseService.batchUpdateCategory(expenses: allSelected, category: cat); await UserLogManager.log(action: "批量修改", detail: "批量修改类别(\(count))", supabaseService: supabaseService); selectedExpenseIds = [] } }, onCancel: { showBatchNoteSheet = false }) }
     .sheet(isPresented: $showShareSheet) {
         if let url = exportURL {
             ShareSheet(items: [url])

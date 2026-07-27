@@ -21,9 +21,7 @@ struct EditRowOverlay: View {
     @State private var editNote: String = ""
     @State private var showCategoryPicker = false
 
-    private let expenseCategories = ["餐饮", "交通", "购物", "娱乐", "住房", "日用", "服饰", "通讯", "医疗", "教育", "其他"]
-    private let incomeCategories = ["工资", "奖金", "兼职", "投资收益", "理财", "礼金", "退款", "其他"]
-    private var categories: [String] { editType == .expense ? expenseCategories : incomeCategories }
+    private var categories: [String] { CategoryManager.cats(for: editType) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -109,7 +107,7 @@ struct EditRowOverlay: View {
                             .font(.system(size: 17, weight: .medium))
                             .foregroundColor(AppTheme.textSecondary)
                         HStack(spacing: 6) {
-                            Text("¥").font(.system(size: 17, weight: .medium)).foregroundColor(AppTheme.textTertiary)
+                            Text(CategoryManager.currencySymbol).font(.system(size: 17, weight: .medium)).foregroundColor(AppTheme.textTertiary)
                             AmountTextField(amount: $editAmount, font: .systemFont(ofSize: 17), textColor: editType == .income ? UIColor.systemGreen : UIColor(AppTheme.textSecondary))
                         }
                         .padding(.horizontal, 12).padding(.vertical, 9)
@@ -173,7 +171,7 @@ struct EditRowOverlay: View {
             editNote = fields.note
         }
         .sheet(isPresented: $showCategoryPicker) {
-            let cats = editType == .expense ? expenseCategories : incomeCategories
+            let cats = CategoryManager.cats(for: editType)
             CategoryWheelPicker(selection: $editCategory, options: cats)
                 .presentationDetents([.height(260)])
         }
@@ -182,7 +180,7 @@ struct EditRowOverlay: View {
     private func switchType(to newType: RecordType) {
         categoryByType[editType] = editCategory
         editType = newType
-        editCategory = categoryByType[newType] ?? (newType == .income ? "工资" : "餐饮")
+        editCategory = categoryByType[newType] ?? CategoryManager.defaultCat(for: newType)
     }
 
     private func saveEdit() {

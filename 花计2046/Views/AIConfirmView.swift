@@ -49,12 +49,12 @@ struct AIConfirmView: View {
                             .foregroundColor(AppTheme.textPrimary)
                         HStack(spacing: 12) {
                             if totalIncomeAmount > 0 {
-                                Text("收入 ¥\(String(format: "%.2f", totalIncomeAmount))")
+                                Text("收入 \(CategoryManager.currencySymbol)\(String(format: "%.2f", totalIncomeAmount))")
                                 .font(.appBodyMedium)
                                    .foregroundColor(.green)
                             }
                             if totalExpenseAmount > 0 {
-                                Text("支出 ¥\(String(format: "%.2f", totalExpenseAmount))")
+                                Text("支出 \(CategoryManager.currencySymbol)\(String(format: "%.2f", totalExpenseAmount))")
                     .font(.appBodyMedium)
                                    .foregroundColor(AppTheme.textSecondary)
                             }
@@ -129,7 +129,7 @@ struct AIConfirmView: View {
                             }
                             for i in parsedItems.indices where !deletedIndices.contains(i) {
                                 parsedItems[i].type = .income
-                                let incCats = ["工资","奖金","兼职","投资收益","理财","礼金","退款","其他"]
+                                let incCats = CategoryManager.incomeCats
                                 let saved = typeHistory[parsedItems[i].id]?[.income]
                                 if let s = saved, incCats.contains(s) { parsedItems[i].category = s }
                                 else if !incCats.contains(parsedItems[i].category) { parsedItems[i].category = "工资" }
@@ -153,7 +153,7 @@ struct AIConfirmView: View {
                             }
                             for i in parsedItems.indices where !deletedIndices.contains(i) {
                                 parsedItems[i].type = .expense
-                                let expCats = ["餐饮","交通","购物","娱乐","住房","日用","服饰","通讯","医疗","教育","其他"]
+                                let expCats = CategoryManager.expenseCats
                                 let saved = typeHistory[parsedItems[i].id]?[.expense]
                                 if let s = saved, expCats.contains(s) { parsedItems[i].category = s }
                                 else if !expCats.contains(parsedItems[i].category) { parsedItems[i].category = "餐饮" }
@@ -325,7 +325,7 @@ struct AIConfirmView: View {
                 isSaving = false
                 if failedItems.isEmpty {
                     Log.info("全部保存成功: \(savedCount) 笔")
-                    Task { await UserLogManager.log(action: "进账", detail: "成功进账 \(savedCount) 笔", supabaseService: supabaseService) }
+                    Task { await UserLogManager.log(action: "进账", detail: "进账(\(savedCount))", supabaseService: supabaseService) }
                     onSuccess?()
                 } else if savedCount > 0 {
                     // 部分成功：移除已保存的，保留失败的
@@ -519,7 +519,7 @@ struct AmountTextField: UIViewRepresentable {
         // 颜色不受编辑状态影响，随时更新
         if tf.textColor != textColor { tf.textColor = textColor }
        guard !tf.isFirstResponder else { return }
-      let cur = Double(tf.text?.replacingOccurrences(of: "¥", with: "") ?? "") ?? 0
+      let cur = Double(tf.text?.replacingOccurrences(of: CategoryManager.currencySymbol, with: "") ?? "") ?? 0
         if abs(cur - amount) > 0.001 {
             tf.text = amount == 0 ? "" : String(format: "%.2f", amount)
         }

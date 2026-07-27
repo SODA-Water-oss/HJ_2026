@@ -12,7 +12,7 @@ struct BatchOperationSheet: View {
     var onDateConfirm: (Date) -> Void
     var onCategoryConfirm: (String) -> Void
     var onCancel: () -> Void
-    var batchCategories: [String] = ["餐饮", "交通", "购物", "娱乐", "住房", "日用", "服饰", "通讯", "医疗", "教育", "其他"]
+    var batchCategories: [String] { CategoryManager.expenseCats }
 
     @State private var showNoteSheet = false
     @State private var showDeleteAlert = false

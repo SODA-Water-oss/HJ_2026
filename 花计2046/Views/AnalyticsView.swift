@@ -8,10 +8,22 @@ struct AnalyticsView: View {
     @State private var showSearch = false
 
     var categories: [String] {
+        let allExpenseCats = Set(supabaseService.allRecords.filter(\.isExpense).map(\.category))
+        let allIncomeCats = Set(supabaseService.allRecords.filter(\.isIncome).map(\.category))
+        let matchedExpense = CategoryManager.expenseCats.filter { allExpenseCats.contains($0) }
+        let matchedIncome = CategoryManager.incomeCats.filter { allIncomeCats.contains($0) }
+        let hasData = !allExpenseCats.isEmpty || !allIncomeCats.isEmpty
+        
         switch supabaseService.sharedSearchType {
-        case "支出": return ["全部", "餐饮", "交通", "购物", "娱乐", "住房", "日用", "服饰", "通讯", "医疗", "教育", "其他"]
-        case "收入": return ["全部", "工资", "奖金", "兼职", "投资收益", "理财", "礼金", "退款", "其他"]
-        default: return ["全部", "餐饮", "交通", "购物", "娱乐", "住房", "日用", "服饰", "通讯", "医疗", "教育", "其他支出", "工资", "奖金", "兼职", "投资收益", "理财", "礼金", "退款", "其他收入"]
+        case "支出":
+            if hasData { return ["全部"] + matchedExpense }
+            return ["全部"] + CategoryManager.expenseCats
+        case "收入":
+            if hasData { return ["全部"] + matchedIncome }
+            return ["全部"] + CategoryManager.incomeCats
+        default:
+            if hasData { return ["全部"] + matchedExpense + matchedIncome }
+            return ["全部"] + CategoryManager.expenseCats + CategoryManager.incomeCats
         }
     }
     var monthOptions: [String] { ["全部"] + (1...12).map { String(format: "%02d月", $0) } }
@@ -271,20 +283,20 @@ extension AnalyticsView {
                 HStack {
                     Text("收入").font(.appBody).foregroundColor(.green)
                     Spacer()
-                    Text(String(format: "+¥%.2f", incomeTotal))
+                    Text(String(format: "+" + CategoryManager.currencySymbol + "%.2f", incomeTotal))
                         .font(.appBodyMedium).foregroundColor(.green)
                 }
                 HStack {
                     Text("支出").font(.appBody).foregroundColor(AppTheme.brandStart)
                     Spacer()
-                    Text(String(format: "-¥%.2f", expenseTotal))
+                    Text(String(format: "-" + CategoryManager.currencySymbol + "%.2f", expenseTotal))
                         .font(.appBodyMedium).foregroundColor(AppTheme.textSecondary)
                 }
                 AppDivider()
                 HStack {
                     Text("净收入").font(.appBodyMedium).foregroundColor(AppTheme.textPrimary)
                     Spacer()
-                    Text(String(format: "%@¥%.2f", netTotal >= 0 ? "+" : "", netTotal))
+                    Text(String(format: "%@" + CategoryManager.currencySymbol + "%.2f", netTotal >= 0 ? "+" : "", netTotal))
                         .font(.appBodyMedium).foregroundColor(netTotal >= 0 ? .green : AppTheme.brandStart)
                 }
             }
@@ -477,7 +489,7 @@ extension AnalyticsView {
                                         .frame(width: max(6, CGFloat(trend.expense / maxVal) * 100), height: 10)
                                 }
                                 Spacer()
-                                Text("+\(String(format: "¥%.0f", trend.income))  \(String(format: "¥%.0f", trend.expense))")
+                                Text("+\(String(format: CategoryManager.currencySymbol + "%.0f", trend.income))  \(String(format: CategoryManager.currencySymbol + "%.0f", trend.expense))")
                                     .font(.system(size: 15))
                                     .foregroundColor(AppTheme.textTertiary)
                             }
@@ -625,7 +637,7 @@ struct CategoryDetailView: View {
                     .font(.appBodyMedium)
                     .foregroundColor(AppTheme.textPrimary)
                 Spacer()
-                Text(String(format: "¥%.2f", analytics.amount))
+                Text(String(format: CategoryManager.currencySymbol + "%.2f", analytics.amount))
                     .font(.appBodyMedium)
                     .foregroundColor(AppTheme.textPrimary)
                 Text("\(analytics.count)笔")
