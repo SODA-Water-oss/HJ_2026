@@ -142,6 +142,7 @@ struct ProfileView: View {
     @State private var passwordInput = ""
     @State private var showUnlockMethodSheet = false
     @State private var showPatternSetup = false
+    @State private var showPasswordText = false
     
     var body: some View {
         NavigationView {
@@ -150,7 +151,7 @@ struct ProfileView: View {
                     Color.clear.frame(height: 4)
                     VStack(spacing: 12) {
                         Image(systemName: "person.circle.fill")
-                            .font(.system(size: 60))
+                            .font(.system(size: 40))
                             .foregroundColor(AppTheme.brandStart)
                         
                         Text(supabaseService.currentUser?.email ?? "未知用户")
@@ -164,7 +165,7 @@ struct ProfileView: View {
                                 .foregroundColor(AppTheme.textSecondary)
                         }
                     }
-                    .padding(.vertical, 32)
+                    .padding(.vertical, 16)
                     .frame(maxWidth: .infinity)
                     .background(Color.white)
                     .cornerRadius(16)
@@ -285,6 +286,26 @@ struct ProfileView: View {
                         
                         Divider().padding(.horizontal, 16)
                         
+                        
+                        // 使用帮助
+                        NavigationLink(destination: HelpView()) {
+                            HStack {
+                                Image(systemName: "questionmark.circle")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(AppTheme.brandStart)
+                                    .frame(width: 32)
+                                Text("使用帮助")
+                                    .font(.appBody)
+                                    .foregroundColor(AppTheme.textPrimary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AppTheme.textTertiary)
+                            }
+                            .padding(16)
+                        }
+                        
+                        Divider().padding(.horizontal, 16)
                         // 操作日志
                         NavigationLink(destination: UserLogView().environmentObject(supabaseService)) {
                             HStack {
@@ -448,11 +469,32 @@ extension ProfileView {
                         .font(.appBody)
                         .foregroundColor(AppTheme.textSecondary)
                         .padding(.bottom, 20)
-                    
-                    SecureField("输入APP登录密码", text: $passwordInput)
-                        .font(.appBody)
-                        .foregroundColor(AppTheme.textPrimary)
-                        .textContentType(.password)
+                    HStack(spacing: 10) {
+                        if showPasswordText {
+                            TextField("输入APP登录密码", text: $passwordInput)
+                                .font(.appBody)
+                                .foregroundColor(AppTheme.textPrimary)
+                                .autocapitalization(.none)
+                                .disableAutocorrection(true)
+                        } else {
+                            SecureField("输入APP登录密码", text: $passwordInput)
+                                .font(.appBody)
+                                .foregroundColor(AppTheme.textPrimary)
+                                .textContentType(.password)
+                        }
+                        Button(action: { showPasswordText.toggle() }) {
+                            Image(systemName: showPasswordText ? "eye.fill" : "eye.slash.fill")
+                                .font(.system(size: 18))
+                                .foregroundColor(AppTheme.textTertiary)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(AppTheme.background)
+                    .cornerRadius(10)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 20)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                         .background(AppTheme.background)

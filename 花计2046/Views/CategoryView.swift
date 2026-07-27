@@ -9,6 +9,7 @@ struct CategoryView: View {
     @AppStorage("default_income_cat") private var defaultIncomeCat: String = "工资"
     
     @State private var newExpenseName = ""
+    @EnvironmentObject var supabaseService: SupabaseService
     @State private var selectedTab = 0
     @State private var newIncomeName = ""
     
@@ -77,6 +78,9 @@ struct CategoryView: View {
                     }
                 }
             }
+        .onDisappear {
+            UserSettingsSync.syncToCloud(supabaseService: supabaseService)
+        }
         }
     }
     
@@ -105,7 +109,7 @@ struct CategoryView: View {
                                     let remaining = enabledExpense.isEmpty ? CategoryManager.defaultExpenseCats.filter { $0 != cat } : enabledExpense
                                     defaultExpenseCat = remaining.first ?? "其他"
                                 }
-                            }, onSetDefault: { defaultExpenseCat = cat })
+                            }, onSetDefault: { if enabledExpense.contains(cat) { defaultExpenseCat = cat } })
             }
             
             if !customExpense.isEmpty {
@@ -174,7 +178,7 @@ struct CategoryView: View {
                                     let remaining = enabledIncome.isEmpty ? CategoryManager.defaultIncomeCats.filter { $0 != cat } : enabledIncome
                                     defaultIncomeCat = remaining.first ?? "其他"
                                 }
-                            }, onSetDefault: { defaultIncomeCat = cat })
+                            }, onSetDefault: { if enabledIncome.contains(cat) { defaultIncomeCat = cat } })
             }
             
             if !customIncome.isEmpty {
@@ -224,7 +228,7 @@ struct CategoryView: View {
             Text("• 勾选的类别将出现在手动记账、解析内容、批量修改、编辑记录中").font(.appSmall).foregroundColor(AppTheme.textSecondary)
             Text("• 已录入的历史数据不受影响").font(.appSmall).foregroundColor(AppTheme.textSecondary)
             Text("• 自定义类别上限各10个").font(.appSmall).foregroundColor(AppTheme.textSecondary)
-            Text("• 勾选启用类别，长按某类别可将其设为默认").font(.appSmall).foregroundColor(AppTheme.textSecondary)
+            Text("• 勾选启用类别，勾选后可长按设为默认").font(.appSmall).foregroundColor(AppTheme.textSecondary)
             Text("类别设置需至少保留一个选项").font(.appSmall).foregroundColor(AppTheme.textTertiary.opacity(0.6))
         }
         .padding(16)

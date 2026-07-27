@@ -460,7 +460,7 @@ struct AddExpenseView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     ScrollViewReader { proxy in
                         HStack(spacing: 0) {
-                            Text(voicePreviewText)
+                            Text(voicePreviewText.replacingOccurrences(of: "¥", with: "").replacingOccurrences(of: "￥", with: "").replacingOccurrences(of: "$", with: "").replacingOccurrences(of: "€", with: "").replacingOccurrences(of: "£", with: ""))
                                 .font(.system(size: 17))
                                 .foregroundColor(AppTheme.textPrimary)
                             BlinkingCursor()
@@ -784,7 +784,7 @@ struct AddExpenseView: View {
     func stopRecording() {
         guard audioRecorder.isRecording else { return }
 
-        let rawText = audioRecorder.transcribedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rawText = audioRecorder.transcribedText.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "¥", with: "").replacingOccurrences(of: "￥", with: "").replacingOccurrences(of: "$", with: "").replacingOccurrences(of: "€", with: "").replacingOccurrences(of: "£", with: "")
         let elapsed = voicePressStartTime.map { Date().timeIntervalSince($0) } ?? 0
 
         audioRecorder.stopRecording()

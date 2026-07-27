@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ExpenseDetailView: View {
+    @AppStorage("currency_symbol") private var currencySymbol = "¥"
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var supabaseService: SupabaseService
     let expense: Expense

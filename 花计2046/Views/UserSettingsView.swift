@@ -19,13 +19,13 @@ struct UserSettingsView: View {
                     Color.clear.frame(height: 4)
                     
                     // MARK: - 分类设置
-                    NavigationLink(destination: CategoryView()) {
+                    NavigationLink(destination: CategoryView().environmentObject(supabaseService)) {
                         HStack {
                             Image(systemName: "tag")
                                 .font(.system(size: 17))
                                 .foregroundColor(AppTheme.brandStart)
                                 .frame(width: 24)
-                            Text("分类设置")
+                            Text("收支类别")
                                 .font(.appBody)
                                 .foregroundColor(AppTheme.textPrimary)
                             Spacer()
@@ -68,7 +68,7 @@ struct UserSettingsView: View {
                                         .foregroundColor(AppTheme.textTertiary)
                                 }
                                 .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
+                                .padding(.vertical, 4)
                                 .background(AppTheme.background)
                                 .cornerRadius(8)
                             }
@@ -90,29 +90,6 @@ struct UserSettingsView: View {
                         Button("取消", role: .cancel) { }
                     }
                     
-                    // MARK: - 使用帮助
-                    VStack(spacing: 0) {
-                        NavigationLink(destination: HelpView()) {
-                            HStack {
-                                Image(systemName: "questionmark.circle")
-                                    .font(.system(size: 17))
-                                    .foregroundColor(AppTheme.brandStart)
-                                    .frame(width: 24)
-                                Text("使用帮助")
-                                    .font(.appBody)
-                                    .foregroundColor(AppTheme.textPrimary)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(AppTheme.textTertiary)
-                            }
-                            .padding(16)
-                        }
-                    }
-                    .background(Color.white)
-                    .cornerRadius(12)
-                    .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
-                    .padding(.horizontal, 16)
                     
                     // MARK: - 退出登录
                     VStack(spacing: 0) {
@@ -250,7 +227,7 @@ struct UserSettingsView: View {
                         .padding(.bottom, 16)
                     
                     if let sc = selectedCurrency {
-                        Text("确认切换为" + sc.name + " (" + sc.symbol + ")？")
+                        Text("您确认未来收支均使用" + sc.name + "（" + sc.symbol + "）进行记账？")
                             .font(.appBody)
                             .foregroundColor(AppTheme.textSecondary)
                             .padding(.bottom, 24)
@@ -272,7 +249,7 @@ struct UserSettingsView: View {
                         
                         Button(action: {
                             withAnimation(.easeOut(duration: 0.2)) {
-                                if let sc = selectedCurrency { currencySymbol = sc.symbol }
+                                if let sc = selectedCurrency { currencySymbol = sc.symbol; Task { await UserSettingsSync.shared.save(supabaseService: supabaseService) } }
                                 currencyPickerStep = 0
                                 selectedCurrency = nil
                             }

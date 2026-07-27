@@ -199,6 +199,9 @@ class AuthManager: ObservableObject {
            email: profile.email
        )
        SupabaseService.shared.userProfile = profile
+       
+       // 从云端加载用户设置
+       Task { await UserSettingsSync.shared.load(supabaseService: SupabaseService.shared) }
        SupabaseService.shared.isAuthenticated = true
        
         // 登录时从磁盘重新加载数据，确保数据与当前用户匹配

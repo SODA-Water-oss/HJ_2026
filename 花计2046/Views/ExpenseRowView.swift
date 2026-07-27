@@ -44,13 +44,14 @@ struct PawPrintLoading: View {
 
 // MARK: - 月份汇总卡片
 struct MonthSectionCard: View {
+    @AppStorage("currency_symbol") private var currencySymbol = "¥"
     let group: MonthExpenseGroup
     var body: some View {
         HStack {
             Image(systemName: "calendar").font(.system(size: 14)).foregroundStyle(AppTheme.brandGradient)
             Text(group.monthDisplay).font(.system(size: 17, weight: .medium)).foregroundColor(AppTheme.textPrimary)
             Spacer()
-            Text(group.totalAmount > 0 ? "小计: +\(CategoryManager.currencySymbol)\(String(format: "%.2f", group.totalAmount))" : group.totalAmount < 0 ? "小计: -\(CategoryManager.currencySymbol)\(String(format: "%.2f", -group.totalAmount))" : "小计: \(CategoryManager.currencySymbol)0.00").font(.system(size: 17, weight: .medium)).foregroundStyle(AppTheme.brandGradient)
+            Text(group.totalAmount > 0 ? "小计: +\(currencySymbol)\(String(format: "%.2f", group.totalAmount))" : group.totalAmount < 0 ? "小计: -\(currencySymbol)\(String(format: "%.2f", -group.totalAmount))" : "小计: \(currencySymbol)0.00").font(.system(size: 17, weight: .medium)).foregroundStyle(AppTheme.brandGradient)
         }
         .padding(.horizontal, 20).padding(.vertical, 10)
         .background(AppTheme.brandStart.opacity(0.06))
@@ -61,6 +62,7 @@ struct MonthSectionCard: View {
 // MARK: - 记录行视图
 struct ExpenseRowView: View {
     let expense: Expense
+    @AppStorage("currency_symbol") private var currencySymbol = "¥"
     var isSelectionMode: Bool = false
     var isSelected: Bool = false
     var onToggle: (() -> Void)? = nil

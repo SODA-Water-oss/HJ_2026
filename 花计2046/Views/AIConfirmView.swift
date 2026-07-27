@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct AIConfirmView: View {
+    @AppStorage("currency_symbol") private var currencySymbol = "¥"
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var supabaseService: SupabaseService
 
@@ -49,12 +50,12 @@ struct AIConfirmView: View {
                             .foregroundColor(AppTheme.textPrimary)
                         HStack(spacing: 12) {
                             if totalIncomeAmount > 0 {
-                                Text("收入 \(CategoryManager.currencySymbol)\(String(format: "%.2f", totalIncomeAmount))")
+                                Text("收入 \(currencySymbol)\(String(format: "%.2f", totalIncomeAmount))")
                                 .font(.appBodyMedium)
                                    .foregroundColor(.green)
                             }
                             if totalExpenseAmount > 0 {
-                                Text("支出 \(CategoryManager.currencySymbol)\(String(format: "%.2f", totalExpenseAmount))")
+                                Text("支出 \(currencySymbol)\(String(format: "%.2f", totalExpenseAmount))")
                     .font(.appBodyMedium)
                                    .foregroundColor(AppTheme.textSecondary)
                             }
@@ -307,7 +308,7 @@ struct AIConfirmView: View {
             let toSave = parsedItems.enumerated().filter { !deletedIndices.contains($0.offset) }
             await withTaskGroup(of: (Int, Bool, String).self) { group in
                 for (offset, item) in toSave {
-                    let expense = Expense(id: UUID(), userId: userId, type: item.type, amount: item.amount, category: item.category, merchant: item.merchant, date: Date(), note: item.note, currency: CategoryManager.currencySymbol)
+                    let expense = Expense(id: UUID(), userId: userId, type: item.type, amount: item.amount, category: item.category, merchant: item.merchant, date: Date(), note: item.note, currency: currencySymbol)
                     group.addTask { [offset] in
                         let _nE = item.merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty; let _aB = item.amount <= 0; if _nE && _aB { return (offset, false, "未录入有效名称、金额") }; if _nE { return (offset, false, "未录入有效名称") }; if _aB { return (offset, false, "未录入有效金额") }
                         do { try await supabaseService.addExpense(expense); return (offset, true, "保存成功") }
@@ -346,6 +347,7 @@ struct AIConfirmView: View {
 
 }
 struct ExpenseEditRow: View {
+    @AppStorage("currency_symbol") private var currencySymbol = "¥"
     let item: GeminiService.ParsedExpense
     var onTap: (() -> Void)? = nil
     var onDelete: (() -> Void)? = nil
@@ -380,7 +382,7 @@ struct ExpenseEditRow: View {
                 }
             }
             Spacer()
-           Text(item.type == .income ? String(format: "+" + CategoryManager.currencySymbol + "%.2f", item.amount) : String(format: "-" + CategoryManager.currencySymbol + "%.2f", item.amount))
+           Text(item.type == .income ? String(format: "+" + currencySymbol + "%.2f", item.amount) : String(format: "-" + currencySymbol + "%.2f", item.amount))
                .font(.system(size: 17, weight: .regular))
                .foregroundColor(item.type == .expense ? AppTheme.textSecondary : .green)
             if let onDelete = onDelete {
@@ -492,6 +494,7 @@ struct KeyboardDoneTextEditor: UIViewRepresentable {
 
 struct AmountTextField: UIViewRepresentable {
     @Binding var amount: Double
+    @AppStorage("currency_symbol") private var currencySymbol = "¥"
     var font: UIFont = .systemFont(ofSize: 17)
    var textAlignment: NSTextAlignment = .left
     var textColor: UIColor = UIColor(AppTheme.textPrimary)
@@ -519,7 +522,7 @@ struct AmountTextField: UIViewRepresentable {
         // 颜色不受编辑状态影响，随时更新
         if tf.textColor != textColor { tf.textColor = textColor }
        guard !tf.isFirstResponder else { return }
-      let cur = Double(tf.text?.replacingOccurrences(of: CategoryManager.currencySymbol, with: "") ?? "") ?? 0
+      let cur = Double(tf.text?.replacingOccurrences(of: currencySymbol, with: "") ?? "") ?? 0
         if abs(cur - amount) > 0.001 {
             tf.text = amount == 0 ? "" : String(format: "%.2f", amount)
         }

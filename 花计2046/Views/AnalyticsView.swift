@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct AnalyticsView: View {
+    @AppStorage("currency_symbol") private var currencySymbol = "¥"
     @EnvironmentObject var supabaseService: SupabaseService
     @State private var showYearPicker = false
     @State private var showMonthPicker = false
@@ -283,20 +284,20 @@ extension AnalyticsView {
                 HStack {
                     Text("收入").font(.appBody).foregroundColor(.green)
                     Spacer()
-                    Text(String(format: "+" + CategoryManager.currencySymbol + "%.2f", incomeTotal))
+                    Text(String(format: "+" + currencySymbol + "%.2f", incomeTotal))
                         .font(.appBodyMedium).foregroundColor(.green)
                 }
                 HStack {
                     Text("支出").font(.appBody).foregroundColor(AppTheme.brandStart)
                     Spacer()
-                    Text(String(format: "-" + CategoryManager.currencySymbol + "%.2f", expenseTotal))
+                    Text(String(format: "-" + currencySymbol + "%.2f", expenseTotal))
                         .font(.appBodyMedium).foregroundColor(AppTheme.textSecondary)
                 }
                 AppDivider()
                 HStack {
                     Text("净收入").font(.appBodyMedium).foregroundColor(AppTheme.textPrimary)
                     Spacer()
-                    Text(String(format: "%@" + CategoryManager.currencySymbol + "%.2f", netTotal >= 0 ? "+" : "", netTotal))
+                    Text(String(format: "%@" + currencySymbol + "%.2f", netTotal >= 0 ? "+" : "", netTotal))
                         .font(.appBodyMedium).foregroundColor(netTotal >= 0 ? .green : AppTheme.brandStart)
                 }
             }
@@ -489,7 +490,7 @@ extension AnalyticsView {
                                         .frame(width: max(6, CGFloat(trend.expense / maxVal) * 100), height: 10)
                                 }
                                 Spacer()
-                                Text("+\(String(format: CategoryManager.currencySymbol + "%.0f", trend.income))  \(String(format: CategoryManager.currencySymbol + "%.0f", trend.expense))")
+                                Text("+\(String(format: currencySymbol + "%.0f", trend.income))  \(String(format: currencySymbol + "%.0f", trend.expense))")
                                     .font(.system(size: 15))
                                     .foregroundColor(AppTheme.textTertiary)
                             }
@@ -626,6 +627,7 @@ struct PieSlice: Shape {
 
 struct CategoryDetailView: View {
     let analytics: AnalyticsView.CategoryAnalytics
+    @AppStorage("currency_symbol") private var currencySymbol = "¥"
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -637,7 +639,7 @@ struct CategoryDetailView: View {
                     .font(.appBodyMedium)
                     .foregroundColor(AppTheme.textPrimary)
                 Spacer()
-                Text(String(format: CategoryManager.currencySymbol + "%.2f", analytics.amount))
+                Text(String(format: currencySymbol + "%.2f", analytics.amount))
                     .font(.appBodyMedium)
                     .foregroundColor(AppTheme.textPrimary)
                 Text("\(analytics.count)笔")

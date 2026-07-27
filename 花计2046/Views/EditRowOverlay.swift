@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct EditRowOverlay: View {
+    @AppStorage("currency_symbol") private var currencySymbol = "¥"
     struct EditableFields {
         var type: RecordType
         var merchant: String
@@ -107,7 +108,7 @@ struct EditRowOverlay: View {
                             .font(.system(size: 17, weight: .medium))
                             .foregroundColor(AppTheme.textSecondary)
                         HStack(spacing: 6) {
-                            Text(CategoryManager.currencySymbol).font(.system(size: 17, weight: .medium)).foregroundColor(AppTheme.textTertiary)
+                            Text(currencySymbol).font(.system(size: 17, weight: .medium)).foregroundColor(AppTheme.textTertiary)
                             AmountTextField(amount: $editAmount, font: .systemFont(ofSize: 17), textColor: editType == .income ? UIColor.systemGreen : UIColor(AppTheme.textSecondary))
                         }
                         .padding(.horizontal, 12).padding(.vertical, 9)

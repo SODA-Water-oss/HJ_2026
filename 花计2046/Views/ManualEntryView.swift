@@ -10,6 +10,7 @@ struct ManualEntryRow: Identifiable {
 }
 
 struct ManualEntryView: View {
+    @AppStorage("currency_symbol") private var currencySymbol = "¥"
     @EnvironmentObject var supabaseService: SupabaseService
     @Environment(\.dismiss) var dismiss
     
@@ -52,8 +53,8 @@ struct ManualEntryView: View {
                         Text("记账统计").font(.system(size: 17, weight: .bold)).foregroundColor(AppTheme.textPrimary)
                         if validCount > 0 {
                             HStack(spacing: 12) {
-                                if incomeTotal > 0 { Text("收入 \(CategoryManager.currencySymbol)\(String(format: "%.2f", incomeTotal))").font(.appBodyMedium).foregroundColor(.green) }
-                                if expenseTotal > 0 { Text("支出 \(CategoryManager.currencySymbol)\(String(format: "%.2f", expenseTotal))").font(.appBodyMedium).foregroundColor(AppTheme.brandStart) }
+                                if incomeTotal > 0 { Text("收入 \(currencySymbol)\(String(format: "%.2f", incomeTotal))").font(.appBodyMedium).foregroundColor(.green) }
+                                if expenseTotal > 0 { Text("支出 \(currencySymbol)\(String(format: "%.2f", expenseTotal))").font(.appBodyMedium).foregroundColor(AppTheme.brandStart) }
                             }
                         }
                     }
@@ -213,6 +214,7 @@ struct ManualEntryView: View {
                 }
                 ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("完成") { dismissKeyboard() }.foregroundColor(AppTheme.brandStart) }
             }
+        .interactiveDismissDisabled(isSaving)
         }
         .background(AppTheme.background)
         .onAppear { autoOpenEditor() }
@@ -402,7 +404,7 @@ struct ManualEntryView: View {
                         if nE && aB { return (row.id, false, "未录入有效名称、金额") }
                         if nE { return (row.id, false, "未录入有效名称") }
                         if aB { return (row.id, false, "未录入有效金额") }
-                        let expense = Expense(id: UUID(), userId: supabaseService.currentUser?.id ?? UUID(), type: row.type, amount: abs(Double(row.amount) ?? 0), category: row.category, merchant: row.merchant.isEmpty ? "未命名" : row.merchant, date: Date(), note: row.note.isEmpty ? nil : row.note, currency: CategoryManager.currencySymbol)
+                        let expense = Expense(id: UUID(), userId: supabaseService.currentUser?.id ?? UUID(), type: row.type, amount: abs(Double(row.amount) ?? 0), category: row.category, merchant: row.merchant.isEmpty ? "未命名" : row.merchant, date: Date(), note: row.note.isEmpty ? nil : row.note, currency: currencySymbol)
                         do { try await supabaseService.addExpense(expense); return (row.id, true, "") }
                         catch { return (row.id, false, error.localizedDescription) }
                     }
