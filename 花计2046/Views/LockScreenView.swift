@@ -13,17 +13,29 @@ struct LockScreenView: View {
     
     var body: some View {
         if mode == "pattern" {
-            PatternLockView(
-                isVerifyMode: true,
-                onComplete: { pattern in
-                    if onVerifyPattern(pattern) {
-                    } else {
-                        showError = true
-                        errorMessage = "图案错误，请重试"
+            ZStack {
+                PatternLockView(
+                    isVerifyMode: true,
+                    onComplete: { pattern in
+                        if onVerifyPattern(pattern) {
+                        } else {
+                            showError = true
+                            errorMessage = "图案错误，请重试"
+                        }
+                    },
+                    onCancel: onCancel
+                )
+                
+                if showError {
+                    VStack {
+                        Spacer()
+                        Text(errorMessage)
+                            .font(.appSmall)
+                            .foregroundColor(AppTheme.brandStart)
+                            .padding(.bottom, 80)
                     }
-                },
-                onCancel: onCancel
-            )
+                }
+            }
         } else {
             // PIN mode
             VStack(spacing: 24) {
@@ -50,12 +62,6 @@ struct LockScreenView: View {
                 }
                 .padding(.vertical, 8)
                 
-                if showError {
-                    Text(errorMessage)
-                        .font(.appSmall)
-                        .foregroundColor(AppTheme.brandStart)
-                }
-                
                 VStack(spacing: 12) {
                     ForEach(0..<3, id: \.self) { row in
                         HStack(spacing: 12) {
@@ -72,6 +78,12 @@ struct LockScreenView: View {
                 }
                 
                 Spacer()
+                
+                if showError {
+                    Text(errorMessage)
+                        .font(.appSmall)
+                        .foregroundColor(AppTheme.brandStart)
+                }
                 
                 Button("取消", action: onCancel)
                     .font(.appBody)

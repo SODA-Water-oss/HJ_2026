@@ -69,8 +69,7 @@ struct MainTabView: View {
                 selectedTab = 2
             }
         }
-        }
-        Group {
+              
             if supabaseService.isGloballyProcessing {
                 globalProcessingOverlay
             }
