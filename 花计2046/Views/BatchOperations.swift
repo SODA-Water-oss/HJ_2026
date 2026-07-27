@@ -11,6 +11,7 @@ struct BatchOperationSheet: View {
     var onDeleteConfirm: () -> Void
     var onDateConfirm: (Date) -> Void
     var onCategoryConfirm: (String) -> Void
+    var onCurrencyConfirm: (String) -> Void
     var onCancel: () -> Void
     var batchCategories: [String] { CategoryManager.expenseCats }
 
@@ -19,6 +20,7 @@ struct BatchOperationSheet: View {
     @State private var didProcess = false
     @State private var showDateSheet = false
     @State private var showCategorySheet = false
+    @State private var showCurrencySheet = false
     private var isProcessing: Bool { supabaseService.batchProgress != nil }
 
     var body: some View {
@@ -36,6 +38,7 @@ struct BatchOperationSheet: View {
                 BatchOperationRow(icon: "pencil.and.list.clipboard", title: "修改备注") { if !isProcessing { showNoteSheet = true } }
                 BatchOperationRow(icon: "calendar", title: "修改时间") { if !isProcessing { showDateSheet = true } }
                 BatchOperationRow(icon: "tag", title: "修改类别") { if !isProcessing { showCategorySheet = true } }
+                BatchOperationRow(icon: "dollarsign.circle", title: "修改货币") { if !isProcessing { showCurrencySheet = true } }
                 BatchOperationRow(icon: "trash", title: "批量删除", tint: Color(hex: "#7C3AED")) { if !isProcessing { showDeleteAlert = true } }
             }.padding(.horizontal)
             .opacity(isProcessing ? 0.5 : 1.0)
@@ -70,6 +73,9 @@ struct BatchOperationSheet: View {
         }
         .sheet(isPresented: $showCategorySheet) {
             BatchCategorySheet(selectedCount: selectedCount, categories: batchCategories, onConfirm: { cat in onCategoryConfirm(cat) }, onCancel: { showCategorySheet = false })
+        .sheet(isPresented: \$showCurrencySheet) {
+            BatchCurrencySheet(selectedCount: selectedCount, onConfirm: { sym in onCurrencyConfirm(sym) }, onCancel: { showCurrencySheet = false })
+        }
         }
         .sheet(isPresented: $showDateSheet) {
             BatchDatePickerSheet(selectedCount: selectedCount, onConfirm: { date in onDateConfirm(date) }, onCancel: { showDateSheet = false })
@@ -84,6 +90,7 @@ struct BatchOperationSheet: View {
         .onChange(of: showNoteSheet) { showing in if !showing && didProcess { onCancel(); didProcess = false } }
         .onChange(of: showDateSheet) { showing in if !showing && didProcess { onCancel(); didProcess = false } }
         .onChange(of: showCategorySheet) { showing in if !showing && didProcess { onCancel(); didProcess = false } }
+        .onChange(of: showCurrencySheet) { showing in if !showing && didProcess { onCancel(); didProcess = false } }
     }
 }
 
@@ -120,6 +127,7 @@ struct BatchNoteSheet: View {
     @Binding var batchNoteText: String
     @Binding var batchNoteMode: NoteMode
     var onConfirm: () -> Void
+    var onCurrencyConfirm: (String) -> Void
     var onCancel: () -> Void
 
     var body: some View {
@@ -217,6 +225,7 @@ struct BatchDatePickerSheet: View {
     @State private var isProcessing = false
     let selectedCount: Int
     var onConfirm: (Date) -> Void
+    var onCurrencyConfirm: (String) -> Void
     var onCancel: () -> Void
 
     @State private var selectedDate = Date()
@@ -303,6 +312,7 @@ struct BatchMonthSheet: View {
     @State private var isProcessing = false
     let selectedCount: Int
     var onConfirm: (String) -> Void
+    var onCurrencyConfirm: (String) -> Void
     var onCancel: () -> Void
 
     @State private var selectedYear: Int = Calendar.current.component(.year, from: Date())
@@ -391,6 +401,7 @@ struct BatchCategorySheet: View {
     let selectedCount: Int
     let categories: [String]
     var onConfirm: (String) -> Void
+    var onCurrencyConfirm: (String) -> Void
     var onCancel: () -> Void
 
     @State private var selectedCategory: String = "餐饮"
@@ -421,6 +432,73 @@ struct BatchCategorySheet: View {
                                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(isProcessing ? AppTheme.textTertiary.opacity(0.3) : AppTheme.brandStart.opacity(0.5), lineWidth: 1.5))
                         }.disabled(isProcessing)
                         Button(action: { isProcessing = true; onConfirm(selectedCategory) }) {
+                            Text(isProcessing ? "处理中..." : "确认修改").font(.system(size: 15, weight: .medium))
+                                .foregroundColor(.white).frame(maxWidth: .infinity).padding(.vertical, 12)
+                                .background(AppTheme.brandGradient).cornerRadius(8)
+                                .shadow(color: AppTheme.brandShadow, radius: 6, x: 0, y: 3)
+                        }.disabled(isProcessing)
+                    }.padding(.horizontal)
+                     .task(id: supabaseService.batchProgress?.0) {
+                         if supabaseService.batchProgress == nil && isProcessing { dismiss() }
+                     }
+                }
+                .opacity(isProcessing ? 0.4 : 1.0)
+                .disabled(isProcessing)
+                if isProcessing {
+                    VStack(spacing: 12) {
+                        if let bp = supabaseService.batchProgress, bp.1 > 0 {
+                            PawPrintProgress(current: bp.0, total: bp.1)
+                        }
+                    }
+                    .padding(24)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(16)
+                }
+            }
+            .navigationBarHidden(true)
+        }
+    }
+}
+
+// MARK: - 批量修改货币 Sheet
+struct BatchCurrencySheet: View {
+    @EnvironmentObject var supabaseService: SupabaseService
+    @Environment(\.dismiss) var dismiss
+    @State private var isProcessing = false
+    let selectedCount: Int
+    var onConfirm: (String) -> Void
+    var onCancel: () -> Void
+
+    private let currencyOptions: [(name: String, symbol: String)] = [("人民币", "¥"), ("美元", "$"), ("欧元", "€"), ("英镑", "£")]
+    @State private var selectedSymbol = "¥"
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                VStack(spacing: 20) {
+                    Text("修改货币").font(.title2.weight(.semibold)).padding(.top, 32)
+                    Text("已选 \(selectedCount) 条记录")
+                        .font(.subheadline).foregroundColor(AppTheme.brandStart)
+                        .padding(.horizontal, 16).padding(.vertical, 8)
+                        .background(AppTheme.brandStart.opacity(0.08))
+                        .cornerRadius(8)
+                    Spacer()
+                    Picker("货币", selection: \$selectedSymbol) {
+                        ForEach(currencyOptions, id: \.symbol) { option in
+                            Text(option.name + " (" + option.symbol + ")")
+                                .font(.system(size: 21, weight: .medium)).tag(option.symbol)
+                        }
+                    }.pickerStyle(.wheel).frame(height: 520)
+                    Spacer()
+                    HStack(spacing: 16) {
+                        Button(action: { if !isProcessing { onCancel() } }) {
+                            Text("取消修改").font(.system(size: 15, weight: .medium))
+                                .foregroundColor(isProcessing ? AppTheme.textTertiary : AppTheme.brandStart)
+                                .frame(maxWidth: .infinity).padding(.vertical, 12)
+                                .background(Color.clear).cornerRadius(8)
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(isProcessing ? AppTheme.textTertiary.opacity(0.3) : AppTheme.brandStart.opacity(0.5), lineWidth: 1.5))
+                        }.disabled(isProcessing)
+                        Button(action: { isProcessing = true; onConfirm(selectedSymbol) }) {
                             Text(isProcessing ? "处理中..." : "确认修改").font(.system(size: 15, weight: .medium))
                                 .foregroundColor(.white).frame(maxWidth: .infinity).padding(.vertical, 12)
                                 .background(AppTheme.brandGradient).cornerRadius(8)

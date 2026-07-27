@@ -65,7 +65,7 @@ struct MonthSectionCard: View {
     var body: some View {
         HStack(alignment: .center) {
             HStack(spacing: 4) {
-                Image(systemName: "chart.bar.fill")
+                Image(systemName: "chart.bar.doc.horizontal.fill")
                     .font(.system(size: titleSize * 0.85 as! CGFloat))
                     .foregroundStyle(AppTheme.brandGradient)
                 Text(shortDate)

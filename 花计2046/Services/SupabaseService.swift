@@ -471,6 +471,29 @@ class SupabaseService: ObservableObject {
         }
     }
 
+    func batchUpdateCurrency(expenses: [Expense], currencySymbol: String) async throws {
+        let total = expenses.count; var completed = 0; batchProgress = (0, total)
+        defer { batchProgress = nil }
+        let chunks = stride(from: 0, to: total, by: 8).map { Array(expenses[$0..<min($0 + 8, total)]) }
+        for chunk in chunks {
+            await withTaskGroup(of: Void.self) { group in
+                for expense in chunk {
+                    group.addTask {
+                        var updated = expense
+                        updated.currency = currencySymbol
+                        do { try await self.updateExpense(updated) }
+                        catch { Log.warn("批量改货币单条失败: \(error.localizedDescription)") }
+                    }
+                }
+                for await _ in group { completed += 1; batchProgress = (completed, total) }
+            }
+        }
+        let cIds = Set(expenses.map { $0.id })
+        for i in self.expenses.indices {
+            guard cIds.contains(self.expenses[i].id) else { continue }
+            self.expenses[i].currency = currencySymbol
+        }
+    }
 }
 
 enum NoteMode { case append, replace }
