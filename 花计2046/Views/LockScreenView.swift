@@ -57,7 +57,7 @@ struct LockScreenView: View {
                 if showError {
                     Text(errorMessage)
                         .font(.appSmall)
-                        .foregroundColor(.red)
+                        .foregroundColor(Color(hex: "#7C3AED"))
                 }
                 
                 VStack(spacing: 12) {

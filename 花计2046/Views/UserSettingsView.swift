@@ -48,15 +48,32 @@ struct UserSettingsView: View {
                             Text("货币符号")
                                 .font(.appBody)
                                 .foregroundColor(AppTheme.textPrimary)
-                            Spacer()
-                            Picker("", selection: $currencySymbol) {
+                           Spacer()
+                            Menu {
                                 ForEach(currencyOptions, id: \.self) { sym in
-                                    Text(sym).tag(sym).font(.system(size: 20))
+                                    Button(action: { currencySymbol = sym }) {
+                                        HStack {
+                                            Text(sym).font(.system(size: 20))
+                                            if currencySymbol == sym {
+                                                Image(systemName: "checkmark")
+                                            }
+                                        }
+                                    }
                                 }
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Text(currencySymbol)
+                                        .font(.system(size: 22, weight: .medium))
+                                        .foregroundColor(AppTheme.brandStart)
+                                    Image(systemName: "chevron.up.chevron.down")
+                                        .font(.system(size: 10))
+                                        .foregroundColor(AppTheme.textTertiary)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(AppTheme.background)
+                                .cornerRadius(8)
                             }
-                            .pickerStyle(.wheel)
-                            .frame(width: 100, height: 80)
-                            .clipped()
                         }
                         .padding(16)
                     }

@@ -23,11 +23,28 @@ struct CategoryView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                Picker("", selection: $selectedTab) {
-                    Text("支出").tag(0)
-                    Text("收入").tag(1)
+                HStack(spacing: 0) {
+                    Button(action: { selectedTab = 0 }) {
+                        Text("支出")
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundColor(selectedTab == 0 ? .white : AppTheme.brandStart)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(selectedTab == 0 ? AppTheme.brandStart : Color.white)
+                            .cornerRadius(7)
+                    }
+                    Button(action: { selectedTab = 1 }) {
+                        Text("收入")
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundColor(selectedTab == 1 ? .white : .green)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(selectedTab == 1 ? Color.green : Color.white)
+                            .cornerRadius(7)
+                    }
                 }
-                .pickerStyle(.segmented)
+                .background(AppTheme.background)
+                .cornerRadius(8)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 
@@ -74,7 +91,7 @@ struct CategoryView: View {
                     .foregroundColor(AppTheme.textPrimary)
                 Spacer()
                 Text("需至少保留一个")
-                    .font(.system(size: 13))
+                    .font(.system(size: 15))
                     .foregroundColor(AppTheme.textTertiary.opacity(0.5))
             }
             .padding(.horizontal, 16)
@@ -82,7 +99,7 @@ struct CategoryView: View {
             .padding(.bottom, 4)
             
             ForEach(allExpenseCats, id: \.self) { cat in
-                catRow(cat: cat, enabled: enabledExpense, isDefault: defaultExpenseCat == cat, onToggle: { CategoryManager.setExpenseCatEnabled(cat, enabled: $0) }, onSetDefault: { defaultExpenseCat = cat })
+                catRow(cat: cat, enabled: enabledExpense, isDefault: defaultExpenseCat == cat, accentColor: AppTheme.brandStart, onToggle: { CategoryManager.setExpenseCatEnabled(cat, enabled: $0) }, onSetDefault: { defaultExpenseCat = cat })
             }
             
             if !customExpense.isEmpty {
@@ -129,7 +146,7 @@ struct CategoryView: View {
                     .foregroundColor(AppTheme.textPrimary)
                 Spacer()
                 Text("需至少保留一个")
-                    .font(.system(size: 13))
+                    .font(.system(size: 15))
                     .foregroundColor(AppTheme.textTertiary.opacity(0.5))
             }
             .padding(.horizontal, 16)
@@ -137,7 +154,7 @@ struct CategoryView: View {
             .padding(.bottom, 4)
             
             ForEach(allIncomeCats, id: \.self) { cat in
-                catRow(cat: cat, enabled: enabledIncome, isDefault: defaultIncomeCat == cat, onToggle: { CategoryManager.setIncomeCatEnabled(cat, enabled: $0) }, onSetDefault: { defaultIncomeCat = cat })
+                catRow(cat: cat, enabled: enabledIncome, isDefault: defaultIncomeCat == cat, accentColor: .green, onToggle: { CategoryManager.setIncomeCatEnabled(cat, enabled: $0) }, onSetDefault: { defaultIncomeCat = cat })
             }
             
             if !customIncome.isEmpty {
@@ -190,18 +207,18 @@ struct CategoryView: View {
         .padding(.horizontal, 16)
     }
     
-    private func catRow(cat: String, enabled: [String], isDefault: Bool, onToggle: @escaping (Bool) -> Void, onSetDefault: @escaping () -> Void) -> some View {
+    private func catRow(cat: String, enabled: [String], isDefault: Bool, accentColor: Color, onToggle: @escaping (Bool) -> Void, onSetDefault: @escaping () -> Void) -> some View {
         HStack {
             Image(systemName: enabled.contains(cat) ? "checkmark.square.fill" : "square")
                 .font(.system(size: 17))
-                .foregroundColor(enabled.contains(cat) ? AppTheme.brandStart : AppTheme.textTertiary)
+                .foregroundColor(enabled.contains(cat) ? accentColor : AppTheme.textTertiary)
             Text(cat)
                 .font(.appBody)
                 .foregroundColor(AppTheme.textPrimary)
             Spacer()
             if isDefault {
                 Text("默认")
-                    .font(.system(size: 13))
+                    .font(.system(size: 15))
                     .foregroundColor(AppTheme.brandStart)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)

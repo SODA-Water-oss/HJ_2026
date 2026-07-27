@@ -120,7 +120,6 @@ struct MainTabView: View {
 struct ProfileView: View {
     @EnvironmentObject var supabaseService: SupabaseService
     @EnvironmentObject var authManager: AuthManager
-    @State private var showLogoutAlert = false
     @State private var ledgerLockEnabled = PageLockManager.isLedgerLocked
     @State private var analyticsLockEnabled = PageLockManager.isAnalyticsLocked
     @State private var showSetPinAlert = false
@@ -314,36 +313,14 @@ struct ProfileView: View {
                         
                         Divider().padding(.horizontal, 16)
                         
-                        // 退出登录
-                        Button(action: {
-                            showLogoutAlert = true
-                        }) {
-                            HStack {
-                                Image(systemName: "rectangle.portrait.and.arrow.right")
-                                    .font(.system(size: 17))
-                                    .foregroundColor(.red)
-                                    .frame(width: 24)
-                                Text("退出登录")
-                                    .font(.appBody)
-                                    .foregroundColor(.red)
-                                Spacer()
-                            }
-                            .padding(16)
-                        }
+
                     }
                     .background(Color.white)
                     .cornerRadius(12)
                     .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
                     .padding(.horizontal, 16)
                     .padding(.bottom, 32)
-                    .alert("退出登录", isPresented: $showLogoutAlert) {
-                        Button("取消", role: .cancel) { }
-                        Button("确认退出", role: .destructive) {
-                            authManager.signOut()
-                        }
-                    } message: {
-                        Text("是否确定退出当前登录？")
-                    }
+
                 }
             }
             .background(AppTheme.background.ignoresSafeArea())

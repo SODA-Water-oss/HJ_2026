@@ -36,7 +36,7 @@ struct BatchOperationSheet: View {
                 BatchOperationRow(icon: "pencil.and.list.clipboard", title: "修改备注") { if !isProcessing { showNoteSheet = true } }
                 BatchOperationRow(icon: "calendar", title: "修改时间") { if !isProcessing { showDateSheet = true } }
                 BatchOperationRow(icon: "tag", title: "修改类别") { if !isProcessing { showCategorySheet = true } }
-                BatchOperationRow(icon: "trash", title: "批量删除", tint: .red) { if !isProcessing { showDeleteAlert = true } }
+                BatchOperationRow(icon: "trash", title: "批量删除", tint: Color(hex: "#7C3AED")) { if !isProcessing { showDeleteAlert = true } }
             }.padding(.horizontal)
             .opacity(isProcessing ? 0.5 : 1.0)
             .disabled(isProcessing)

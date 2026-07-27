@@ -6,7 +6,7 @@ struct PatternLockView: View {
     let onComplete: (String) -> Void
     let onCancel: () -> Void
     
-    enum PatternMode {
+    enum PatternMode: Equatable {
         case set(first: String?)  // first=nil 第一轮, first=有值 第二轮确认
         case verify
     }
@@ -38,7 +38,7 @@ struct PatternLockView: View {
             if showError {
                 Text(errorMessage)
                     .font(.appSmall)
-                    .foregroundColor(.red)
+                    .foregroundColor(Color(hex: "#7C3AED"))
             }
             
             // 3×3 点阵
@@ -48,10 +48,12 @@ struct PatternLockView: View {
             
             Spacer()
             
-            Button("取消", action: onCancel)
-                .font(.appBody)
-                .foregroundColor(AppTheme.textSecondary)
-                .padding(.bottom, 32)
+
+                
+                Button("取消", action: onCancel)
+                    .font(.appBody)
+                    .foregroundColor(AppTheme.textSecondary)
+                    .padding(.bottom, 32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(AppTheme.background)
