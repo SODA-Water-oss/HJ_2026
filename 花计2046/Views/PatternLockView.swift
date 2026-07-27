@@ -1,23 +1,24 @@
 import SwiftUI
 
-/// 连线锁视图 — 3×3 点阵
+/// 连线锁视图 — 3×3 点阵，内部处理两轮确认
 struct PatternLockView: View {
-    let mode: PatternMode
+    let isVerifyMode: Bool
     let onComplete: (String) -> Void
     let onCancel: () -> Void
     
-    enum PatternMode: Equatable {
-        case set(first: String?)  // first=nil 第一轮, first=有值 第二轮确认
-        case verify
-    }
+    enum SetupPhase { case firstRound, secondRound }
     
+    @State private var phase: SetupPhase = .firstRound
+    @State private var firstPattern: String = ""
     @State private var selectedDots: [Int] = []
     @State private var currentDot: Int? = nil
     @State private var dragLocation: CGPoint = .zero
     @State private var showError = false
     @State private var errorMessage = ""
-    @State private var dotFrames: [Int: CGRect] = [:]
-    @State private var firstPattern: String = ""
+    @State private var hasDrawn = false
+    @State private var showFirstConfirm = false
+    @State private var patternDisplay: String = ""
+    @State private var displayDots: [Int] = []
     
     private let dotCount = 9
     private let dotSize: CGFloat = 18
@@ -28,17 +29,23 @@ struct PatternLockView: View {
             Spacer()
             
             Image(systemName: "lock.shield")
-                .font(.system(size: 40))
+                .font(.system(size: 36))
                 .foregroundColor(AppTheme.brandStart)
+                .padding(.bottom, 8)
             
-            titleText
+            Text(isVerifyMode ? "绘制图案解锁"
+                 : showFirstConfirm ? "确认图案后继续"
+                 : phase == .secondRound ? "请再次绘制以确认"
+                 : "绘制解锁图案")
                 .font(.appBody)
                 .foregroundColor(AppTheme.textSecondary)
+                .padding(.bottom, 4)
             
             if showError {
                 Text(errorMessage)
-                    .font(.appSmall)
-                    .foregroundColor(Color(hex: "#7C3AED"))
+                    .font(.custom("PingFangSC-Regular", size: 14))
+                    .foregroundColor(AppTheme.brandStart)
+                    .padding(.bottom, 4)
             }
             
             // 3×3 点阵
@@ -46,33 +53,57 @@ struct PatternLockView: View {
                 .frame(width: 240, height: 240)
                 .gesture(dragGesture)
             
+            if !isVerifyMode && showFirstConfirm {
+                HStack(spacing: 20) {
+                    Button(action: {
+                        showFirstConfirm = false
+                        selectedDots = []
+                        currentDot = nil
+                    }) {
+                        Text("重绘")
+                            .font(.appBody)
+                            .foregroundColor(AppTheme.textSecondary)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 10)
+                            .background(AppTheme.border.opacity(0.5))
+                            .cornerRadius(8)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    
+                    Button(action: {
+                        firstPattern = patternDisplay
+                        phase = .secondRound
+                        showFirstConfirm = false
+                        selectedDots = []
+                        currentDot = nil
+                    }) {
+                        Text("继续")
+                            .font(.appBody)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 10)
+                            .background(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [AppTheme.brandStart, AppTheme.brandEnd]),
+                                    startPoint: .leading, endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(8)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .padding(.top, 8)
+            }
+            
             Spacer()
             
-
-                
-                if mode != .verify {
-                    Button("取消", action: onCancel)
-                        .font(.appBody)
-                        .foregroundColor(AppTheme.textSecondary)
-                        .padding(.bottom, 32)
-                } else {
-                    Spacer().frame(height: 32)
-                }
+            Button("取消", action: onCancel)
+                .font(.appBody)
+                .foregroundColor(AppTheme.textSecondary)
+                .padding(.bottom, 32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(AppTheme.background)
-    }
-    
-    @ViewBuilder
-    private var titleText: some View {
-        switch mode {
-        case .set(first: nil):
-            Text("绘制解锁图案")
-        case .set(first: .some(let f)):
-            Text(f == selectedDots.map(String.init).joined() ? "图案匹配 ✓" : "请再次绘制以确认")
-        case .verify:
-            Text("绘制图案解锁")
-        }
     }
     
     private var dotGrid: some View {
@@ -88,8 +119,8 @@ struct PatternLockView: View {
                         }
                         if let cur = currentDot {
                             path.addLine(to: dotPosition(cur, in: geo.size))
-                        } else if let last = selectedDots.last, let loc = dragLocationWithin(geo: geo) {
-                            // Currently dragging toward the touch point
+                        } else if !selectedDots.isEmpty {
+                            path.addLine(to: dotPosition(selectedDots.last!, in: geo.size))
                         }
                     }
                     .stroke(AppTheme.brandStart.opacity(0.6), lineWidth: lineWidth)
@@ -100,34 +131,30 @@ struct PatternLockView: View {
                     let isSelected = selectedDots.contains(i) || currentDot == i
                     Circle()
                         .fill(isSelected ? AppTheme.brandStart : AppTheme.border)
-                        .frame(width: isSelected ? dotSize + 4 : dotSize, height: isSelected ? dotSize + 4 : dotSize)
+                        .frame(width: isSelected ? dotSize + 6 : dotSize,
+                               height: isSelected ? dotSize + 6 : dotSize)
                         .overlay(
                             Circle()
                                 .stroke(isSelected ? AppTheme.brandStart : Color.clear, lineWidth: 2)
                         )
                         .position(dotPosition(i, in: geo.size))
-                        .background(
-                            GeometryReader { g in
-                                Color.clear.onAppear {
-                                    let frame = g.frame(in: .named("dotGrid"))
-                                    let idx = frame.hashValue % 1000
-                                    // Use the dot's position to set frames
-                                }
-                            }
-                        )
-                        .id(i)
                 }
             }
-            .coordinateSpace(name: "dotGrid")
         }
     }
     
     private var dragGesture: some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
+                guard !showError else { return }
+                // 在第一轮确认等待状态，重新开始绘制
+                if showFirstConfirm {
+                    showFirstConfirm = false
+                    selectedDots = []
+                    currentDot = nil
+                }
                 let pos = value.location
                 dragLocation = pos
-                // Find which dot is near the touch point
                 if let dot = nearestDot(to: pos, in: CGSize(width: 240, height: 240), exclude: selectedDots) {
                     if !selectedDots.contains(dot) {
                         selectedDots.append(dot)
@@ -142,31 +169,52 @@ struct PatternLockView: View {
                 currentDot = nil
                 let pattern = selectedDots.map(String.init).joined()
                 
-                switch mode {
-                case .set(first: nil):
+                if isVerifyMode {
                     if selectedDots.count < 4 {
                         showError = true
                         errorMessage = "至少连接 4 个点"
                         reset()
                     } else {
-                        // 第一轮完成，进入第二轮确认
-                        onComplete("set_first:\(pattern)")
+                        onComplete(pattern)
                     }
-                case .set(first: let first):
-                    if pattern == first {
-                        onComplete("set_confirm:\(pattern)")
-                    } else {
-                        showError = true
-                        errorMessage = "两次绘制不一致，请重试"
-                        reset()
+                } else {
+                    switch phase {
+                    case .firstRound:
+                        if selectedDots.count < 4 {
+                            showError = true
+                            errorMessage = "至少连接 4 个点"
+                            reset()
+                        } else {
+                            patternDisplay = pattern
+                            displayDots = selectedDots
+                            showFirstConfirm = true
+                            hasDrawn = true
+                        }
+                    case .secondRound:
+                        if pattern == firstPattern {
+                            withAnimation { showError = false }
+                            onComplete(firstPattern)
+                        } else if pattern.count >= 4 {
+                            showError = true
+                            errorMessage = "两次绘制不一致，请重新设置"
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                                phase = .firstRound
+                                firstPattern = ""
+                                hasDrawn = false
+                                showFirstConfirm = false
+                                showError = false
+                                errorMessage = ""
+                            }
+                            reset()
+                        } else {
+                            reset()
+                        }
                     }
-                case .verify:
-                    onComplete("verify:\(pattern)")
                 }
             }
     }
     
-    func reset() {
+    private func reset() {
         selectedDots = []
         currentDot = nil
     }
@@ -193,11 +241,5 @@ struct PatternLockView: View {
             }
         }
         return nearest?.index
-    }
-    
-    private func dragLocationWithin(geo: GeometryProxy) -> CGPoint? {
-        let x = min(max(dragLocation.x, 0), geo.size.width)
-        let y = min(max(dragLocation.y, 0), geo.size.height)
-        return CGPoint(x: x, y: y)
     }
 }

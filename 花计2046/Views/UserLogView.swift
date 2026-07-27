@@ -8,31 +8,7 @@ struct UserLogView: View {
         NavigationView {
             List {
                 ForEach(logManager.logs) { log in
-                    HStack(spacing: 12) {
-                        Image(systemName: actionIcon(for: log.action))
-                            .font(.system(size: 17))
-                            .foregroundColor(AppTheme.brandStart)
-                            .frame(width: 24)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(log.detail.isEmpty ? log.action : log.detail)
-                                .font(.appBody)
-                                .foregroundColor(AppTheme.textPrimary)
-                                .lineLimit(2)
-                            Text(log.action)
-                                .font(.appSmall)
-                                .foregroundColor(AppTheme.textTertiary)
-                        }
-                        
-                        Spacer()
-                        
-                        Text(formatDate(log.createdAt))
-                            .font(.appSmall)
-                            .foregroundColor(AppTheme.textTertiary)
-                    }
-                    .padding(.vertical, 10)
-                    .listRowBackground(Color.white)
-                    .listRowSeparator(.hidden)
+                    LogRowView(log: log)
                 }
             }
             .listStyle(.plain)
@@ -76,13 +52,52 @@ struct UserLogView: View {
             await logManager.fetchLogs(supabaseService: supabaseService)
         }
     }
+}
+
+// MARK: - 单条日志行
+private struct LogRowView: View {
+    let log: UserLog
     
-    private func actionIcon(for action: String) -> String {
-        if action.contains("进账") || action.contains("解析") { return "checkmark.circle" }
-        if action.contains("编辑") { return "square.and.pencil" }
-        if action.contains("删除") || action.contains("批量") { return "trash" }
-        if action.contains("导出") { return "square.and.arrow.up" }
-        if action.contains("登录") || action.contains("登出") { return "person.circle" }
+    private var displayText: String {
+        let a = log.action
+        let d = log.detail
+        if d.hasPrefix(a) { return d }
+        if a == "登录" { return "登录账号" }
+        if a == "登出" { return "退出登录" }
+        return d.isEmpty ? a : d
+    }
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: iconName)
+                .font(.system(size: 17))
+                .foregroundColor(AppTheme.brandStart)
+                .frame(width: 24)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(displayText)
+                    .font(.appBody)
+                    .foregroundColor(AppTheme.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                
+                Text(formatDate(log.createdAt))
+                    .font(.appSmall)
+                    .foregroundColor(AppTheme.textTertiary)
+            }
+            
+        }
+        .padding(.vertical, 10)
+        .listRowBackground(Color.white)
+        .listRowSeparator(.hidden)
+    }
+    
+    private var iconName: String {
+        let a = log.action
+        if a.contains("进账") || a.contains("解析") { return "checkmark.circle" }
+        if a.contains("编辑") { return "square.and.pencil" }
+        if a.contains("删除") || a.contains("批量") { return "trash" }
+        if a.contains("导出") { return "square.and.arrow.up" }
+        if a.contains("登录") || a.contains("登出") { return "person.circle" }
         return "circle"
     }
     

@@ -8,7 +8,7 @@ struct UserSettingsView: View {
     @EnvironmentObject var authManager: AuthManager
     @State private var showLogoutAlert = false
     
-    private let currencyOptions = ["¥", "$", "€", "£"]
+    private let currencyOptions: [(name: String, symbol: String)] = [("人民币", "¥"), ("美元", "$"), ("欧元", "€"), ("英镑", "£")]
     
     var body: some View {
         NavigationView {
@@ -46,34 +46,23 @@ struct UserSettingsView: View {
                                 .font(.system(size: 17))
                                 .foregroundColor(AppTheme.brandStart)
                                 .frame(width: 24)
-                            Text("货币符号")
+                            Text("货币设置")
                                 .font(.appBody)
                                 .foregroundColor(AppTheme.textPrimary)
                            Spacer()
-                            Menu {
-                                ForEach(currencyOptions, id: \.self) { sym in
-                                    Button(action: { currencySymbol = sym }) {
-                                        HStack {
-                                            Text(sym).font(.system(size: 20))
-                                            if currencySymbol == sym {
-                                                Image(systemName: "checkmark")
-                                            }
-                                        }
+                            HStack(spacing: 8) {
+                                ForEach(currencyOptions, id: \.symbol) { option in
+                                    Button(action: { currencySymbol = option.symbol }) {
+                                        Text(option.name + " " + option.symbol)
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundColor(currencySymbol == option.symbol ? .white : AppTheme.textPrimary)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 6)
+                                            .background(currencySymbol == option.symbol ? AppTheme.brandStart : AppTheme.background)
+                                            .cornerRadius(6)
                                     }
+                                    .buttonStyle(PlainButtonStyle())
                                 }
-                            } label: {
-                                HStack(spacing: 8) {
-                                    Text(currencySymbol)
-                                        .font(.system(size: 22, weight: .medium))
-                                        .foregroundColor(AppTheme.brandStart)
-                                    Image(systemName: "chevron.up.chevron.down")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(AppTheme.textTertiary)
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(AppTheme.background)
-                                .cornerRadius(8)
                             }
                         }
                         .padding(16)
@@ -91,7 +80,7 @@ struct UserSettingsView: View {
                                 .font(.system(size: 17))
                                 .foregroundColor(AppTheme.brandStart)
                                 .frame(width: 24)
-                            Text("每日解析次数显示")
+                            Text("解析次数显示")
                                 .font(.appBody)
                                 .foregroundColor(AppTheme.textPrimary)
                             Spacer()
@@ -107,7 +96,7 @@ struct UserSettingsView: View {
                                         .font(.system(size: 12, weight: .medium))
                                         .foregroundColor(showDailyParseCount ? .white : Color(hex: "#9CA3AF"))
                                         .frame(width: 28, height: 24)
-                                        .background(showDailyParseCount ? Color(hex: "#7C3AED") : Color.clear)
+                                        .background(showDailyParseCount ? AppTheme.brandStart : Color.clear)
                                         .cornerRadius(12)
                                 }
                                 .background(Color(hex: "#E5E7EB"))
@@ -151,11 +140,11 @@ struct UserSettingsView: View {
                             HStack {
                                 Image(systemName: "rectangle.portrait.and.arrow.right")
                                     .font(.system(size: 17))
-                                    .foregroundColor(Color(hex: "#7C3AED"))
+                                    .foregroundColor(AppTheme.brandStart)
                                     .frame(width: 24)
                                 Text("退出登录")
                                     .font(.appBody)
-                                    .foregroundColor(Color(hex: "#7C3AED"))
+                                    .foregroundColor(AppTheme.brandStart)
                                 Spacer()
                             }
                             .padding(16)
@@ -236,7 +225,7 @@ struct HelpView: View {
                     
                     helpCard(
                         icon: "number",
-                        title: "每日解析次数",
+                        title: "解析次数显示",
                         desc: "每个账户每天可免费解析30次。解析成功并「进账」后消耗次数，放弃解析不计次数。次日自动恢复。"
                     )
                 }

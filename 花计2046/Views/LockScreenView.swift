@@ -17,16 +17,12 @@ struct LockScreenView: View {
             
             if mode == "pattern" {
                 PatternLockView(
-                    mode: .verify,
-                    onComplete: { result in
-                        if result.hasPrefix("verify:") {
-                            let pattern = String(result.dropFirst(7))
-                            if onVerifyPattern(pattern) {
-                                // Verified - dismiss happens via state change
-                            } else {
-                                showError = true
-                                errorMessage = "图案错误，請重试"
-                            }
+                    isVerifyMode: true,
+                    onComplete: { pattern in
+                        if onVerifyPattern(pattern) {
+                        } else {
+                            showError = true
+                            errorMessage = "图案错误，请重试"
                         }
                     },
                     onCancel: onCancel

@@ -3,6 +3,7 @@ import Supabase
 
 struct MainTabView: View {
     @EnvironmentObject var supabaseService: SupabaseService
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = 2
     @State private var showLockScreen = false
     @State private var lockTargetTab: Int? = nil
@@ -61,39 +62,48 @@ struct MainTabView: View {
                 showLockScreen = true
             }
         }
-        if supabaseService.isGloballyProcessing {
-            globalProcessingOverlay
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background || phase == .inactive {
+                ledgerLockVerified = false
+                analyticsLockVerified = false
+                selectedTab = 2
+            }
         }
-        
-        if showLockScreen {
-            LockScreenView(
-                pageName: lockTargetTab == 0 ? "账本页" : "分析页",
-                mode: lockTargetTab == 0 ? PageLockManager.ledgerLockMode : PageLockManager.analyticsLockMode,
-                onVerifyPin: { pin in
-                    let ok = lockTargetTab == 0 ? PageLockManager.verifyLedgerPin(pin) : PageLockManager.verifyAnalyticsPin(pin)
-                    if !ok { return false }
-                    if lockTargetTab == 0 { ledgerLockVerified = true }
-                    else { analyticsLockVerified = true }
-                    showLockScreen = false
-                    return true
-                },
-                onVerifyPattern: { pattern in
-                    let ok = lockTargetTab == 0 ? PageLockManager.verifyLedgerPin(pattern) : PageLockManager.verifyAnalyticsPin(pattern)
-                    if !ok { return false }
-                    if lockTargetTab == 0 { ledgerLockVerified = true }
-                    else { analyticsLockVerified = true }
-                    showLockScreen = false
-                    return true
-                },
-                onCancel: {
-                    selectedTab = 2
-                    showLockScreen = false
-                }
-            )
-            .transition(.opacity)
-            .zIndex(100)
-            .ignoresSafeArea()
         }
+        Group {
+            if supabaseService.isGloballyProcessing {
+                globalProcessingOverlay
+            }
+            
+            if showLockScreen {
+                LockScreenView(
+                    pageName: lockTargetTab == 0 ? "账本页" : "分析页",
+                    mode: lockTargetTab == 0 ? PageLockManager.ledgerLockMode : PageLockManager.analyticsLockMode,
+                    onVerifyPin: { pin in
+                        let ok = lockTargetTab == 0 ? PageLockManager.verifyLedgerPin(pin) : PageLockManager.verifyAnalyticsPin(pin)
+                        if !ok { return false }
+                        if lockTargetTab == 0 { ledgerLockVerified = true }
+                        else { analyticsLockVerified = true }
+                        showLockScreen = false
+                        return true
+                    },
+                    onVerifyPattern: { pattern in
+                        let ok = lockTargetTab == 0 ? PageLockManager.verifyLedgerPin(pattern) : PageLockManager.verifyAnalyticsPin(pattern)
+                        if !ok { return false }
+                        if lockTargetTab == 0 { ledgerLockVerified = true }
+                        else { analyticsLockVerified = true }
+                        showLockScreen = false
+                        return true
+                    },
+                    onCancel: {
+                        selectedTab = 2
+                        showLockScreen = false
+                    }
+                )
+                .transition(.opacity)
+                .zIndex(100)
+                .ignoresSafeArea()
+            }
         }
         .animation(.easeInOut(duration: 0.2), value: showLockScreen)
     }
@@ -121,17 +131,17 @@ struct MainTabView: View {
 
 struct ProfileView: View {
     @EnvironmentObject var supabaseService: SupabaseService
+    @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject var authManager: AuthManager
     @State private var ledgerLockEnabled = PageLockManager.isLedgerLocked
     @State private var analyticsLockEnabled = PageLockManager.isAnalyticsLocked
-    @State private var showSetPinAlert = false
+    @State private var showPinSetup = false
     @State private var showPasswordVerifyAlert = false
     @State private var lockSettingTarget = ""
     @State private var newPin = ""
     @State private var passwordInput = ""
-    @State private var showModePicker = false
+    @State private var showUnlockMethodSheet = false
     @State private var showPatternSetup = false
-    @State private var patternSetupMode: PatternLockView.PatternMode = .set(first: nil)
     
     var body: some View {
         NavigationView {
@@ -179,7 +189,7 @@ struct ProfileView: View {
                                 if !ledgerLockEnabled {
                                     lockSettingTarget = "ledger"
                                     newPin = ""
-                                    showModePicker = true
+                                    showUnlockMethodSheet = true
                                 } else {
                                     lockSettingTarget = "ledger"
                                     passwordInput = ""
@@ -222,7 +232,7 @@ struct ProfileView: View {
                                 if !analyticsLockEnabled {
                                     lockSettingTarget = "analytics"
                                     newPin = ""
-                                    showModePicker = true
+                                    showUnlockMethodSheet = true
                                 } else {
                                     lockSettingTarget = "analytics"
                                     passwordInput = ""
@@ -364,12 +374,13 @@ struct ProfileView: View {
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
-            .alert("设置页面锁密码", isPresented: $showSetPinAlert) {
-                SecureField("输入4位数字密码", text: $newPin)
-                    .keyboardType(.numberPad)
-                Button("取消", role: .cancel) { }
-                Button("确认") {
-                    guard newPin.count == 4 else { return }
+            .overlay {
+                if showUnlockMethodSheet {
+                    unlockMethodSheetOverlay
+                }
+            }
+            .sheet(isPresented: $showPinSetup) {
+                PinSetupView(newPin: $newPin, onConfirm: {
                     if lockSettingTarget == "ledger" {
                         PageLockManager.setLedgerLock(enabled: true, pin: newPin, mode: "pin")
                         ledgerLockEnabled = true
@@ -377,9 +388,10 @@ struct ProfileView: View {
                         PageLockManager.setAnalyticsLock(enabled: true, pin: newPin, mode: "pin")
                         analyticsLockEnabled = true
                     }
-                }
-            } message: {
-                Text("请设置4位数字密码")
+                    newPin = ""
+                }, onCancel: {
+                    newPin = ""
+                })
             }
             .alert("验证账户密码", isPresented: $showPasswordVerifyAlert) {
                 SecureField("输入APP登录密码", text: $passwordInput)
@@ -410,36 +422,136 @@ struct ProfileView: View {
             } message: {
                 Text("关闭页面锁需要验证账户密码")
             }
-            .confirmationDialog("选择解锁方式", isPresented: $showModePicker, titleVisibility: .visible) {
-                Button("4位数字密码") { showSetPinAlert = true }
-                Button("连线图案") { showPatternSetup = true }
-                Button("取消", role: .cancel) { }
-            }
             .sheet(isPresented: $showPatternSetup) {
                 PatternLockView(
-                    mode: patternSetupMode,
-                    onComplete: { result in
-                        if result.hasPrefix("set_first:") {
-                            let pattern = String(result.dropFirst(10))
-                            patternSetupMode = .set(first: pattern)
-                        } else if result.hasPrefix("set_confirm:") {
-                            let pattern = String(result.dropFirst(13))
-                            showPatternSetup = false
-                            if lockSettingTarget == "ledger" {
-                                PageLockManager.setLedgerLock(enabled: true, pin: pattern, mode: "pattern")
-                                ledgerLockEnabled = true
-                            } else {
-                                PageLockManager.setAnalyticsLock(enabled: true, pin: pattern, mode: "pattern")
-                                analyticsLockEnabled = true
-                            }
+                    isVerifyMode: false,
+                    onComplete: { pattern in
+                        showPatternSetup = false
+                        if lockSettingTarget == "ledger" {
+                            PageLockManager.setLedgerLock(enabled: true, pin: pattern, mode: "pattern")
+                            ledgerLockEnabled = true
+                        } else {
+                            PageLockManager.setAnalyticsLock(enabled: true, pin: pattern, mode: "pattern")
+                            analyticsLockEnabled = true
                         }
                     },
                     onCancel: {
                         showPatternSetup = false
-                        patternSetupMode = .set(first: nil)
                     }
                 )
             }
         }
+    }
+}
+
+// MARK: - 自定义解锁方式选择菜单 (替换系统 confirmationDialog)
+extension ProfileView {
+    @ViewBuilder
+    var unlockMethodSheetOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.35)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        showUnlockMethodSheet = false
+                    }
+                }
+            
+            VStack(spacing: 0) {
+                Spacer()
+                
+                VStack(spacing: 0) {
+                    // 标题区
+                    Text("选择解锁方式")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(AppTheme.textPrimary)
+                        .padding(.top, 20)
+                        .padding(.bottom, 16)
+                    
+                    Divider().padding(.horizontal, 16)
+                    
+                    // 4位数字密码
+                    Button(action: {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            showUnlockMethodSheet = false
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                            showPinSetup = true
+                        }
+                    }) {
+                        HStack(spacing: 14) {
+                            Image(systemName: "square.grid.3x3.square")
+                                .font(.system(size: 20, weight: .medium))
+                                .foregroundColor(AppTheme.brandStart)
+                                .frame(width: 28)
+                            Text("4位数字密码")
+                                .font(.custom("PingFangSC-Regular", size: 17))
+                                .foregroundColor(AppTheme.textPrimary)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    
+                    Divider().padding(.horizontal, 16)
+                    
+                    // 连线图案
+                    Button(action: {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            showUnlockMethodSheet = false
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                            showPatternSetup = true
+                        }
+                    }) {
+                        HStack(spacing: 14) {
+                            Image(systemName: "hand.point.up.fill")
+                                .font(.system(size: 20, weight: .medium))
+                                .foregroundColor(AppTheme.brandStart)
+                                .frame(width: 28)
+                            Text("连线图案")
+                                .font(.custom("PingFangSC-Regular", size: 17))
+                                .foregroundColor(AppTheme.textPrimary)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    
+                    Divider().padding(.horizontal, 16)
+                    
+                    // 取消
+                    Button(action: {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            showUnlockMethodSheet = false
+                        }
+                    }) {
+                        Text("取消")
+                            .font(.custom("PingFangSC-Regular", size: 17))
+                            .foregroundColor(AppTheme.textTertiary)
+                            .padding(.vertical, 16)
+                            .frame(maxWidth: .infinity)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .padding(.bottom, 20)
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(Color.white)
+                        .shadow(color: Color.black.opacity(0.12), radius: 20, x: 0, y: -4)
+                )
+                .padding(.horizontal, 20)
+                
+                .transition(.opacity)
+                Spacer()
+            }
+        }
+        .transition(.opacity)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showUnlockMethodSheet)
     }
 }
