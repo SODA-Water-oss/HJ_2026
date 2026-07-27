@@ -188,7 +188,7 @@ struct ProfileView: View {
                             Button(action: {
                                 if !ledgerLockEnabled {
                                     lockSettingTarget = "ledger"
-                                    newPin = ""
+                                    showPinSetup = false; newPin = ""
                                     showUnlockMethodSheet = true
                                 } else {
                                     lockSettingTarget = "ledger"
@@ -231,7 +231,7 @@ struct ProfileView: View {
                             Button(action: {
                                 if !analyticsLockEnabled {
                                     lockSettingTarget = "analytics"
-                                    newPin = ""
+                                    showPinSetup = false; newPin = ""
                                     showUnlockMethodSheet = true
                                 } else {
                                     lockSettingTarget = "analytics"
@@ -388,9 +388,9 @@ struct ProfileView: View {
                         PageLockManager.setAnalyticsLock(enabled: true, pin: newPin, mode: "pin")
                         analyticsLockEnabled = true
                     }
-                    newPin = ""
+                    showPinSetup = false; newPin = ""
                 }, onCancel: {
-                    newPin = ""
+                    showPinSetup = false; newPin = ""
                 })
             }
             .alert("验证账户密码", isPresented: $showPasswordVerifyAlert) {
@@ -463,7 +463,7 @@ extension ProfileView {
                 VStack(spacing: 0) {
                     // 标题区
                     Text("选择解锁方式")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.appTitle)
                         .foregroundColor(AppTheme.textPrimary)
                         .padding(.top, 20)
                         .padding(.bottom, 16)
@@ -481,11 +481,11 @@ extension ProfileView {
                     }) {
                         HStack(spacing: 14) {
                             Image(systemName: "square.grid.3x3.square")
-                                .font(.system(size: 20, weight: .medium))
+                                .font(.system(size: 17))
                                 .foregroundColor(AppTheme.brandStart)
-                                .frame(width: 28)
+                                .frame(width: 24)
                             Text("4位数字密码")
-                                .font(.custom("PingFangSC-Regular", size: 17))
+                                .font(.appBody)
                                 .foregroundColor(AppTheme.textPrimary)
                             Spacer()
                         }
@@ -508,11 +508,11 @@ extension ProfileView {
                     }) {
                         HStack(spacing: 14) {
                             Image(systemName: "hand.point.up.fill")
-                                .font(.system(size: 20, weight: .medium))
+                                .font(.system(size: 17))
                                 .foregroundColor(AppTheme.brandStart)
-                                .frame(width: 28)
+                                .frame(width: 24)
                             Text("连线图案")
-                                .font(.custom("PingFangSC-Regular", size: 17))
+                                .font(.appBody)
                                 .foregroundColor(AppTheme.textPrimary)
                             Spacer()
                         }
@@ -531,7 +531,7 @@ extension ProfileView {
                         }
                     }) {
                         Text("取消")
-                            .font(.custom("PingFangSC-Regular", size: 17))
+                            .font(.appBody)
                             .foregroundColor(AppTheme.textTertiary)
                             .padding(.vertical, 16)
                             .frame(maxWidth: .infinity)

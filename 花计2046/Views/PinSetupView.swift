@@ -5,6 +5,7 @@ struct PinSetupView: View {
     var onConfirm: () -> Void
     var onCancel: () -> Void
     
+    @Environment(\.dismiss) private var dismiss
     @State private var pin = ""
     @State private var confirmPin = ""
     @State private var isFirstRound = true
@@ -73,10 +74,13 @@ struct PinSetupView: View {
             
             Spacer().frame(height: 16)
             
-            Button("取消", action: onCancel)
-                .font(.appBody)
-                .foregroundColor(AppTheme.textSecondary)
-                .padding(.bottom, 32)
+            Button("取消") {
+                onCancel()
+                dismiss()
+            }
+            .font(.appBody)
+            .foregroundColor(AppTheme.textSecondary)
+            .padding(.bottom, 32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(AppTheme.background)
@@ -90,6 +94,7 @@ struct PinSetupView: View {
                 } else if pin == confirmPin {
                     newPin = pin
                     onConfirm()
+                    dismiss()
                 } else {
                     showError = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
@@ -101,7 +106,6 @@ struct PinSetupView: View {
                 }
             }
         }
-
     }
     
     private func numberButton(_ text: String) -> some View {
