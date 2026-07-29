@@ -42,6 +42,7 @@ class UserLogManager: ObservableObject {
         // 先存本地缓存（立即生效，不依赖网络）
         var cached = UserDefaults.standard.loadLogs()
         cached.insert(entry, at: 0)
+        cached = cached.filter { $0.createdAt > Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date() }
         if cached.count > 200 { cached = Array(cached.prefix(200)) }
         UserDefaults.standard.saveLogs(cached)
         await MainActor.run { shared.logs = cached }
@@ -84,10 +85,15 @@ class UserLogManager: ObservableObject {
         await MainActor.run { self.isLoading = true }
         
         do {
+            let oneMonthAgo = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
+            let df = ISO8601DateFormatter()
+            let cutoffStr = df.string(from: oneMonthAgo)
+            
             let response: [UserLog] = try await supabaseService.client
                 .from("user_logs")
                 .select()
                 .eq("user_id", value: userId.uuidString)
+                .gte("created_at", value: cutoffStr)
                 .order("created_at", ascending: false)
                 .limit(200)
                 .execute()

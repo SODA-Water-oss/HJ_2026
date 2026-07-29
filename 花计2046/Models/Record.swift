@@ -12,7 +12,7 @@ enum RecordType: String, Codable, CaseIterable {
     }
 }
 
-struct Record: Identifiable, Codable {
+struct Record: Identifiable, Codable, Equatable {
     var id: UUID
     var userId: UUID
     var type: RecordType
@@ -21,7 +21,7 @@ struct Record: Identifiable, Codable {
     var merchant: String
     var date: Date
     var note: String?
-    var currency: String = "¥"
+    var currency: String = ""
 
     var isExpense: Bool { type == .expense }
     var isIncome: Bool { type == .income }

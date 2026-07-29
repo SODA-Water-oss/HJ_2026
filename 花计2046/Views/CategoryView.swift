@@ -22,16 +22,17 @@ struct CategoryView: View {
     private var customIncome: [String] { customIncomeRaw.isEmpty ? [] : customIncomeRaw.components(separatedBy: ",").filter { !$0.isEmpty } }
     
     var body: some View {
-        NavigationView {
             VStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    // Toggle buttons card wrapper
                 HStack(spacing: 0) {
                     Button(action: { selectedTab = 0 }) {
                         Text("收入")
                             .font(.system(size: 17, weight: .medium))
                             .foregroundColor(selectedTab == 0 ? .white : .green)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(selectedTab == 0 ? Color.green : Color.white)
+                            .padding(.vertical, 12)
+                            .background(selectedTab == 0 ? Color.green : AppTheme.background)
                             .cornerRadius(7)
                     }
                     Button(action: { selectedTab = 1 }) {
@@ -39,19 +40,19 @@ struct CategoryView: View {
                             .font(.system(size: 17, weight: .medium))
                             .foregroundColor(selectedTab == 1 ? .white : AppTheme.brandStart)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(selectedTab == 1 ? AppTheme.brandStart : Color.white)
+                            .padding(.vertical, 12)
+                            .background(selectedTab == 1 ? AppTheme.brandStart : AppTheme.background)
                             .cornerRadius(7)
                     }
                 }
-                .background(AppTheme.background)
+                .background(Color.white)
                 .cornerRadius(8)
                 .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .padding(.top, 20).padding(.bottom, 8)
                 
                 ScrollView {
                     VStack(spacing: 16) {
-                        Color.clear.frame(height: 4)
+                        Color.clear.frame(height: 0)
                         
                         if selectedTab == 0 {
                             incomeSection
@@ -63,26 +64,28 @@ struct CategoryView: View {
                         Spacer(minLength: 32)
                     }
                 }
-        }
-            .background(AppTheme.background.ignoresSafeArea())
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "tag")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(AppTheme.brandStart)
-                        Text("类别设置")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(AppTheme.textPrimary)
-                    }
+                }
+                .background(Color.white)
+                .cornerRadius(12)
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+            
+            }
+        .background(AppTheme.background.ignoresSafeArea())
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                HStack(spacing: 6) {
+                    Image(systemName: "tag")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(AppTheme.brandStart)
+                    Text("类别设置")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(AppTheme.textPrimary)
                 }
             }
-        .onDisappear {
-            UserSettingsSync.syncToCloud(supabaseService: supabaseService)
         }
+
         }
-    }
     
     private var expenseSection: some View {
         VStack(spacing: 0) {
@@ -109,7 +112,8 @@ struct CategoryView: View {
                                     let remaining = enabledExpense.isEmpty ? CategoryManager.defaultExpenseCats.filter { $0 != cat } : enabledExpense
                                     defaultExpenseCat = remaining.first ?? "其他"
                                 }
-                            }, onSetDefault: { if enabledExpense.contains(cat) { defaultExpenseCat = cat } })
+                                syncSettings()
+                            }, onSetDefault: { if enabledExpense.contains(cat) { defaultExpenseCat = cat; syncSettings() } })
             }
             
             if !customExpense.isEmpty {
@@ -117,35 +121,17 @@ struct CategoryView: View {
                 ForEach(customExpense, id: \.self) { cat in
                     HStack {
                         Image(systemName: "plus.square.fill").font(.system(size: 17)).foregroundColor(AppTheme.brandStart).frame(width: 24)
-                        Text(cat).font(.appBody).foregroundColor(AppTheme.textPrimary)
+                        Text(cat).font(.system(size: 17)).foregroundColor(AppTheme.textPrimary)
                         Spacer()
                         Button(action: { CategoryManager.removeCustomExpenseCat(cat) }) {
                             Image(systemName: "xmark.circle.fill").font(.system(size: 15)).foregroundColor(AppTheme.textTertiary)
                         }
                     }
-                    .padding(.horizontal, 16).padding(.vertical, 8)
+                    .padding(.horizontal, 16).padding(.vertical, 16)
                 }
             }
             
-            HStack {
-                TextField("添加自定义支出分类", text: $newExpenseName)
-                    .font(.appBody).textFieldStyle(.plain)
-                Button("添加") {
-                    let trimmed = newExpenseName.trimmingCharacters(in: .whitespaces)
-                    if !trimmed.isEmpty {
-                        var current = customExpenseRaw.isEmpty ? [] : customExpenseRaw.components(separatedBy: ",").filter { !$0.isEmpty }
-                        if !current.contains(trimmed), current.count < 10 {
-                            current.append(trimmed)
-                            customExpenseRaw = current.joined(separator: ",")
-                            CategoryManager.customExpenseCats = customExpenseRaw
-                        }
-                    }
-                    newExpenseName = ""
-                }
-                .font(.appSmall).foregroundColor(AppTheme.brandStart)
-                .disabled(newExpenseName.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-            .padding(.horizontal, 16).padding(.vertical, 10)
+
         }
         .background(Color.white)
         .cornerRadius(12)
@@ -178,7 +164,8 @@ struct CategoryView: View {
                                     let remaining = enabledIncome.isEmpty ? CategoryManager.defaultIncomeCats.filter { $0 != cat } : enabledIncome
                                     defaultIncomeCat = remaining.first ?? "其他"
                                 }
-                            }, onSetDefault: { if enabledIncome.contains(cat) { defaultIncomeCat = cat } })
+                                syncSettings()
+                            }, onSetDefault: { if enabledIncome.contains(cat) { defaultIncomeCat = cat; syncSettings() } })
             }
             
             if !customIncome.isEmpty {
@@ -186,35 +173,17 @@ struct CategoryView: View {
                 ForEach(customIncome, id: \.self) { cat in
                     HStack {
                         Image(systemName: "plus.square.fill").font(.system(size: 17)).foregroundColor(AppTheme.brandStart).frame(width: 24)
-                        Text(cat).font(.appBody).foregroundColor(AppTheme.textPrimary)
+                        Text(cat).font(.system(size: 17)).foregroundColor(AppTheme.textPrimary)
                         Spacer()
                         Button(action: { CategoryManager.removeCustomIncomeCat(cat) }) {
                             Image(systemName: "xmark.circle.fill").font(.system(size: 15)).foregroundColor(AppTheme.textTertiary)
                         }
                     }
-                    .padding(.horizontal, 16).padding(.vertical, 8)
+                    .padding(.horizontal, 16).padding(.vertical, 16)
                 }
             }
             
-            HStack {
-                TextField("添加自定义收入分类", text: $newIncomeName)
-                    .font(.appBody).textFieldStyle(.plain)
-                Button("添加") {
-                    let trimmed = newIncomeName.trimmingCharacters(in: .whitespaces)
-                    if !trimmed.isEmpty {
-                        var current = customIncomeRaw.isEmpty ? [] : customIncomeRaw.components(separatedBy: ",").filter { !$0.isEmpty }
-                        if !current.contains(trimmed), current.count < 10 {
-                            current.append(trimmed)
-                            customIncomeRaw = current.joined(separator: ",")
-                            CategoryManager.customIncomeCats = customIncomeRaw
-                        }
-                    }
-                    newIncomeName = ""
-                }
-                .font(.appSmall).foregroundColor(AppTheme.brandStart)
-                .disabled(newIncomeName.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-            .padding(.horizontal, 16).padding(.vertical, 10)
+
         }
         .background(Color.white)
         .cornerRadius(12)
@@ -239,13 +208,17 @@ struct CategoryView: View {
         .padding(.horizontal, 16)
     }
     
+    private func syncSettings() {
+        UserSettingsSync.syncToCloud(supabaseService: supabaseService)
+    }
+    
     private func catRow(cat: String, enabled: [String], isDefault: Bool, accentColor: Color, onToggle: @escaping (Bool) -> Void, onSetDefault: @escaping () -> Void) -> some View {
         HStack {
             Image(systemName: enabled.contains(cat) ? "checkmark.square.fill" : "square")
-                .font(.system(size: 17))
+                .font(.system(size: 22))
                 .foregroundColor(enabled.contains(cat) ? accentColor : AppTheme.textTertiary)
             Text(cat)
-                .font(.appBody)
+                .font(.system(size: 17))
                 .foregroundColor(AppTheme.textPrimary)
             Spacer()
             if isDefault {
@@ -259,7 +232,7 @@ struct CategoryView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.vertical, 16)
         .contentShape(Rectangle())
         .onTapGesture { if enabled.count > 1 || !enabled.contains(cat) { onToggle(!enabled.contains(cat)) } }
         .onLongPressGesture { onSetDefault() }

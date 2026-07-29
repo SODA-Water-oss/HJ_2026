@@ -51,8 +51,8 @@ struct MonthSectionCard: View {
     
     private var shortDate: String {
         let s = group.monthDisplay
-        guard s.count >= 6 else { return s }
-        return String(s.suffix(6).prefix(2)) + String(s.suffix(4))
+        guard s.count >= 6 else { return s + "小计" }
+        return String(s.suffix(6).prefix(2)) + String(s.suffix(4)) + "小计"
     }
     
     private var titleSize: CGFloat {
@@ -77,7 +77,9 @@ struct MonthSectionCard: View {
             
             VStack(alignment: .trailing, spacing: 3) {
                 ForEach(group.totalByCurrency, id: \.currency) { item in
-                    Text("\(item.amount > 0 ? "+" : "")\(item.currency)\(String(format: "%.2f", item.amount))")
+                        let sign = item.amount >= 0 ? "+" : "-"
+                        let absAmt = abs(item.amount)
+                        Text("\(sign)\(item.currency)\(String(format: "%.2f", absAmt))")
                         .font(.system(size: amountSize, weight: .medium))
                         .foregroundStyle(AppTheme.brandGradient)
                 }

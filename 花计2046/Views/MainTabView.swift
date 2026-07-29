@@ -9,7 +9,10 @@ struct MainTabView: View {
     @State private var lockTargetTab: Int? = nil
     @State private var ledgerLockVerified = false
     @State private var analyticsLockVerified = false
-   
+    @State private var dueBillCount = 0
+    
+
+
     init() {
         let appearance = UITabBarAppearance()
         appearance.configureWithDefaultBackground()
@@ -22,54 +25,56 @@ struct MainTabView: View {
     
     var body: some View {
         ZStack {
-        TabView(selection: $selectedTab) {
-            ExpenseListView().tag(0)
-                .tabItem {
-                    Label("账本", systemImage: "list.clipboard")
-                }
-                .badge(supabaseService.unreadExpenseCount)
-            
-            AnalyticsView().tag(1)
-                .tabItem {
-                    Label("分析", systemImage: "chart.pie")
-                }
-            
-            AddExpenseView().tag(2)
-                .tabItem {
-                    Label("录入", systemImage: "square.and.pencil")
-                }
-            
-            ToolsView().tag(3)
-                .tabItem {
-                    Label("工具", systemImage: "wrench.and.screwdriver")
-                }
-            
-            ProfileView().tag(4)
-                .tabItem {
-                    Label("我的", systemImage: "person.crop.circle")
-                }
-        }
-        .tint(AppTheme.brandStart)
-        .task {
-            try? await supabaseService.preloadAllRecords()
-        }
-        .onChange(of: selectedTab) { _, newTab in
-            if newTab == 0 && PageLockManager.isLedgerLocked && !ledgerLockVerified {
-                lockTargetTab = 0
-                showLockScreen = true
-            } else if newTab == 1 && PageLockManager.isAnalyticsLocked && !analyticsLockVerified {
-                lockTargetTab = 1
-                showLockScreen = true
+            TabView(selection: $selectedTab) {
+                ExpenseListView().tag(0)
+                    .tabItem {
+                        Label("账本", systemImage: "list.clipboard")
+                    }
+                    .badge(supabaseService.unreadExpenseCount)
+                
+                AnalyticsView().tag(1)
+                    .tabItem {
+                        Label("分析", systemImage: "chart.pie")
+                    }
+                
+                AddExpenseView().tag(2)
+                    .tabItem {
+                        Label("录入", systemImage: "square.and.pencil")
+                    }
+                
+                ToolsView().tag(3)
+                    .tabItem {
+                        Label("工具", systemImage: "wrench.and.screwdriver")
+                    }
+                    .badge(dueBillCount)
+                
+                ProfileView().tag(4)
+                    .tabItem {
+                        Label("我的", systemImage: "person.crop.circle")
+                    }
             }
-        }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .background || phase == .inactive {
-                ledgerLockVerified = false
-                analyticsLockVerified = false
-                selectedTab = 2
+            .tint(AppTheme.brandStart)
+            .task {
+                try? await UNUserNotificationCenter.current().setBadgeCount(0)
+                try? await supabaseService.preloadAllRecords()
             }
-        }
-              
+            .onChange(of: selectedTab) { _, newTab in
+                if newTab == 0 && PageLockManager.isLedgerLocked && !ledgerLockVerified {
+                    lockTargetTab = 0
+                    showLockScreen = true
+                } else if newTab == 1 && PageLockManager.isAnalyticsLocked && !analyticsLockVerified {
+                    lockTargetTab = 1
+                    showLockScreen = true
+                }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .background || phase == .inactive {
+                    ledgerLockVerified = false
+                    analyticsLockVerified = false
+                    
+                }
+            }
+            
             if supabaseService.isGloballyProcessing {
                 globalProcessingOverlay
             }
@@ -103,8 +108,24 @@ struct MainTabView: View {
                 .zIndex(100)
                 .ignoresSafeArea()
             }
+
+    }
         }
-        .animation(.easeInOut(duration: 0.2), value: showLockScreen)
+
+    
+    
+    private func updateDueBillCount() {
+        guard let data = UserDefaults.standard.data(forKey: "bill_reminders"),
+              let bills = try? JSONDecoder().decode([BillItem].self, from: data) else {
+            dueBillCount = 0
+            return
+        }
+        let now = Date()
+        dueBillCount = bills.filter { bill in
+            guard bill.isEnabled, let due = bill.nextDueDate else { return false }
+            let daysLeft = Calendar.current.dateComponents([.day], from: now, to: due).day ?? 999
+            return daysLeft >= 0 && daysLeft <= 3
+        }.count
     }
     
     @ViewBuilder
@@ -139,15 +160,49 @@ struct ProfileView: View {
     @State private var lockSettingTarget = ""
     @State private var newPin = ""
     @State private var passwordInput = ""
+    @State private var passwordError = ""
     @State private var showUnlockMethodSheet = false
+    @AppStorage("currency_symbol") private var currencySymbol = "¥"
+    @State private var showCurrencyPicker = false
+    @State private var pendingCurrencyName = ""
+    @State private var showCurrencyConfirm = false
+    @State private var currencyPickerStep = 0
+    @State private var selectedCurrency: (name: String, symbol: String)? = nil
+    @State private var showLogoutAlert = false
+    private let currencyOptions: [(name: String, symbol: String)] = [("人民币", "¥"), ("美元", "$"), ("欧元", "€"), ("英镑", "£")]
+    
+    @ViewBuilder
+    private var currencyLabel: some View {
+        HStack(spacing: 8) {
+            if let current = currencyOptions.first(where: { $0.symbol == currencySymbol }) {
+                Text(current.name + " " + current.symbol)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(AppTheme.brandStart)
+            } else {
+                Text(currencySymbol)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(AppTheme.brandStart)
+            }
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12))
+                .foregroundColor(AppTheme.textTertiary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
+        .background(AppTheme.background)
+        .cornerRadius(8)
+    }
+    
     @State private var showPatternSetup = false
     @State private var showPasswordText = false
     
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: 16) {
-                    Color.clear.frame(height: 4)
+                VStack(spacing: 0) {
+                    Color.clear.frame(height: 16)
+                    
+                    // User card
                     VStack(spacing: 12) {
                         Image(systemName: "person.circle.fill")
                             .font(.system(size: 40))
@@ -170,10 +225,10 @@ struct ProfileView: View {
                     .cornerRadius(16)
                     .shadow(color: AppTheme.cardShadow, radius: 10, x: 0, y: 4)
                     .padding(.horizontal, 16)
-
-
-                    Spacer(minLength: 8)
                     
+                    Spacer(minLength: 10)
+                    
+                    // Card 1: 安全
                     VStack(spacing: 0) {
                         // 账本锁
                         HStack {
@@ -198,15 +253,15 @@ struct ProfileView: View {
                             }) {
                                 HStack(spacing: 0) {
                                     Text("关")
-                                        .font(.system(size: 13, weight: .medium))
+                                        .font(.system(size: 15, weight: .medium))
                                         .foregroundColor(ledgerLockEnabled ? AppTheme.textTertiary : .white)
-                                        .frame(width: 28, height: 24)
+                                        .frame(width: 34, height: 28)
                                         .background(ledgerLockEnabled ? Color.clear : AppTheme.textTertiary)
                                         .cornerRadius(12)
                                     Text("开")
-                                        .font(.system(size: 13, weight: .medium))
+                                        .font(.system(size: 15, weight: .medium))
                                         .foregroundColor(ledgerLockEnabled ? .white : AppTheme.textTertiary)
-                                        .frame(width: 28, height: 24)
+                                        .frame(width: 34, height: 28)
                                         .background(ledgerLockEnabled ? AppTheme.brandStart : Color.clear)
                                         .cornerRadius(12)
                                 }
@@ -241,15 +296,15 @@ struct ProfileView: View {
                             }) {
                                 HStack(spacing: 0) {
                                     Text("关")
-                                        .font(.system(size: 13, weight: .medium))
+                                        .font(.system(size: 15, weight: .medium))
                                         .foregroundColor(analyticsLockEnabled ? AppTheme.textTertiary : .white)
-                                        .frame(width: 28, height: 24)
+                                        .frame(width: 34, height: 28)
                                         .background(analyticsLockEnabled ? Color.clear : AppTheme.textTertiary)
                                         .cornerRadius(12)
                                     Text("开")
-                                        .font(.system(size: 13, weight: .medium))
+                                        .font(.system(size: 15, weight: .medium))
                                         .foregroundColor(analyticsLockEnabled ? .white : AppTheme.textTertiary)
-                                        .frame(width: 28, height: 24)
+                                        .frame(width: 34, height: 28)
                                         .background(analyticsLockEnabled ? AppTheme.brandStart : Color.clear)
                                         .cornerRadius(12)
                                 }
@@ -282,10 +337,69 @@ struct ProfileView: View {
                             }
                             .padding(16)
                         }
+                    }
+                    .background(Color.white)
+                    .cornerRadius(12)
+                    .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
+                    .padding(.horizontal, 16)
+                    
+                    Spacer(minLength: 10)
+                    
+                    // Card 2: 偏好
+                    VStack(spacing: 0) {
+                        NavigationLink(destination: CategoryView().environmentObject(supabaseService)) {
+                            HStack {
+                                Image(systemName: "tag")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(AppTheme.brandStart)
+                                    .frame(width: 32)
+                                Text("收支类别")
+                                    .font(.appBody)
+                                    .foregroundColor(AppTheme.textPrimary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AppTheme.textTertiary)
+                            }
+                            .padding(16)
+                        }
                         
                         Divider().padding(.horizontal, 16)
                         
+                        // 货币设置
+                        HStack {
+                            Image(systemName: "dollarsign.circle")
+                                .font(.system(size: 24))
+                                .foregroundColor(AppTheme.brandStart)
+                                .frame(width: 32)
+                            Text("货币设置")
+                                .font(.appBody)
+                                .foregroundColor(AppTheme.textPrimary)
+                            Spacer()
+                            Text(currencyOptions.first(where: { $0.symbol == currencySymbol }).map { $0.name + " " + $0.symbol } ?? currencySymbol)
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(AppTheme.brandStart)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 4)
+                                .background(AppTheme.background)
+                                .cornerRadius(8)
+                                .onTapGesture { pendingCurrencyName = currencySymbol; showCurrencyPicker = true }
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 13))
+                                .foregroundColor(AppTheme.textTertiary)
+                        }
+                        .padding(16)
                         
+                    }
+                    .background(Color.white)
+                    .cornerRadius(12)
+                    .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
+                    .padding(.horizontal, 16)
+                    
+                    Spacer(minLength: 10)
+                    
+                    // Card 3: 其他
+                    VStack(spacing: 0) {
                         // 使用帮助
                         NavigationLink(destination: HelpView()) {
                             HStack {
@@ -305,6 +419,7 @@ struct ProfileView: View {
                         }
                         
                         Divider().padding(.horizontal, 16)
+                        
                         // 操作日志
                         NavigationLink(destination: UserLogView().environmentObject(supabaseService)) {
                             HStack {
@@ -346,37 +461,35 @@ struct ProfileView: View {
                             }
                             .padding(16)
                         }
-                        
-                        Divider().padding(.horizontal, 16)
-                        
-                        // 用户设置
-                        NavigationLink(destination: UserSettingsView().environmentObject(supabaseService).environmentObject(authManager)) {
-                            HStack {
-                                Image(systemName: "gearshape")
-                                    .font(.system(size: 24))
-                                    .foregroundColor(AppTheme.brandStart)
-                                    .frame(width: 32)
-                                Text("用户设置")
-                                    .font(.appBody)
-                                    .foregroundColor(AppTheme.textPrimary)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(AppTheme.textTertiary)
-                            }
-                            .padding(16)
-                        }
-                        
-                        Divider().padding(.horizontal, 16)
-                        
-
                     }
                     .background(Color.white)
                     .cornerRadius(12)
                     .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 32)
-
+                    Spacer(minLength: 10)
+                    
+                    // Card: 退出登录
+                    VStack(spacing: 0) {
+                        // 退出登录
+                        Button(action: { showLogoutAlert = true }) {
+                            HStack {
+                                Image(systemName: "rectangle.portrait.and.arrow.right")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(AppTheme.brandStart)
+                                    .frame(width: 32)
+                                Text("退出登录")
+                                    .font(.appBody)
+                                    .foregroundColor(AppTheme.brandStart)
+                                Spacer()
+                            }
+                            .padding(16)
+                        }
+                    }
+                    .background(Color.white)
+                    .cornerRadius(12)
+                    .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
                 }
             }
             .background(AppTheme.background.ignoresSafeArea())
@@ -437,10 +550,46 @@ struct ProfileView: View {
                 )
             }
         }
+        .sheet(isPresented: $showCurrencyPicker, onDismiss: {
+            if !pendingCurrencyName.isEmpty, pendingCurrencyName != currencySymbol {
+                showCurrencyConfirm = true
+            }
+        }) {
+            CurrencyEditPicker(selection: $pendingCurrencyName, options: currencyOptions)
+                .presentationDetents([.height(260)])
+        }
+        .alert("确认切换货币", isPresented: $showCurrencyConfirm) {
+            Button("取消", role: .cancel) {
+                pendingCurrencyName = ""
+            }
+            Button("确认") {
+                currencySymbol = pendingCurrencyName
+                pendingCurrencyName = ""
+            }
+        } message: {
+            if let cur = currencyOptions.first(where: { $0.symbol == pendingCurrencyName }) {
+                Text("是否确认后续使用" + cur.name + "（" + cur.symbol + "）记账？")
+            } else {
+                Text("是否确认后续使用" + pendingCurrencyName + "记账？")
+            }
+        }
+        .alert("退出登录", isPresented: $showLogoutAlert) {
+            Button("取消", role: .cancel) { }
+            Button("确认退出", role: .destructive) {
+                authManager.signOut()
+            }
+        } message: {
+            Text("是否确定退出当前登录？")
+        }
     }
 }
 
-// MARK: - 自定义解锁方式选择菜单 (替换系统 confirmationDialog)
+
+
+
+// MARK: - 自定义解锁方式选择菜单
+
+
 extension ProfileView {
     @ViewBuilder
     var passwordVerifyOverlay: some View {
@@ -462,12 +611,13 @@ extension ProfileView {
                         .font(.appTitle)
                         .foregroundColor(AppTheme.textPrimary)
                         .padding(.top, 24)
-                        .padding(.bottom, 12)
+                        .padding(.bottom, 16)
                     
                     Text("关闭页面锁需要验证账户密码")
                         .font(.appBody)
                         .foregroundColor(AppTheme.textSecondary)
                         .padding(.bottom, 20)
+                    
                     HStack(spacing: 10) {
                         if showPasswordText {
                             TextField("输入APP登录密码", text: $passwordInput)
@@ -488,18 +638,19 @@ extension ProfileView {
                         }
                         .buttonStyle(PlainButtonStyle())
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 12)
                     .background(AppTheme.background)
                     .cornerRadius(10)
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, 20)
                     .padding(.bottom, 20)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(AppTheme.background)
-                        .cornerRadius(10)
-                        .padding(.horizontal, 24)
-                        .padding(.bottom, 20)
+                    
+                    if !passwordError.isEmpty {
+                        Text(passwordError)
+                            .font(.system(size: 15))
+                            .foregroundColor(AppTheme.brandStart)
+                            .padding(.bottom, 12)
+                    }
                     
                     Divider().padding(.horizontal, 24)
                     
@@ -508,6 +659,7 @@ extension ProfileView {
                             withAnimation(.easeOut(duration: 0.2)) {
                                 showPasswordVerifyAlert = false
                                 passwordInput = ""
+                                passwordError = ""
                             }
                         }) {
                             Text("取消")
@@ -525,7 +677,7 @@ extension ProfileView {
                                 guard let email = supabaseService.currentUser?.email else { return }
                                 do {
                                     try await supabaseService.client.auth.signIn(email: email, password: passwordInput)
-                                   await MainActor.run {
+                                    await MainActor.run {
                                         withAnimation(.easeOut(duration: 0.2)) {
                                             if lockSettingTarget == "ledger" {
                                                 PageLockManager.setLedgerLock(enabled: false)
@@ -540,11 +692,12 @@ extension ProfileView {
                                             }
                                             showPasswordVerifyAlert = false
                                             passwordInput = ""
+                                            passwordError = ""
                                         }
                                     }
                                 } catch {
-                                   await MainActor.run {
-                                        showPasswordVerifyAlert = false
+                                    await MainActor.run {
+                                        passwordError = "密码录入错误！"
                                         passwordInput = ""
                                     }
                                 }
@@ -559,11 +712,9 @@ extension ProfileView {
                         .buttonStyle(PlainButtonStyle())
                     }
                 }
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.white)
-                        .shadow(color: Color.black.opacity(0.12), radius: 20, x: 0, y: -4)
-                )
+                .background(Color.white)
+                .cornerRadius(16)
+                .shadow(color: Color.black.opacity(0.12), radius: 20, x: 0, y: -4)
                 .padding(.horizontal, 32)
                 
                 Spacer()
@@ -572,6 +723,7 @@ extension ProfileView {
         .transition(.opacity)
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showPasswordVerifyAlert)
     }
+    
     @ViewBuilder
     var unlockMethodSheetOverlay: some View {
         ZStack {
@@ -673,7 +825,6 @@ extension ProfileView {
                 )
                 .padding(.horizontal, 20)
                 
-                .transition(.opacity)
                 Spacer()
             }
         }

@@ -130,6 +130,11 @@ class SupabaseService: ObservableObject {
         self.currentUser = nil
         self.userProfile = nil
         self.isAuthenticated = false
+        self.allRecords = []
+        self.expenses = []
+        self.incomes = []
+        self.preloadedExpenses = []
+        self.isPreloaded = false
     }
 
     // MARK: - Expenses CRUD
@@ -274,7 +279,7 @@ class SupabaseService: ObservableObject {
                saveExpensesToDefaults()
            }
            // 同步到 allRecords / expenses / incomes
-           if let idx = allRecords.firstIndex(where: { $0.id == expense.id }) { allRecords[idx] = expense }
+           if let idx = allRecords.firstIndex(where: { $0.id == expense.id }) { var recs = allRecords; recs[idx] = expense; allRecords = recs }
             expenses.removeAll { $0.id == expense.id }
             incomes.removeAll { $0.id == expense.id }
             if expense.type == .expense { expenses.append(expense) } else { incomes.append(expense) }
@@ -283,7 +288,7 @@ class SupabaseService: ObservableObject {
       
       try await client.from("records").update(expense).eq("id", value: expense.id).execute()
        // 本地同步
-       if let idx = allRecords.firstIndex(where: { $0.id == expense.id }) { allRecords[idx] = expense }
+       if let idx = allRecords.firstIndex(where: { $0.id == expense.id }) { var recs = allRecords; recs[idx] = expense; allRecords = recs }
         expenses.removeAll { $0.id == expense.id }
         incomes.removeAll { $0.id == expense.id }
         if expense.type == .expense { expenses.append(expense) } else { incomes.append(expense) }
@@ -493,6 +498,95 @@ class SupabaseService: ObservableObject {
             guard cIds.contains(self.expenses[i].id) else { continue }
             self.expenses[i].currency = currencySymbol
         }
+    }
+}
+
+// MARK: - 定期账单提醒
+struct BillReminderCodable: Codable, Identifiable {
+    var id: UUID
+    var userId: UUID
+    var name: String
+    var amount: Double
+    var dueDay: Int
+    var dueMonth: Int
+    var recurrence: String
+    var isEnabled: Bool
+    var currency: String
+    var createdAt: String?
+    var updatedAt: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId = "user_id"
+        case name
+        case amount
+        case dueDay = "due_day"
+        case dueMonth = "due_month"
+        case recurrence
+        case isEnabled = "is_enabled"
+        case currency
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+extension SupabaseService {
+    func fetchBillReminders() async throws -> [BillReminderCodable] {
+        if AppConfig.useMockServices {
+            guard let user = currentUser else { return [] }
+            let key = "bill_reminders_\(user.id.uuidString)"
+            guard let data = UserDefaults.standard.data(forKey: key),
+                  let items = try? JSONDecoder().decode([BillReminderCodable].self, from: data) else {
+                return []
+            }
+            return items
+        }
+        guard let userId = currentUser?.id else { return [] }
+        return try await client.from("bill_reminders").select()
+            .eq("user_id", value: userId)
+            .order("created_at", ascending: true)
+            .execute().value
+    }
+    
+    func addBillReminder(_ reminder: BillReminderCodable) async throws {
+        if AppConfig.useMockServices {
+            var items = try await fetchBillReminders()
+            items.append(reminder)
+            let key = "bill_reminders_\(currentUser!.id.uuidString)"
+            if let data = try? JSONEncoder().encode(items) {
+                UserDefaults.standard.set(data, forKey: key)
+            }
+            return
+        }
+        try await client.from("bill_reminders").insert(reminder).execute()
+    }
+    
+    func updateBillReminder(_ reminder: BillReminderCodable) async throws {
+        if AppConfig.useMockServices {
+            var items = try await fetchBillReminders()
+            if let idx = items.firstIndex(where: { $0.id == reminder.id }) {
+                items[idx] = reminder
+            }
+            let key = "bill_reminders_\(currentUser!.id.uuidString)"
+            if let data = try? JSONEncoder().encode(items) {
+                UserDefaults.standard.set(data, forKey: key)
+            }
+            return
+        }
+        try await client.from("bill_reminders").update(reminder).eq("id", value: reminder.id).execute()
+    }
+    
+    func deleteBillReminder(_ reminder: BillReminderCodable) async throws {
+        if AppConfig.useMockServices {
+            var items = try await fetchBillReminders()
+            items.removeAll { $0.id == reminder.id }
+            let key = "bill_reminders_\(currentUser!.id.uuidString)"
+            if let data = try? JSONEncoder().encode(items) {
+                UserDefaults.standard.set(data, forKey: key)
+            }
+            return
+        }
+        try await client.from("bill_reminders").delete().eq("id", value: reminder.id).execute()
     }
 }
 

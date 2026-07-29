@@ -23,17 +23,39 @@ struct BatchOperationSheet: View {
     @State private var showCurrencySheet = false
     private var isProcessing: Bool { supabaseService.batchProgress != nil }
 
-    var body: some View {
-        VStack(spacing: 20) {
-            Text("批量操作").font(.title2.weight(.semibold)).foregroundColor(.white).padding(.top, 32)
 
+    @ViewBuilder
+    private var headerSection: some View {
+        VStack(spacing: 8) {
+            Text("批量操作").font(.title2.weight(.semibold)).foregroundColor(.white).padding(.top, 32)
             Text("已选 \(selectedCount) 条记录")
                 .font(.subheadline).foregroundStyle(AppTheme.brandGradient)
                 .padding(.horizontal, 16).padding(.vertical, 8)
                 .background(AppTheme.brandStart.opacity(0.08))
                 .cornerRadius(8)
+        }
+    }
 
-            // ── 操作列表 ──
+    @ViewBuilder
+    private var closeButton: some View {
+        Button(action: { if !isProcessing { onCancel() } }) {
+            Text("关闭操作")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundColor(isProcessing ? AppTheme.textTertiary : AppTheme.brandStart)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .padding(.horizontal, 20)
+                .background(Color.clear)
+                .cornerRadius(8)
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(isProcessing ? AppTheme.textTertiary.opacity(0.3) : AppTheme.brandStart.opacity(0.5), lineWidth: 1.5))
+        }
+        .disabled(isProcessing)
+    }
+
+    var body: some View {
+        VStack(spacing: 20) {
+            headerSection
+
             VStack(spacing: 10) {
                 BatchOperationRow(icon: "pencil.and.list.clipboard", title: "修改备注") { if !isProcessing { showNoteSheet = true } }
                 BatchOperationRow(icon: "calendar", title: "修改时间") { if !isProcessing { showDateSheet = true } }
@@ -51,20 +73,10 @@ struct BatchOperationSheet: View {
                     .padding(.horizontal)
             }
 
-            Button(action: { if !isProcessing { onCancel() } }) {
-                Text("关闭操作")
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(isProcessing ? AnyShapeStyle(Color.gray.opacity(0.5)) : AnyShapeStyle(AppTheme.brandGradient))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 20)
-                    .background(Color.clear)
-                    .cornerRadius(8)
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(isProcessing ? Color.gray.opacity(0.3) : AppTheme.brandStart.opacity(0.5), lineWidth: 1.5))
-            }
-            .disabled(isProcessing)
-            .padding(.horizontal)
-            .padding(.bottom, 20)
+            closeButton
+                .padding(.horizontal)
+                .padding(.bottom, 20)
+
         }
         .background(.ultraThinMaterial)
         
@@ -73,9 +85,9 @@ struct BatchOperationSheet: View {
         }
         .sheet(isPresented: $showCategorySheet) {
             BatchCategorySheet(selectedCount: selectedCount, categories: batchCategories, onConfirm: { cat in onCategoryConfirm(cat) }, onCancel: { showCategorySheet = false })
-        .sheet(isPresented: \$showCurrencySheet) {
-            BatchCurrencySheet(selectedCount: selectedCount, onConfirm: { sym in onCurrencyConfirm(sym) }, onCancel: { showCurrencySheet = false })
         }
+        .sheet(isPresented: $showCurrencySheet) {
+            BatchCurrencySheet(selectedCount: selectedCount, onConfirm: { sym in onCurrencyConfirm(sym) }, onCancel: { showCurrencySheet = false })
         }
         .sheet(isPresented: $showDateSheet) {
             BatchDatePickerSheet(selectedCount: selectedCount, onConfirm: { date in onDateConfirm(date) }, onCancel: { showDateSheet = false })
@@ -127,7 +139,6 @@ struct BatchNoteSheet: View {
     @Binding var batchNoteText: String
     @Binding var batchNoteMode: NoteMode
     var onConfirm: () -> Void
-    var onCurrencyConfirm: (String) -> Void
     var onCancel: () -> Void
 
     var body: some View {
@@ -158,7 +169,7 @@ struct BatchNoteSheet: View {
                         Spacer()
                         Text("\(batchNoteText.utf8.count)/200")
                             .font(.system(size: 12))
-                            .foregroundStyle(batchNoteText.utf8.count > 200 ? AnyShapeStyle(AppTheme.brandGradient) : AnyShapeStyle(Color(hex: "#888888")))
+                            .foregroundColor(batchNoteText.utf8.count > 200 ? AppTheme.brandStart : Color(hex: "#888888"))
                     }
                     .padding(.horizontal)
 
@@ -225,7 +236,6 @@ struct BatchDatePickerSheet: View {
     @State private var isProcessing = false
     let selectedCount: Int
     var onConfirm: (Date) -> Void
-    var onCurrencyConfirm: (String) -> Void
     var onCancel: () -> Void
 
     @State private var selectedDate = Date()
@@ -312,7 +322,6 @@ struct BatchMonthSheet: View {
     @State private var isProcessing = false
     let selectedCount: Int
     var onConfirm: (String) -> Void
-    var onCurrencyConfirm: (String) -> Void
     var onCancel: () -> Void
 
     @State private var selectedYear: Int = Calendar.current.component(.year, from: Date())
@@ -401,7 +410,6 @@ struct BatchCategorySheet: View {
     let selectedCount: Int
     let categories: [String]
     var onConfirm: (String) -> Void
-    var onCurrencyConfirm: (String) -> Void
     var onCancel: () -> Void
 
     @State private var selectedCategory: String = "餐饮"
@@ -483,7 +491,7 @@ struct BatchCurrencySheet: View {
                         .background(AppTheme.brandStart.opacity(0.08))
                         .cornerRadius(8)
                     Spacer()
-                    Picker("货币", selection: \$selectedSymbol) {
+                    Picker("货币", selection: $selectedSymbol) {
                         ForEach(currencyOptions, id: \.symbol) { option in
                             Text(option.name + " (" + option.symbol + ")")
                                 .font(.system(size: 21, weight: .medium)).tag(option.symbol)
@@ -586,5 +594,4 @@ struct PawIcon: View {
         .onAppear { if active { withAnimation(.easeInOut(duration: 0.45).repeatForever(autoreverses: true)) { pulse = 1.35 } } }
     }
 }
-
 

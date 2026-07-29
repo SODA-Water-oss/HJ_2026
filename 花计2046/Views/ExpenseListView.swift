@@ -106,6 +106,69 @@ struct ExpenseListView: View {
             MonthExpenseGroup(month: key, monthDisplay: value.first?.monthDisplay ?? key, expenses: value.sorted { $0.date > $1.date })
         }.sorted { $0.month > $1.month }
     }
+
+    @ViewBuilder
+    private var filterChip: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "line.3.horizontal.decrease").font(.system(size: 15))
+            Text(filterSummaryText).font(.system(size: 17, weight: .medium))
+        }
+        .foregroundStyle(AppTheme.brandGradient)
+        .padding(.horizontal, 12).padding(.vertical, 7)
+        .background(AppTheme.brandStart.opacity(0.08))
+        .cornerRadius(8)
+        .padding(.horizontal, 16)
+        .padding(.top, showSearch ? 6 : 3)
+        .padding(.bottom, showSearch ? 4 : 12)
+    }
+    private var batchOperationSheet: BatchOperationSheet {
+        BatchOperationSheet(
+            selectedCount: allSelected.count,
+            batchNoteText: $batchNoteText,
+            batchNoteMode: $batchNoteMode,
+            onNoteConfirm: {
+                let count = allSelected.count
+                Task {
+                    try? await supabaseService.batchUpdateNote(expenses: allSelected, note: batchNoteText, mode: batchNoteMode)
+                    await UserLogManager.log(action: "批量修改", detail: "批量修改备注(\(count))", supabaseService: supabaseService)
+                    selectedExpenseIds = []
+                }
+            },
+            onDeleteConfirm: {
+                let count = selectedExpenseIds.count
+                Task {
+                    try? await supabaseService.batchDeleteExpenses(ids: Array(selectedExpenseIds))
+                    await UserLogManager.log(action: "批量删除", detail: "批量删除(\(count))", supabaseService: supabaseService)
+                    selectedExpenseIds = []
+                }
+            },
+            onDateConfirm: { date in
+                let count = allSelected.count
+                Task {
+                    try? await supabaseService.batchUpdateTime(expenses: allSelected, date: date)
+                    await UserLogManager.log(action: "批量修改", detail: "批量修改时间(\(count))", supabaseService: supabaseService)
+                    selectedExpenseIds = []
+                }
+            },
+            onCategoryConfirm: { cat in
+                let count = allSelected.count
+                Task {
+                    try? await supabaseService.batchUpdateCategory(expenses: allSelected, category: cat)
+                    await UserLogManager.log(action: "批量修改", detail: "批量修改类别(\(count))", supabaseService: supabaseService)
+                    selectedExpenseIds = []
+                }
+            },
+            onCurrencyConfirm: { sym in
+                let count = allSelected.count
+                Task {
+                    try? await supabaseService.batchUpdateCurrency(expenses: allSelected, currencySymbol: sym)
+                    await UserLogManager.log(action: "批量修改", detail: "批量修改货币(\(count))", supabaseService: supabaseService)
+                    selectedExpenseIds = []
+                }
+            },
+            onCancel: { showBatchNoteSheet = false }
+        )
+    }
     
     var body: some View {
         NavigationView {
@@ -116,18 +179,8 @@ struct ExpenseListView: View {
                         searchPanel
                     }
                     if hasActiveFilters {
-                        HStack(spacing: 6) {
-                        Image(systemName: "line.3.horizontal.decrease").font(.system(size: 15))
-                        Text(filterSummaryText).font(.system(size: 17, weight: .medium))
-                        }
-                        .foregroundStyle(AppTheme.brandGradient)
-                        .padding(.horizontal, 12).padding(.vertical, 7)
-                        .background(AppTheme.brandStart.opacity(0.08))
-                        .cornerRadius(8)
-                        .padding(.horizontal, 16)
-                        .padding(.top, showSearch ? 6 : 3)
-                        .animation(.easeOut(duration: 0.2), value: showSearch)
-                        .padding(.bottom, showSearch ? 4 : 12)
+                        filterChip
+                            .animation(.easeOut(duration: 0.2), value: showSearch)
                     }
                     if showSearch { Color.clear.frame(height: 8) }
                     if supabaseService.allRecords.isEmpty && supabaseService.isRecordsLoading {
@@ -199,7 +252,7 @@ struct ExpenseListView: View {
         .sheet(isPresented: $showYearPicker) { YearWheelPicker(selection: $supabaseService.sharedSearchYear, options: yearOptions).presentationDetents([.height(230)]) }
         .sheet(isPresented: $showMonthPicker) { MonthWheelPicker(selection: $supabaseService.sharedSearchMonth, options: monthOptions).presentationDetents([.height(270)]) }
         .sheet(isPresented: $showCategoryPicker) { CategoryWheelPicker(selection: $supabaseService.sharedSearchCategory, options: categories).presentationDetents([.height(230)]) }
-   .sheet(isPresented: $showBatchNoteSheet) { BatchOperationSheet(selectedCount: allSelected.count, batchNoteText: $batchNoteText, batchNoteMode: $batchNoteMode, onNoteConfirm: { let count = allSelected.count; Task { try? await supabaseService.batchUpdateNote(expenses: allSelected, note: batchNoteText, mode: batchNoteMode); await UserLogManager.log(action: "批量修改", detail: "批量修改备注(\(count))", supabaseService: supabaseService); selectedExpenseIds = [] } }, onDeleteConfirm: { let count = selectedExpenseIds.count; Task { try? await supabaseService.batchDeleteExpenses(ids: Array(selectedExpenseIds)); await UserLogManager.log(action: "批量删除", detail: "批量删除(\(count))", supabaseService: supabaseService); selectedExpenseIds = [] } }, onDateConfirm: { date in let count = allSelected.count; Task { try? await supabaseService.batchUpdateTime(expenses: allSelected, date: date); await UserLogManager.log(action: "批量修改", detail: "批量修改时间(\(count))", supabaseService: supabaseService); selectedExpenseIds = [] } }, onCurrencyConfirm: { sym in let count = allSelected.count; Task { try? await supabaseService.batchUpdateCurrency(expenses: allSelected, currencySymbol: sym); await UserLogManager.log(action: "批量修改", detail: "批量修改货币(\(count))", supabaseService: supabaseService); selectedExpenseIds = [] } }, onCategoryConfirm: { cat in let count = allSelected.count; Task { try? await supabaseService.batchUpdateCategory(expenses: allSelected, category: cat); await UserLogManager.log(action: "批量修改", detail: "批量修改类别(\(count))", supabaseService: supabaseService); selectedExpenseIds = [] } }, onCancel: { showBatchNoteSheet = false }) }
+   .sheet(isPresented: $showBatchNoteSheet) { batchOperationSheet }
     .sheet(isPresented: $showShareSheet) {
         if let url = exportURL {
             ShareSheet(items: [url])

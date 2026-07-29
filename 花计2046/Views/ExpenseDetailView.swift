@@ -118,6 +118,11 @@ struct ExpenseDetailView: View {
                 .environmentObject(supabaseService)
             }
         }
+        .onChange(of: supabaseService.allRecords) { records in
+            if let updated = records.first(where: { $0.id == currentExpense.id }) {
+                currentExpense = updated
+            }
+        }
     }
     
     func dateFormatted(_ d: Date) -> String {
@@ -133,6 +138,7 @@ struct ExpenseDetailView: View {
         Task {
             do {
                 try await supabaseService.deleteExpense(currentExpense)
+                    await UserLogManager.log(action: "删除", detail: "删除(1)", supabaseService: supabaseService)
                 await MainActor.run {
                     NotificationCenter.default.post(name: Notification.Name("ExpensesDidUpdate"), object: nil)
                     dismiss()

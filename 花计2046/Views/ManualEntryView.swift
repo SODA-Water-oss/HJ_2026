@@ -337,8 +337,8 @@ struct ManualEntryView: View {
                 }
             }
             Spacer()
-            let amtStr = row.amount.isEmpty ? "0.00" : String(format: "%.2f", Double(row.amount) ?? 0)
-            Text("\(row.type == .expense ? "-" : "+")¥\(amtStr)")
+            let amtStr = row.amount.isEmpty ? "-" : String(format: "%.2f", Double(row.amount) ?? 0)
+            Text(row.amount.isEmpty ? "-" : "\(row.type == .expense ? "-" : "+")¥\(amtStr)")
                 .font(.system(size: 17, weight: .regular))
                 .foregroundColor(row.type == .expense ? AppTheme.textSecondary : .green)
             Button(action: {
@@ -400,7 +400,8 @@ struct ManualEntryView: View {
                 for row in validRows {
                     group.addTask { [row] in
                         let nE = row.merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        let aB = (Double(row.amount) ?? 0) <= 0
+                        let aE = row.amount.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        let aB = !aE && Double(row.amount) == nil
                         if nE && aB { return (row.id, false, "未录入有效名称、金额") }
                         if nE { return (row.id, false, "未录入有效名称") }
                         if aB { return (row.id, false, "未录入有效金额") }

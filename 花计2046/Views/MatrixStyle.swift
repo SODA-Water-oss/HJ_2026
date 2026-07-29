@@ -139,7 +139,7 @@ struct RecordWatermark: View {
         let hour = Calendar.current.component(.hour, from: expense.date)
         let minute = Calendar.current.component(.minute, from: expense.date)
         let posSeed = (day * 13 + hour * 7 + minute * 19 + Int(expense.amount * 100) % 89) & 0xFFFF
-        let offsetX: CGFloat = CGFloat((posSeed % 101) - 50)
+        let offsetX: CGFloat = CGFloat((posSeed % 111) - 40)
         let offsetY: CGFloat = CGFloat(((posSeed >> 7) % 121) - 10)
         return watermarkContent
             .offset(x: offsetX, y: offsetY)
@@ -168,7 +168,7 @@ struct RecordWatermark: View {
        let seed = (day * 7 + minute * 13 + hour * 3 + Int(expense.amount * 100) % 97) & 0x7FFF
        let name = icons[seed % icons.count]
        let sizeSeed = (day * 11 + hour * 17 + minute * 5 + Int(expense.amount * 100) % 101) & 0xFF
-       let size: CGFloat = 55 + CGFloat(sizeSeed % 94)
+       let size: CGFloat = 45 + CGFloat(sizeSeed % 136)
         let rotSeed = (day * 5 + hour * 19 + minute * 11 + Int(expense.amount * 100) % 103) & 0xFFF
         let angle = Double(rotSeed % 72) * 5 + (expense.isExpense ? 0.0 : 180.0)
        

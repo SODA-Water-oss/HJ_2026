@@ -22,9 +22,9 @@ struct UserSettingsView: View {
                     NavigationLink(destination: CategoryView().environmentObject(supabaseService)) {
                         HStack {
                             Image(systemName: "tag")
-                                .font(.system(size: 17))
+                                .font(.system(size: 24))
                                 .foregroundColor(AppTheme.brandStart)
-                                .frame(width: 24)
+                                .frame(width: 32)
                             Text("收支类别")
                                 .font(.appBody)
                                 .foregroundColor(AppTheme.textPrimary)
@@ -45,9 +45,9 @@ struct UserSettingsView: View {
                     VStack(spacing: 0) {
                         HStack {
                             Image(systemName: "dollarsign.circle")
-                                .font(.system(size: 17))
+                                .font(.system(size: 24))
                                 .foregroundColor(AppTheme.brandStart)
-                                .frame(width: 24)
+                                .frame(width: 32)
                             Text("货币设置")
                                 .font(.appBody)
                                 .foregroundColor(AppTheme.textPrimary)
@@ -96,9 +96,9 @@ struct UserSettingsView: View {
                         Button(action: { showLogoutAlert = true }) {
                             HStack {
                                 Image(systemName: "rectangle.portrait.and.arrow.right")
-                                    .font(.system(size: 17))
+                                    .font(.system(size: 24))
                                     .foregroundColor(AppTheme.brandStart)
-                                    .frame(width: 24)
+                                    .frame(width: 32)
                                 Text("退出登录")
                                     .font(.appBody)
                                     .foregroundColor(AppTheme.brandStart)
@@ -282,8 +282,7 @@ struct UserSettingsView: View {
 // MARK: - 使用帮助页
 struct HelpView: View {
     var body: some View {
-        NavigationView {
-            ScrollView {
+        ScrollView {
                 VStack(spacing: 20) {
                     Color.clear.frame(height: 4)
                     
@@ -323,10 +322,10 @@ struct HelpView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     HStack(spacing: 6) {
-                        Image(systemName: "gearshape")
+                        Image(systemName: "questionmark.circle")
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(AppTheme.brandStart)
-                        Text("用户设置")
+                        Text("使用帮助")
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(AppTheme.textPrimary)
                     }
@@ -359,4 +358,3 @@ struct HelpView: View {
         .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
         .padding(.horizontal, 16)
     }
-}
