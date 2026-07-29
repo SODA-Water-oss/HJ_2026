@@ -59,6 +59,11 @@ struct MainTabView: View {
                 try? await supabaseService.preloadAllRecords()
             }
             .onChange(of: selectedTab) { _, newTab in
+                if showLockScreen && newTab != lockTargetTab {
+                    showLockScreen = false
+                    lockTargetTab = nil
+                    return
+                }
                 if newTab == 0 && PageLockManager.isLedgerLocked && !ledgerLockVerified {
                     lockTargetTab = 0
                     showLockScreen = true
@@ -101,9 +106,6 @@ struct MainTabView: View {
                     },
                     onCancel: {
                         selectedTab = 2
-                        DispatchQueue.main.async {
-                            showLockScreen = false
-                        }
                     }
                 )
                 .transition(.opacity)
