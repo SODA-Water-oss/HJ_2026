@@ -163,8 +163,8 @@ struct ProfileView: View {
     @EnvironmentObject var supabaseService: SupabaseService
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject var authManager: AuthManager
-    @State private var ledgerLockEnabled = PageLockManager.isLedgerLocked
-    @State private var analyticsLockEnabled = PageLockManager.isAnalyticsLocked
+    @AppStorage("page_lock_ledger_enabled") private var ledgerLockEnabled = false
+    @AppStorage("page_lock_analytics_enabled") private var analyticsLockEnabled = false
     @State private var showPinSetup = false
     @State private var showPasswordVerifyAlert = false
     @State private var lockSettingTarget = ""
