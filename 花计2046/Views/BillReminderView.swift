@@ -314,6 +314,10 @@ struct BillReminderView: View {
     }
     
     private func saveBills() {
+        // Local cache for instant load
+        if let data = try? JSONEncoder().encode(bills) {
+            UserDefaults.standard.set(data, forKey: "bill_reminders_cache")
+        }
         Task {
             for bill in bills {
                 let codable = bill.toCodable(userId: supabaseService.currentUser?.id ?? UUID())
@@ -338,9 +342,19 @@ struct BillReminderView: View {
     }
     
     private func loadBills() {
+        // Instant load from local cache
+        if let data = UserDefaults.standard.data(forKey: "bill_reminders_cache"),
+           let cached = try? JSONDecoder().decode([BillItem].self, from: data) {
+            bills = cached
+        }
+        // Background sync from database
         Task {
             guard let loaded = try? await supabaseService.fetchBillReminders() else { return }
             bills = loaded.map { BillItem(from: $0) }
+            // Update cache
+            if let data = try? JSONEncoder().encode(bills) {
+                UserDefaults.standard.set(data, forKey: "bill_reminders_cache")
+            }
         }
     }
 }

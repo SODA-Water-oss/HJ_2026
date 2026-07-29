@@ -101,7 +101,9 @@ struct MainTabView: View {
                     },
                     onCancel: {
                         selectedTab = 2
-                        showLockScreen = false
+                        DispatchQueue.main.async {
+                            showLockScreen = false
+                        }
                     }
                 )
                 .transition(.opacity)
