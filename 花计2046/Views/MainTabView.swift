@@ -11,6 +11,23 @@ struct MainTabView: View {
     @State private var analyticsLockVerified = false
     @State private var dueBillCount = 0
     
+    private var tabBinding: Binding<Int> {
+        Binding(
+            get: { selectedTab },
+            set: { newValue in
+                if newValue == 0 && PageLockManager.isLedgerLocked && !ledgerLockVerified {
+                    lockTargetTab = 0
+                    showLockScreen = true
+                } else if newValue == 1 && PageLockManager.isAnalyticsLocked && !analyticsLockVerified {
+                    lockTargetTab = 1
+                    showLockScreen = true
+                } else {
+                    selectedTab = newValue
+                }
+            }
+        )
+    }
+    
 
 
     init() {
@@ -25,7 +42,7 @@ struct MainTabView: View {
     
     var body: some View {
         ZStack {
-            TabView(selection: $selectedTab) {
+            TabView(selection: tabBinding) {
                 ExpenseListView().tag(0)
                     .tabItem {
                         Label("账本", systemImage: "list.clipboard")
@@ -58,20 +75,7 @@ struct MainTabView: View {
                 try? await UNUserNotificationCenter.current().setBadgeCount(0)
                 try? await supabaseService.preloadAllRecords()
             }
-            .onChange(of: selectedTab) { _, newTab in
-                if showLockScreen && newTab != lockTargetTab {
-                    showLockScreen = false
-                    lockTargetTab = nil
-                    return
-                }
-                if newTab == 0 && PageLockManager.isLedgerLocked && !ledgerLockVerified {
-                    lockTargetTab = 0
-                    showLockScreen = true
-                } else if newTab == 1 && PageLockManager.isAnalyticsLocked && !analyticsLockVerified {
-                    lockTargetTab = 1
-                    showLockScreen = true
-                }
-            }
+
             .onChange(of: scenePhase) { _, phase in
                 if phase == .background || phase == .inactive {
                     ledgerLockVerified = false
@@ -93,6 +97,7 @@ struct MainTabView: View {
                         if !ok { return false }
                         if lockTargetTab == 0 { ledgerLockVerified = true }
                         else { analyticsLockVerified = true }
+                        selectedTab = lockTargetTab ?? 2
                         showLockScreen = false
                         return true
                     },
@@ -101,11 +106,12 @@ struct MainTabView: View {
                         if !ok { return false }
                         if lockTargetTab == 0 { ledgerLockVerified = true }
                         else { analyticsLockVerified = true }
+                        selectedTab = lockTargetTab ?? 2
                         showLockScreen = false
                         return true
                     },
                     onCancel: {
-                        selectedTab = 2
+                        showLockScreen = false
                     }
                 )
                 .transition(.opacity)
@@ -521,9 +527,11 @@ struct ProfileView: View {
                     if lockSettingTarget == "ledger" {
                         PageLockManager.setLedgerLock(enabled: true, pin: newPin, mode: "pin")
                         ledgerLockEnabled = true
+                        UserSettingsSync.syncToCloud(supabaseService: supabaseService)
                     } else {
                         PageLockManager.setAnalyticsLock(enabled: true, pin: newPin, mode: "pin")
                         analyticsLockEnabled = true
+                        UserSettingsSync.syncToCloud(supabaseService: supabaseService)
                     }
                     showPinSetup = false; newPin = ""
                 }, onCancel: {
@@ -543,9 +551,11 @@ struct ProfileView: View {
                         if lockSettingTarget == "ledger" {
                             PageLockManager.setLedgerLock(enabled: true, pin: pattern, mode: "pattern")
                             ledgerLockEnabled = true
+                            UserSettingsSync.syncToCloud(supabaseService: supabaseService)
                         } else {
                             PageLockManager.setAnalyticsLock(enabled: true, pin: pattern, mode: "pattern")
                             analyticsLockEnabled = true
+                            UserSettingsSync.syncToCloud(supabaseService: supabaseService)
                         }
                     },
                     onCancel: {
@@ -686,13 +696,16 @@ extension ProfileView {
                                             if lockSettingTarget == "ledger" {
                                                 PageLockManager.setLedgerLock(enabled: false)
                                                 ledgerLockEnabled = false
+                                                UserSettingsSync.syncToCloud(supabaseService: supabaseService)
                                             } else if lockSettingTarget == "analytics" {
                                                 PageLockManager.setAnalyticsLock(enabled: false)
                                                 analyticsLockEnabled = false
+                                                UserSettingsSync.syncToCloud(supabaseService: supabaseService)
                                             } else if lockSettingTarget == "clear_all" {
                                                 PageLockManager.clearAllLocks()
                                                 ledgerLockEnabled = false
                                                 analyticsLockEnabled = false
+                                                UserSettingsSync.syncToCloud(supabaseService: supabaseService)
                                             }
                                             showPasswordVerifyAlert = false
                                             passwordInput = ""
