@@ -497,7 +497,7 @@ struct BillFormView: View {
                                         recurrence = freq
                                         if freq != .monthly && dueMonth == 0 { dueMonth = 1 }
                                     }) {
-                                        Text(freq.rawValue)
+                                        Tzxcvext(freq.rawValue)
                                             .font(.system(size: 17, weight: .medium))
                                             .foregroundStyle(recurrence == freq ? AnyShapeStyle(Color.white) : AnyShapeStyle(AppTheme.brandGradient))
                                             .frame(maxWidth: .infinity)

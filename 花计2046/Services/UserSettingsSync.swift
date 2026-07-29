@@ -51,7 +51,11 @@ class UserSettingsSync {
               let userId = supabaseService.currentUser?.id else { return }
         var settings: [String: String] = [:]
         for key in storageKeys {
-            if let value = UserDefaults.standard.string(forKey: key) { settings[key] = value }
+            if let value = UserDefaults.standard.string(forKey: key) {
+                settings[key] = value
+            } else if key == "page_lock_ledger_enabled" || key == "page_lock_analytics_enabled" {
+                settings[key] = UserDefaults.standard.bool(forKey: key) ? "true" : "false"
+            }
         }
         if let pin: String = KeychainHelper.loadCodable(String.self, forKey: "page_lock_ledger_pin") { settings["ledger_pin"] = pin }
         if let pin: String = KeychainHelper.loadCodable(String.self, forKey: "page_lock_analytics_pin") { settings["analytics_pin"] = pin }
