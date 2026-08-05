@@ -209,7 +209,7 @@ struct CategoryView: View {
     }
     
     private func syncSettings() {
-        UserSettingsSync.syncToCloud(supabaseService: supabaseService)
+        Task { await UserSettingsManager.shared.saveToCloud() }
     }
     
     private func catRow(cat: String, enabled: [String], isDefault: Bool, accentColor: Color, onToggle: @escaping (Bool) -> Void, onSetDefault: @escaping () -> Void) -> some View {

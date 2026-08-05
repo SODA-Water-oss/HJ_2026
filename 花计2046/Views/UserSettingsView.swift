@@ -2,6 +2,7 @@ import SwiftUI
 
 struct UserSettingsView: View {
     @AppStorage("currency_symbol") private var currencySymbol = "¥"
+    @ObservedObject private var userSettings = UserSettingsManager.shared
     
     @EnvironmentObject var supabaseService: SupabaseService
     @EnvironmentObject var authManager: AuthManager
@@ -85,6 +86,8 @@ struct UserSettingsView: View {
                         ForEach(currencyOptions, id: \.symbol) { option in
                             Button(option.name + " (" + option.symbol + ")") {
                                 currencySymbol = option.symbol
+                                userSettings.currencySymbol = option.symbol
+                                Task { await userSettings.saveToCloud() }
                             }
                         }
                         Button("取消", role: .cancel) { }
@@ -249,7 +252,11 @@ struct UserSettingsView: View {
                         
                         Button(action: {
                             withAnimation(.easeOut(duration: 0.2)) {
-                                if let sc = selectedCurrency { currencySymbol = sc.symbol; Task { await UserSettingsSync.shared.save(supabaseService: supabaseService) } }
+                                if let sc = selectedCurrency {
+                                    currencySymbol = sc.symbol
+                                    userSettings.currencySymbol = sc.symbol
+                                    Task { await userSettings.saveToCloud() }
+                                }
                                 currencyPickerStep = 0
                                 selectedCurrency = nil
                             }

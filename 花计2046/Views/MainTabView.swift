@@ -3,6 +3,7 @@ import Supabase
 
 struct MainTabView: View {
     @EnvironmentObject var supabaseService: SupabaseService
+    @ObservedObject private var userSettings = UserSettingsManager.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = 2
     @State private var showLockScreen = false
@@ -10,15 +11,17 @@ struct MainTabView: View {
     @State private var ledgerLockVerified = false
     @State private var analyticsLockVerified = false
     @State private var dueBillCount = 0
+    @State private var ledgerLockEnabled = UserSettingsManager.shared.ledgerLockEnabled
+    @State private var analyticsLockEnabled = UserSettingsManager.shared.analyticsLockEnabled
     
     private var tabBinding: Binding<Int> {
         Binding(
             get: { selectedTab },
             set: { newValue in
-                if newValue == 0 && PageLockManager.isLedgerLocked && !ledgerLockVerified {
+                if newValue == 0 && userSettings.ledgerLockEnabled && !ledgerLockVerified {
                     lockTargetTab = 0
                     showLockScreen = true
-                } else if newValue == 1 && PageLockManager.isAnalyticsLocked && !analyticsLockVerified {
+                } else if newValue == 1 && userSettings.analyticsLockEnabled && !analyticsLockVerified {
                     lockTargetTab = 1
                     showLockScreen = true
                 } else {
@@ -71,9 +74,16 @@ struct MainTabView: View {
                     }
             }
             .tint(AppTheme.brandStart)
+            .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
+                ledgerLockEnabled = userSettings.ledgerLockEnabled
+                analyticsLockEnabled = userSettings.analyticsLockEnabled
+            }
             .task {
                 try? await UNUserNotificationCenter.current().setBadgeCount(0)
                 try? await supabaseService.preloadAllRecords()
+                await userSettings.loadFromCloud()
+                ledgerLockEnabled = userSettings.ledgerLockEnabled
+                analyticsLockEnabled = userSettings.analyticsLockEnabled
             }
 
             .onChange(of: scenePhase) { _, phase in
@@ -91,9 +101,9 @@ struct MainTabView: View {
             if showLockScreen {
                 LockScreenView(
                     pageName: lockTargetTab == 0 ? "账本" : "分析",
-                    mode: lockTargetTab == 0 ? PageLockManager.ledgerLockMode : PageLockManager.analyticsLockMode,
+                    mode: lockTargetTab == 0 ? userSettings.ledgerLockMode : userSettings.analyticsLockMode,
                     onVerifyPin: { pin in
-                        let ok = lockTargetTab == 0 ? PageLockManager.verifyLedgerPin(pin) : PageLockManager.verifyAnalyticsPin(pin)
+                        let ok = lockTargetTab == 0 ? userSettings.verifyLedgerPin(pin) : userSettings.verifyAnalyticsPin(pin)
                         if !ok { return false }
                         if lockTargetTab == 0 { ledgerLockVerified = true }
                         else { analyticsLockVerified = true }
@@ -102,7 +112,7 @@ struct MainTabView: View {
                         return true
                     },
                     onVerifyPattern: { pattern in
-                        let ok = lockTargetTab == 0 ? PageLockManager.verifyLedgerPin(pattern) : PageLockManager.verifyAnalyticsPin(pattern)
+                        let ok = lockTargetTab == 0 ? userSettings.verifyLedgerPin(pattern) : userSettings.verifyAnalyticsPin(pattern)
                         if !ok { return false }
                         if lockTargetTab == 0 { ledgerLockVerified = true }
                         else { analyticsLockVerified = true }
@@ -161,10 +171,11 @@ struct MainTabView: View {
 
 struct ProfileView: View {
     @EnvironmentObject var supabaseService: SupabaseService
+    @ObservedObject private var userSettings = UserSettingsManager.shared
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject var authManager: AuthManager
-    @AppStorage("page_lock_ledger_enabled") private var ledgerLockEnabled = false
-    @AppStorage("page_lock_analytics_enabled") private var analyticsLockEnabled = false
+    @State private var ledgerLockEnabled = UserSettingsManager.shared.ledgerLockEnabled
+    @State private var analyticsLockEnabled = UserSettingsManager.shared.analyticsLockEnabled
     @State private var showPinSetup = false
     @State private var showPasswordVerifyAlert = false
     @State private var lockSettingTarget = ""
@@ -502,6 +513,15 @@ struct ProfileView: View {
                     .padding(.bottom, 16)
                 }
             }
+            .onAppear {
+                Task {
+                    await userSettings.loadFromCloud()
+                    await MainActor.run {
+                        ledgerLockEnabled = userSettings.ledgerLockEnabled
+                        analyticsLockEnabled = userSettings.analyticsLockEnabled
+                    }
+                }
+            }
             .background(AppTheme.background.ignoresSafeArea())
             .navigationTitle("我的")
             .toolbar {
@@ -525,13 +545,17 @@ struct ProfileView: View {
             .sheet(isPresented: $showPinSetup) {
                 PinSetupView(newPin: $newPin, onConfirm: {
                     if lockSettingTarget == "ledger" {
-                        PageLockManager.setLedgerLock(enabled: true, pin: newPin, mode: "pin")
+                        userSettings.ledgerLockEnabled = true
+                        userSettings.ledgerLockMode = "pin"
+                        userSettings.setLedgerPin(newPin)
                         ledgerLockEnabled = true
-                        UserSettingsSync.syncToCloud(supabaseService: supabaseService)
+                        Task { await userSettings.saveToCloud() }
                     } else {
-                        PageLockManager.setAnalyticsLock(enabled: true, pin: newPin, mode: "pin")
+                        userSettings.analyticsLockEnabled = true
+                        userSettings.analyticsLockMode = "pin"
+                        userSettings.setAnalyticsPin(newPin)
                         analyticsLockEnabled = true
-                        UserSettingsSync.syncToCloud(supabaseService: supabaseService)
+                        Task { await userSettings.saveToCloud() }
                     }
                     showPinSetup = false; newPin = ""
                 }, onCancel: {
@@ -549,13 +573,17 @@ struct ProfileView: View {
                     onComplete: { pattern in
                         showPatternSetup = false
                         if lockSettingTarget == "ledger" {
-                            PageLockManager.setLedgerLock(enabled: true, pin: pattern, mode: "pattern")
+                            userSettings.ledgerLockEnabled = true
+                            userSettings.ledgerLockMode = "pattern"
+                            userSettings.setLedgerPin(pattern)
                             ledgerLockEnabled = true
-                            UserSettingsSync.syncToCloud(supabaseService: supabaseService)
+                            Task { await userSettings.saveToCloud() }
                         } else {
-                            PageLockManager.setAnalyticsLock(enabled: true, pin: pattern, mode: "pattern")
+                            userSettings.analyticsLockEnabled = true
+                            userSettings.analyticsLockMode = "pattern"
+                            userSettings.setAnalyticsPin(pattern)
                             analyticsLockEnabled = true
-                            UserSettingsSync.syncToCloud(supabaseService: supabaseService)
+                            Task { await userSettings.saveToCloud() }
                         }
                     },
                     onCancel: {
@@ -578,6 +606,8 @@ struct ProfileView: View {
             }
             Button("确认") {
                 currencySymbol = pendingCurrencyName
+                userSettings.currencySymbol = pendingCurrencyName
+                Task { await userSettings.saveToCloud() }
                 pendingCurrencyName = ""
             }
         } message: {
@@ -694,18 +724,25 @@ extension ProfileView {
                                     await MainActor.run {
                                         withAnimation(.easeOut(duration: 0.2)) {
                                             if lockSettingTarget == "ledger" {
-                                                PageLockManager.setLedgerLock(enabled: false)
+                                                userSettings.ledgerLockEnabled = false
+                                                userSettings.setLedgerPin(nil)
                                                 ledgerLockEnabled = false
-                                                UserSettingsSync.syncToCloud(supabaseService: supabaseService)
+                                                Task { await userSettings.saveToCloud() }
                                             } else if lockSettingTarget == "analytics" {
-                                                PageLockManager.setAnalyticsLock(enabled: false)
+                                                userSettings.analyticsLockEnabled = false
+                                                userSettings.setAnalyticsPin(nil)
                                                 analyticsLockEnabled = false
-                                                UserSettingsSync.syncToCloud(supabaseService: supabaseService)
+                                                Task { await userSettings.saveToCloud() }
                                             } else if lockSettingTarget == "clear_all" {
-                                                PageLockManager.clearAllLocks()
+                                                userSettings.ledgerLockEnabled = false
+                                                userSettings.analyticsLockEnabled = false
+                                                userSettings.ledgerLockMode = "pin"
+                                                userSettings.analyticsLockMode = "pin"
+                                                userSettings.setLedgerPin(nil)
+                                                userSettings.setAnalyticsPin(nil)
                                                 ledgerLockEnabled = false
                                                 analyticsLockEnabled = false
-                                                UserSettingsSync.syncToCloud(supabaseService: supabaseService)
+                                                Task { await userSettings.saveToCloud() }
                                             }
                                             showPasswordVerifyAlert = false
                                             passwordInput = ""
