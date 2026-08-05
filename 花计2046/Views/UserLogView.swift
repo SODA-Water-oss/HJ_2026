@@ -89,7 +89,7 @@ private struct LogRowView: View {
                 .foregroundColor(AppTheme.brandStart)
                 .frame(width: 24)
             
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(displayText)
                     .font(.appBody)
                     .foregroundColor(AppTheme.textPrimary)
@@ -101,9 +101,10 @@ private struct LogRowView: View {
             }
             
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 6)
         .listRowBackground(Color.white)
         .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
     }
     
     private var iconName: String {
