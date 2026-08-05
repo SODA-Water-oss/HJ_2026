@@ -26,3 +26,6 @@ Build-Device/
 *.xcodeproj/project.xworkspace/
 *.bak
 *.bak2
+
+# Codex brainstorming companion
+.superpowers/
