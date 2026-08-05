@@ -710,9 +710,9 @@ struct AchievementStreakTests {
     @Test func streakCountsConsecutiveQualifyingWeeks() {
         let budget = 1000.0
         let summaries: [String: PeriodSummary] = [
-            "2026-W30": PeriodSummary(key: "2026-W30", periodType: .week, expense: 500),
-            "2026-W31": PeriodSummary(key: "2026-W31", periodType: .week, expense: 600),
-            "2026-W32": PeriodSummary(key: "2026-W32", periodType: .week, expense: 800)
+            "2026-W30": PeriodSummary(key: "2026-W30", periodType: .week, expense: 500, recordCount: 2),
+            "2026-W31": PeriodSummary(key: "2026-W31", periodType: .week, expense: 600, recordCount: 2),
+            "2026-W32": PeriodSummary(key: "2026-W32", periodType: .week, expense: 800, recordCount: 2)
         ]
         let streak = AchievementEngine.currentStreak(
             summaries: summaries,
@@ -725,9 +725,9 @@ struct AchievementStreakTests {
 
     @Test func streakBreaksOnOverBudgetWeek() {
         let summaries: [String: PeriodSummary] = [
-            "2026-W30": PeriodSummary(key: "2026-W30", periodType: .week, expense: 1200),
-            "2026-W31": PeriodSummary(key: "2026-W31", periodType: .week, expense: 600),
-            "2026-W32": PeriodSummary(key: "2026-W32", periodType: .week, expense: 800)
+            "2026-W30": PeriodSummary(key: "2026-W30", periodType: .week, expense: 1200, recordCount: 2),
+            "2026-W31": PeriodSummary(key: "2026-W31", periodType: .week, expense: 600, recordCount: 2),
+            "2026-W32": PeriodSummary(key: "2026-W32", periodType: .week, expense: 800, recordCount: 2)
         ]
         let streak = AchievementEngine.currentStreak(
             summaries: summaries,
@@ -761,7 +761,7 @@ extension AchievementEngine {
         var guardCount = 0
         while guardCount < 520 {
             let week = weekKey(for: weekDate, calendar: calendar)
-            guard let summary = summaries[week], summary.expense <= weeklyBudget else { break }
+            guard let summary = summaries[week], summary.recordCount > 0, summary.expense <= weeklyBudget else { break }
             streak += 1
             guard let previous = calendar.date(byAdding: .weekOfYear, value: -1, to: weekDate),
                   let nextComponents = weekDateComponents(weekKey(for: previous, calendar: calendar), calendar: calendar),
@@ -853,9 +853,9 @@ struct AchievementBadgeTests {
 
     @Test func qualifyingMonthCount() {
         let summaries: [String: PeriodSummary] = [
-            "2026-04": PeriodSummary(key: "2026-04", periodType: .month, expense: 800),
-            "2026-05": PeriodSummary(key: "2026-05", periodType: .month, expense: 900),
-            "2026-06": PeriodSummary(key: "2026-06", periodType: .month, expense: 1100)
+            "2026-04": PeriodSummary(key: "2026-04", periodType: .month, expense: 800, recordCount: 2),
+            "2026-05": PeriodSummary(key: "2026-05", periodType: .month, expense: 900, recordCount: 2),
+            "2026-06": PeriodSummary(key: "2026-06", periodType: .month, expense: 1100, recordCount: 2)
         ]
         let count = AchievementEngine.qualifyingMonthCount(summaries: summaries, monthlyBudget: 1000, calendar: calendar)
         #expect(count == 2)
@@ -874,7 +874,7 @@ Expected: FAIL。
 extension AchievementEngine {
     static func qualifyingMonthCount(summaries: [String: PeriodSummary], monthlyBudget: Double, calendar: Calendar = .current) -> Int {
         summaries.values
-            .filter { $0.periodType == .month && $0.expense <= monthlyBudget }
+            .filter { $0.periodType == .month && $0.recordCount > 0 && $0.expense <= monthlyBudget }
             .count
     }
 
