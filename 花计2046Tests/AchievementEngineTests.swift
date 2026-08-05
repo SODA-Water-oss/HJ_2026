@@ -97,3 +97,53 @@ struct AchievementHealthTests {
         #expect(health.score == 0)
     }
 }
+
+struct AchievementStreakTests {
+    private let calendar = Calendar(identifier: .gregorian)
+    private func date(_ y: Int, _ m: Int, _ d: Int) -> Date {
+        calendar.date(from: DateComponents(year: y, month: m, day: d))!
+    }
+
+    @Test func streakCountsConsecutiveQualifyingWeeks() {
+        let summaries: [String: PeriodSummary] = [
+            "2026-W30": PeriodSummary(key: "2026-W30", periodType: .week, expense: 500, recordCount: 2),
+            "2026-W31": PeriodSummary(key: "2026-W31", periodType: .week, expense: 600, recordCount: 2),
+            "2026-W32": PeriodSummary(key: "2026-W32", periodType: .week, expense: 800, recordCount: 2)
+        ]
+        let streak = AchievementEngine.currentStreak(
+            summaries: summaries,
+            weeklyBudget: 1000,
+            now: date(2026, 8, 9),
+            calendar: calendar
+        )
+        #expect(streak == 3)
+    }
+
+    @Test func streakBreaksOnOverBudgetWeek() {
+        let summaries: [String: PeriodSummary] = [
+            "2026-W30": PeriodSummary(key: "2026-W30", periodType: .week, expense: 1200, recordCount: 2),
+            "2026-W31": PeriodSummary(key: "2026-W31", periodType: .week, expense: 600, recordCount: 2),
+            "2026-W32": PeriodSummary(key: "2026-W32", periodType: .week, expense: 800, recordCount: 2)
+        ]
+        let streak = AchievementEngine.currentStreak(
+            summaries: summaries,
+            weeklyBudget: 1000,
+            now: date(2026, 8, 9),
+            calendar: calendar
+        )
+        #expect(streak == 2)
+    }
+
+    @Test func emptyWeekDoesNotCount() {
+        let summaries: [String: PeriodSummary] = [
+            "2026-W32": PeriodSummary(key: "2026-W32", periodType: .week, expense: 0, recordCount: 0)
+        ]
+        let streak = AchievementEngine.currentStreak(
+            summaries: summaries,
+            weeklyBudget: 1000,
+            now: date(2026, 8, 9),
+            calendar: calendar
+        )
+        #expect(streak == 0)
+    }
+}

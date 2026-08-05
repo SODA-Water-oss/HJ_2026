@@ -162,4 +162,56 @@ extension AchievementEngine {
               let previous = calendar.date(byAdding: .month, value: -1, to: date) else { return monthKey }
         return self.monthKey(for: previous, calendar: calendar)
     }
+
+    static func currentStreak(
+        summaries: [String: PeriodSummary],
+        weeklyBudget: Double,
+        now: Date,
+        calendar: Calendar = .current
+    ) -> Int {
+        var weekCalendar = calendar
+        weekCalendar.firstWeekday = 2
+        weekCalendar.minimumDaysInFirstWeek = 4
+        guard var components = weekDateComponents(weekKey(for: now, calendar: calendar), calendar: weekCalendar),
+              var weekDate = weekCalendar.date(from: components) else { return 0 }
+        var streak = 0
+        var guardCount = 0
+        while guardCount < 520 {
+            let week = weekKey(for: weekDate, calendar: calendar)
+            guard let summary = summaries[week], summary.recordCount > 0, summary.expense <= weeklyBudget else { break }
+            streak += 1
+            guard let previous = weekCalendar.date(byAdding: .weekOfYear, value: -1, to: weekDate),
+                  let nextComponents = weekDateComponents(weekKey(for: previous, calendar: calendar), calendar: weekCalendar),
+                  let nextDate = weekCalendar.date(from: nextComponents) else { break }
+            weekDate = nextDate
+            guardCount += 1
+        }
+        return streak
+    }
+
+    static func weeklySummary(
+        summaries: [String: PeriodSummary],
+        monthlyBudget: Double,
+        now: Date,
+        calendar: Calendar = .current
+    ) -> WeeklySummary {
+        let key = weekKey(for: now, calendar: calendar)
+        let budget = weeklyBudget(monthly: monthlyBudget)
+        let expense = summaries[key]?.expense ?? 0
+        let weekday = calendar.component(.weekday, from: now)
+        let daysLeft = (8 - weekday) % 7
+        return WeeklySummary(
+            weekKey: key,
+            budget: budget,
+            expense: expense,
+            isOnTrack: expense <= budget,
+            daysLeft: daysLeft
+        )
+    }
+
+    private static func weekDateComponents(_ weekKey: String, calendar: Calendar) -> DateComponents? {
+        let parts = weekKey.replacingOccurrences(of: "W", with: "-").split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 2 else { return nil }
+        return DateComponents(weekOfYear: parts[1], yearForWeekOfYear: parts[0])
+    }
 }
