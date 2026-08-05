@@ -96,6 +96,19 @@ struct AchievementHealthTests {
         )
         #expect(health.score == 0)
     }
+
+    @Test func noBudgetWithExpenseDoesNotCrash() {
+        let summaries: [String: PeriodSummary] = [
+            "2026-08": PeriodSummary(key: "2026-08", periodType: .month, income: 100, expense: 50, largestExpense: 10, recordCount: 2)
+        ]
+        let health = AchievementEngine.health(
+            summaries: summaries,
+            budget: BudgetSetting(),
+            now: date(2026, 8, 3),
+            calendar: calendar
+        )
+        #expect(health.score >= 0)
+    }
 }
 
 struct AchievementStreakTests {

@@ -107,7 +107,7 @@ extension AchievementEngine {
         }
 
         let budgetScore: Int
-        if let current {
+        if let current, monthly > 0 {
             budgetScore = current.expense <= monthly ? 20 : max(0, 20 - Int((current.expense - monthly) / monthly * 100))
         } else {
             budgetScore = 0
