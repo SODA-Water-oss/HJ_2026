@@ -8,6 +8,7 @@ struct AnalyticsView: View {
     @State private var showMonthPicker = false
     @State private var showCategoryPicker = false
     @State private var showSearch = false
+    @State private var showGoalManagement = false
     @State private var analyticsCurrency = ""
     @State private var analyticsSnapshot: AnalyticsSnapshot?
     @State private var analyticsReady = false
@@ -193,6 +194,21 @@ struct AnalyticsView: View {
                } else {
                ScrollView {
                VStack(spacing: 16) {
+                    HStack {
+                        Text("成就总览")
+                            .font(.appTitle)
+                            .foregroundColor(AppTheme.textPrimary)
+                        Spacer()
+                        Button {
+                            showGoalManagement = true
+                        } label: {
+                            Label("管理目标", systemImage: "target")
+                                .font(.appSmall)
+                                .foregroundColor(AppTheme.brandStart)
+                        }
+                    }
+                    AnalyticsAchievementView(manager: AchievementManager.shared)
+
                     // 收支综合
                     sectionHeader("收支综合", icon: "chart.bar.xaxis") {
                         if availableCurrencies.count > 1 {
@@ -264,6 +280,9 @@ struct AnalyticsView: View {
         .sheet(isPresented: $showYearPicker) { YearWheelPicker(selection: $supabaseService.sharedSearchYear, options: yearOptions).presentationDetents([.height(230)]) }
         .sheet(isPresented: $showMonthPicker) { MonthWheelPicker(selection: $supabaseService.sharedSearchMonth, options: monthOptions).presentationDetents([.height(270)]) }
         .sheet(isPresented: $showCategoryPicker) { CategoryWheelPicker(selection: $supabaseService.sharedSearchCategory, options: categories).presentationDetents([.height(230)]) }
+        .sheet(isPresented: $showGoalManagement) {
+            GoalManagementSheet(manager: AchievementManager.shared)
+        }
         .onAppear { rebuildSnapshot() }
         .onChange(of: snapshotKey) { _ in rebuildSnapshot() }
         .onReceive(supabaseService.$allRecords) { _ in rebuildSnapshot() }
