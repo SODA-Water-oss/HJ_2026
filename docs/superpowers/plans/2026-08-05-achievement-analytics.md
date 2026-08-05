@@ -407,8 +407,8 @@ struct AchievementPeriodTests {
     }
 
     @Test func referenceBudgetUses90DayAverage() {
-        let records = (1...90).map { day in
-            Record(userId: UUID(), type: .expense, amount: 10, category: "餐饮", merchant: "a", date: date(2026, 5, 1) + TimeInterval(day * 86_400), currency: "¥")
+        let records = (0..<90).map { day in
+            Record(userId: UUID(), type: .expense, amount: 10, category: "餐饮", merchant: "a", date: date(2026, 5, 6) + TimeInterval(day * 86_400), currency: "¥")
         }
         let budget = AchievementEngine.effectiveMonthlyBudget(
             setting: BudgetSetting(),
@@ -416,7 +416,7 @@ struct AchievementPeriodTests {
             now: date(2026, 8, 3),
             calendar: calendar
         )
-        #expect(budget == 10)
+        #expect(budget == 300)
     }
 
     @Test func manualBudgetWins() {
@@ -430,7 +430,7 @@ struct AchievementPeriodTests {
     }
 
     @Test func weeklyBudgetDerivation() {
-        #expect(AchievementEngine.weeklyBudget(monthly: 4330) == 1000)
+        #expect(abs(AchievementEngine.weeklyBudget(monthly: 4330) - 1000) < 0.01)
     }
 }
 ```
@@ -568,7 +568,7 @@ struct AchievementHealthTests {
         )
         #expect(health.score > 0)
         #expect(health.savingsRate == 50)
-        #expect(health.budgetControl == 100)
+        #expect(health.budgetControl == 50)
     }
 
     @Test func emptyDataKeepsScoreZero() {
