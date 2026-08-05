@@ -44,16 +44,14 @@ struct Record: Identifiable, Codable, Equatable {
 
     // 所属月份标识（格式：yyyy-MM）
     var month: String {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM"
-        return df.string(from: date)
+        let components = Calendar.current.dateComponents([.year, .month], from: date)
+        return String(format: "%04d-%02d", components.year ?? 0, components.month ?? 0)
     }
 
     // 月份显示文字（格式：yyyy年MM月）
     var monthDisplay: String {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy年MM月"
-        return df.string(from: date)
+        let components = Calendar.current.dateComponents([.year, .month], from: date)
+        return String(format: "%04d年%02d月", components.year ?? 0, components.month ?? 0)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -136,8 +134,9 @@ extension Record {
 
         let cleanYear = searchYear.replacingOccurrences(of: "年", with: "")
         let cleanMonth = searchMonth.replacingOccurrences(of: "月", with: "")
-        let matchYear = cleanYear.isEmpty || month.hasPrefix(cleanYear)
-        let matchMonth = cleanMonth.isEmpty || month.hasSuffix(cleanMonth)
+        let recordMonth = month
+        let matchYear = cleanYear.isEmpty || recordMonth.hasPrefix(cleanYear)
+        let matchMonth = cleanMonth.isEmpty || recordMonth.hasSuffix(cleanMonth)
 
         return matchMerchant && matchNote && matchCategory && matchYear && matchMonth
     }

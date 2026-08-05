@@ -92,7 +92,12 @@ struct MathCalculator {
 
         guard !cleaned.isEmpty else { return nil }
 
-        let nsExpression = NSExpression(format: cleaned)
+        // NSExpression 会把 10/3 当整数除法算出 3.0，先把整数字面量规范为浮点字面量
+        let floatLiteralPattern = try! NSRegularExpression(pattern: #"(?<![\d.])(\d+)(?![\d.])"#)
+        let nsRange = NSRange(cleaned.startIndex..<cleaned.endIndex, in: cleaned)
+        let normalized = floatLiteralPattern.stringByReplacingMatches(in: cleaned, options: [], range: nsRange, withTemplate: "$1.0")
+
+        let nsExpression = NSExpression(format: normalized)
         if let value = nsExpression.expressionValue(with: nil, context: nil) as? NSNumber {
             let doubleValue = value.doubleValue
             guard doubleValue.isFinite, doubleValue >= 0 else { return nil }

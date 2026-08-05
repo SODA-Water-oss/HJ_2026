@@ -30,6 +30,8 @@ struct ExpenseListView: View {
     @State private var showShareSheet = false
     @State private var isExporting = false
     @State private var exportURL: URL?
+    @State private var groupedCache: [MonthExpenseGroup] = []
+    @State private var groupedReady = false
     
     var categories: [String] {
         // 从数据库中提取有数据的类别，支出在上、收入在下
@@ -80,6 +82,21 @@ struct ExpenseListView: View {
     }
     
     var searchGrouped: [MonthExpenseGroup] {
+        groupedCache
+    }
+
+    private var searchKey: String {
+        [
+            supabaseService.sharedSearchType,
+            supabaseService.sharedSearchText,
+            supabaseService.sharedSearchNote,
+            supabaseService.sharedSearchCategory,
+            supabaseService.sharedSearchYear,
+            supabaseService.sharedSearchMonth
+        ].joined(separator: "\u{1F}")
+    }
+
+    private func computeSearchGrouped() -> [MonthExpenseGroup] {
         let typeFiltered: [Expense]
         switch supabaseService.sharedSearchType {
         case "支出": typeFiltered = supabaseService.allRecords.filter { $0.isExpense }
@@ -105,6 +122,11 @@ struct ExpenseListView: View {
         return grouped.map { key, value in
             MonthExpenseGroup(month: key, monthDisplay: value.first?.monthDisplay ?? key, expenses: value.sorted { $0.date > $1.date })
         }.sorted { $0.month > $1.month }
+    }
+
+    private func rebuildGrouped() {
+        groupedCache = computeSearchGrouped()
+        groupedReady = true
     }
 
     @ViewBuilder
@@ -189,6 +211,9 @@ struct ExpenseListView: View {
                         Spacer()
                     } else if supabaseService.allRecords.isEmpty {
                         ScrollView { emptyState }.scrollDismissesKeyboard(.immediately)
+                    } else if !groupedReady {
+                        ProgressView()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
                         expenseList
                     }
@@ -260,7 +285,10 @@ struct ExpenseListView: View {
     }
    .onAppear {
             SupabaseService.shared.unreadExpenseCount = 0
+            rebuildGrouped()
         }
+                .onChange(of: searchKey) { _ in rebuildGrouped() }
+                .onReceive(supabaseService.$allRecords) { _ in rebuildGrouped() }
                 .animation(.spring(response: 0.4, dampingFraction: 0.7), value: showSearch)
         .overlay(alignment: .bottomTrailing) { if !showDetail && !showEdit { floatingSearchButton } }
     }
@@ -492,16 +520,31 @@ struct SearchNameField: View {
     @Binding var text: String
     var placeholder: String = "名称搜索..."
     @FocusState private var isFocused: Bool
+    @State private var localText = ""
+
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass").font(.system(size: 15)).foregroundColor(AppTheme.textTertiary.opacity(0.6))
             ZStack(alignment: .leading) {
                 if text.isEmpty && !isFocused { Text(placeholder).font(.system(size: 17)).foregroundColor(Color(hex: "#B0B0B0")) }
-                TextField("", text: $text).font(.system(size: 17)).foregroundColor(AppTheme.brandStart).autocorrectionDisabled().focused($isFocused).onSubmit { dismissKeyboard() }
+                TextField("", text: $localText).font(.system(size: 17)).foregroundColor(AppTheme.brandStart).autocorrectionDisabled().focused($isFocused).onSubmit { dismissKeyboard() }
             }
         }
         .padding(.horizontal, 12).padding(.vertical, 10).background(Color.white).cornerRadius(10)
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(AppTheme.border, lineWidth: 1))
+        .onAppear { localText = text }
+        .onChange(of: text) { newValue in
+            if newValue != localText { localText = newValue }
+        }
+        .onChange(of: localText) { newValue in
+            guard newValue != text else { return }
+            let pending = newValue
+            Task {
+                try? await Task.sleep(nanoseconds: 150_000_000)
+                guard localText == pending else { return }
+                text = pending
+            }
+        }
     }
 }
 

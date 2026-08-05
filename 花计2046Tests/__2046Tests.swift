@@ -5,8 +5,9 @@
 //  Created by PoundsZero on 2026/4/9.
 //
 
+import Foundation
 import Testing
-@testable import __2046
+@testable import 花计2046
 
 struct __2046Tests {
 
@@ -116,5 +117,38 @@ struct MathCalculatorTests {
  
      @Test func nilNote_doesNotCrash() {
          #expect(testOtherExpense.matchesSearch(searchText: "", searchNote: "消费", searchCategory: "", searchYear: "", searchMonth: "") == false)
+     }
+ }
+
+ struct AnalyticsChartIDTests {
+
+     @Test func barPointID_isStableForSameMonthAndType() {
+         let a = AnalyticsBarPoint(month: "07/26", type: "收入", amount: 10)
+         let b = AnalyticsBarPoint(month: "07/26", type: "收入", amount: 99)
+         #expect(a.id == b.id)
+     }
+
+     @Test func barPointID_differsWhenMonthOrTypeChanges() {
+         let a = AnalyticsBarPoint(month: "07/26", type: "收入", amount: 10)
+         let b = AnalyticsBarPoint(month: "07/26", type: "支出", amount: 10)
+         #expect(a.id != b.id)
+     }
+
+     @Test func linePointID_isStableForSameMonth() {
+         let a = AnalyticsLinePoint(month: "2026-07", monthDisplay: "07/26", net: 5)
+         let b = AnalyticsLinePoint(month: "2026-07", monthDisplay: "07/26", net: -5)
+         #expect(a.id == b.id)
+     }
+
+     @Test func dotPointID_isStableForSameDayAndType() {
+         let a = AnalyticsDotPoint(day: 15, type: "收入", amount: 1)
+         let b = AnalyticsDotPoint(day: 15, type: "收入", amount: 100)
+         #expect(a.id == b.id)
+     }
+
+     @Test func dotPointID_differsWhenTypeChanges() {
+         let a = AnalyticsDotPoint(day: 15, type: "收入", amount: 1)
+         let b = AnalyticsDotPoint(day: 15, type: "支出", amount: 1)
+         #expect(a.id != b.id)
      }
  }

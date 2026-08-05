@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct AnalyticsView: View {
     @AppStorage("currency_symbol") private var currencySymbol = "¥"
@@ -7,6 +8,10 @@ struct AnalyticsView: View {
     @State private var showMonthPicker = false
     @State private var showCategoryPicker = false
     @State private var showSearch = false
+    @State private var analyticsCurrency = ""
+    @State private var analyticsSnapshot: AnalyticsSnapshot?
+    @State private var analyticsReady = false
+    @State private var activeRebuildID = UUID()
 
     var categories: [String] {
         let allExpenseCats = Set(supabaseService.allRecords.filter(\.isExpense).map(\.category))
@@ -41,72 +46,121 @@ struct AnalyticsView: View {
         return parts.joined(separator: " · ")
     }
     
+    private var snapshotKey: String {
+        [
+            supabaseService.sharedSearchType,
+            supabaseService.sharedSearchText,
+            supabaseService.sharedSearchNote,
+            supabaseService.sharedSearchCategory,
+            supabaseService.sharedSearchYear,
+            supabaseService.sharedSearchMonth,
+            currencySymbol,
+            analyticsCurrency
+        ].joined(separator: "\u{1F}")
+    }
+
     var filteredRecords: [Record] {
-        let typeFiltered: [Record]
-        switch supabaseService.sharedSearchType {
-        case "支出": typeFiltered = supabaseService.allRecords.filter { $0.isExpense }
-        case "收入": typeFiltered = supabaseService.allRecords.filter { $0.isIncome }
-        default: typeFiltered = supabaseService.allRecords
-        }
-        if supabaseService.sharedSearchText.isEmpty && supabaseService.sharedSearchCategory.isEmpty && supabaseService.sharedSearchYear.isEmpty && supabaseService.sharedSearchMonth.isEmpty && supabaseService.sharedSearchNote.isEmpty { return typeFiltered }
-        return typeFiltered.filter { $0.matchesSearch(
-            searchText: supabaseService.sharedSearchText,
-            searchNote: supabaseService.sharedSearchNote,
-            searchCategory: supabaseService.sharedSearchCategory,
-            searchYear: supabaseService.sharedSearchYear,
-            searchMonth: supabaseService.sharedSearchMonth
-        ) }
-   }
+        analyticsSnapshot?.filteredRecords ?? []
+    }
     
     struct CategoryAnalytics: Identifiable {
         let category: String
+        let currency: String
         let amount: Double
         let count: Int
         let ratio: Double
-        var id: String { category }
+        var id: String { category + currency }
+    }
+    
+    private struct AnalyticsGroupKey: Hashable {
+        let category: String
+        let currency: String
     }
     
    var categoryAnalytics: [CategoryAnalytics] {
-        let data = filteredRecords
-        let grouped = Dictionary(grouping: data, by: { $0.category })
-        let total = data.reduce(0) { $0 + $1.amount }
-       return grouped.map { cat, items in
+        analyticsSnapshot?.categoryAnalytics ?? []
+    }
+    
+    var expenseAnalytics: [CategoryAnalytics] {
+        analyticsSnapshot?.expenseAnalytics ?? []
+    }
+    
+    var incomeAnalytics: [CategoryAnalytics] {
+        analyticsSnapshot?.incomeAnalytics ?? []
+    }
+
+    private static func categoryAnalytics(for data: [Record]) -> [CategoryAnalytics] {
+        let grouped = Dictionary(grouping: data, by: { AnalyticsGroupKey(category: $0.category, currency: $0.displayCurrency) })
+        let totalByCurrency = Dictionary(grouping: data, by: { $0.displayCurrency })
+            .mapValues { $0.reduce(0) { $0 + $1.amount } }
+        return grouped.map { key, items in
             let sum = items.reduce(0) { $0 + $1.amount }
+            let total = totalByCurrency[key.currency] ?? 0
             return CategoryAnalytics(
-                category: cat,
+                category: key.category,
+                currency: key.currency,
                 amount: sum,
                 count: items.count,
                 ratio: total > 0 ? sum / total : 0
             )
         }
-       .sorted { $0.amount > $1.amount }
-    }
-    
-    var expenseAnalytics: [CategoryAnalytics] {
-        let data = filteredRecords.filter(\.isExpense)
-        let grouped = Dictionary(grouping: data, by: { $0.category })
-        let total = data.reduce(0) { $0 + $1.amount }
-        return grouped.map { cat, items in
-            let sum = items.reduce(0) { $0 + $1.amount }
-            return CategoryAnalytics(category: cat, amount: sum, count: items.count, ratio: total > 0 ? sum / total : 0)
-        }
         .sorted { $0.amount > $1.amount }
     }
     
-    var incomeAnalytics: [CategoryAnalytics] {
-        let data = filteredRecords.filter(\.isIncome)
-        let grouped = Dictionary(grouping: data, by: { $0.category })
-        let total = data.reduce(0) { $0 + $1.amount }
-        return grouped.map { cat, items in
-            let sum = items.reduce(0) { $0 + $1.amount }
-            return CategoryAnalytics(category: cat, amount: sum, count: items.count, ratio: total > 0 ? sum / total : 0)
-        }
-        .sorted { $0.amount > $1.amount }
+    private var availableCurrencies: [String] {
+        analyticsSnapshot?.availableCurrencies ?? []
+    }
+
+    private var effectiveAnalyticsCurrency: String {
+        analyticsSnapshot?.effectiveCurrency ?? currencySymbol
+    }
+
+    private var analyticsRecords: [Record] {
+        analyticsSnapshot?.analyticsRecords ?? []
+    }
+
+    private var monthlyBarPoints: [AnalyticsBarPoint] {
+        analyticsSnapshot?.monthlyBarPoints ?? []
+    }
+
+    private var monthlyLinePoints: [AnalyticsLinePoint] {
+        analyticsSnapshot?.monthlyLinePoints ?? []
+    }
+
+    private var dailyScatterPoints: [AnalyticsDotPoint] {
+        analyticsSnapshot?.dailyScatterPoints ?? []
+    }
+
+    private static func shortMonth(_ key: String) -> String {
+        let parts = key.split(separator: "-")
+        guard parts.count == 2, let month = Int(parts[1]), let year = Int(parts[0]) else { return key }
+        return String(format: "%02d/%02d", year % 100, month)
     }
     
-    var expenseTotal: Double { filteredRecords.filter(\.isExpense).reduce(0) { $0 + $1.amount } }
-    var incomeTotal: Double { filteredRecords.filter(\.isIncome).reduce(0) { $0 + $1.amount } }
-    var netTotal: Double { incomeTotal - expenseTotal }
+    // MARK: - 月度对比 / 健康指标
+    private var currentMonthRecords: [Record] {
+        analyticsSnapshot?.currentMonthRecords ?? []
+    }
+    
+    private var previousMonthRecords: [Record] {
+        analyticsSnapshot?.previousMonthRecords ?? []
+    }
+    
+    private var monthExpenseChange: Double? {
+        analyticsSnapshot?.health.monthExpenseChange
+    }
+    
+    private var savingsRate: Double? {
+        analyticsSnapshot?.health.savingsRate
+    }
+    
+    private var dailyAverageExpense: Double? {
+        analyticsSnapshot?.health.dailyAverageExpense
+    }
+
+    private var largestExpenseRatio: Double? {
+        analyticsSnapshot?.health.largestExpenseRatio
+    }
     
   var body: some View {
        NavigationView {
@@ -133,27 +187,55 @@ struct AnalyticsView: View {
                     Spacer()
                 } else if supabaseService.allRecords.isEmpty {
                    ScrollView { emptyState }
+               } else if !analyticsReady {
+                   ProgressView()
+                       .frame(maxWidth: .infinity, maxHeight: .infinity)
                } else {
                ScrollView {
                VStack(spacing: 16) {
-               totalCard
-                
-                if supabaseService.sharedSearchType == "全部" || supabaseService.sharedSearchType == "收入" {
-                    if !incomeAnalytics.isEmpty {
-                        pieCard(data: incomeAnalytics, title: "收入占比")
-                        categoryCard(data: incomeAnalytics, title: "收入类别")
+                    // 收支综合
+                    sectionHeader("收支综合", icon: "chart.bar.xaxis") {
+                        if availableCurrencies.count > 1 {
+                            AnalyticsCurrencyPicker(
+                                currencies: availableCurrencies,
+                                selection: Binding(
+                                    get: { effectiveAnalyticsCurrency },
+                                    set: { analyticsCurrency = $0 }
+                                )
+                            )
+                        }
                     }
-                }
-                if supabaseService.sharedSearchType == "全部" || supabaseService.sharedSearchType == "支出" {
-                    if !expenseAnalytics.isEmpty {
-                        pieCard(data: expenseAnalytics, title: "支出占比")
-                        categoryCard(data: expenseAnalytics, title: "支出类别")
+                    totalCard
+                    if !monthlyBarPoints.isEmpty {
+                        monthlyBarCard
                     }
-                }
-                
-                if !monthlyTrend.isEmpty {
-                    trendCard
-                }
+                    if !monthlyLinePoints.isEmpty {
+                        monthlyLineCard
+                    }
+                    if !dailyScatterPoints.isEmpty {
+                        dailyScatterCard
+                    }
+                    if analyticsSnapshot?.hasCurrentMonthRecords == true {
+                        healthCard
+                    }
+                    
+                    // 支出
+                    if supabaseService.sharedSearchType == "全部" || supabaseService.sharedSearchType == "支出" {
+                        if !expenseAnalytics.isEmpty {
+                            sectionHeader("支出", icon: "arrow.down.circle")
+                            pieCard(data: expenseAnalytics, title: "支出占比")
+                            categoryCard(data: expenseAnalytics, title: "支出类别")
+                        }
+                    }
+                    
+                    // 收入
+                    if supabaseService.sharedSearchType == "全部" || supabaseService.sharedSearchType == "收入" {
+                        if !incomeAnalytics.isEmpty {
+                            sectionHeader("收入", icon: "arrow.up.circle")
+                            pieCard(data: incomeAnalytics, title: "收入占比")
+                            categoryCard(data: incomeAnalytics, title: "收入类别")
+                        }
+                    }
                 }
             }
             .padding(.top, 8).padding(.horizontal, 16).padding(.bottom, 16)
@@ -182,6 +264,9 @@ struct AnalyticsView: View {
         .sheet(isPresented: $showYearPicker) { YearWheelPicker(selection: $supabaseService.sharedSearchYear, options: yearOptions).presentationDetents([.height(230)]) }
         .sheet(isPresented: $showMonthPicker) { MonthWheelPicker(selection: $supabaseService.sharedSearchMonth, options: monthOptions).presentationDetents([.height(270)]) }
         .sheet(isPresented: $showCategoryPicker) { CategoryWheelPicker(selection: $supabaseService.sharedSearchCategory, options: categories).presentationDetents([.height(230)]) }
+        .onAppear { rebuildSnapshot() }
+        .onChange(of: snapshotKey) { _ in rebuildSnapshot() }
+        .onReceive(supabaseService.$allRecords) { _ in rebuildSnapshot() }
         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: showSearch)
    }
     
@@ -269,43 +354,419 @@ struct AnalyticsView: View {
 }
 
 extension AnalyticsView {
-    private var totalCard: some View {
+    private struct HealthMetrics {
+        let monthExpenseChange: Double?
+        let savingsRate: Double?
+        let dailyAverageExpense: Double?
+        let largestExpenseRatio: Double?
+    }
+
+    private struct AnalyticsSnapshot {
+        let filteredRecords: [Record]
+        let categoryAnalytics: [CategoryAnalytics]
+        let expenseAnalytics: [CategoryAnalytics]
+        let incomeAnalytics: [CategoryAnalytics]
+        let availableCurrencies: [String]
+        let effectiveCurrency: String
+        let analyticsRecords: [Record]
+        let monthlyBarPoints: [AnalyticsBarPoint]
+        let monthlyLinePoints: [AnalyticsLinePoint]
+        let dailyScatterPoints: [AnalyticsDotPoint]
+        let currentMonthRecords: [Record]
+        let previousMonthRecords: [Record]
+        let hasCurrentMonthRecords: Bool
+        let health: HealthMetrics
+
+        static func make(
+            records: [Record],
+            searchType: String,
+            searchText: String,
+            searchNote: String,
+            searchCategory: String,
+            searchYear: String,
+            searchMonth: String,
+            currencySymbol: String,
+            analyticsCurrency: String,
+            now: Date
+        ) -> AnalyticsSnapshot {
+            let typeFiltered: [Record]
+            switch searchType {
+            case "支出": typeFiltered = records.filter { $0.isExpense }
+            case "收入": typeFiltered = records.filter { $0.isIncome }
+            default: typeFiltered = records
+            }
+
+            let filtered: [Record]
+            if searchText.isEmpty && searchCategory.isEmpty && searchYear.isEmpty && searchMonth.isEmpty && searchNote.isEmpty {
+                filtered = typeFiltered
+            } else {
+                filtered = typeFiltered.filter { record in
+                    record.matchesSearch(
+                        searchText: searchText,
+                        searchNote: searchNote,
+                        searchCategory: searchCategory,
+                        searchYear: searchYear,
+                        searchMonth: searchMonth
+                    )
+                }
+            }
+
+            let categoryAnalytics = AnalyticsView.categoryAnalytics(for: filtered)
+            let expenseAnalytics = AnalyticsView.categoryAnalytics(for: filtered.filter(\.isExpense))
+            let incomeAnalytics = AnalyticsView.categoryAnalytics(for: filtered.filter(\.isIncome))
+            let availableCurrencies = Array(Set(filtered.map { $0.displayCurrency })).sorted()
+
+            let effectiveCurrency: String
+            if availableCurrencies.contains(analyticsCurrency) {
+                effectiveCurrency = analyticsCurrency
+            } else if availableCurrencies.contains(currencySymbol) {
+                effectiveCurrency = currencySymbol
+            } else {
+                effectiveCurrency = availableCurrencies.first ?? currencySymbol
+            }
+
+            let currencyRecords = filtered.filter { $0.displayCurrency == effectiveCurrency }
+            let barGrouped = Dictionary(grouping: currencyRecords, by: { $0.month })
+            let monthlyBarPoints = barGrouped.keys.sorted().flatMap { month in
+                let monthRecords = barGrouped[month] ?? []
+                let income = monthRecords.filter(\.isIncome).reduce(0) { $0 + $1.amount }
+                let expense = monthRecords.filter(\.isExpense).reduce(0) { $0 + $1.amount }
+                return [
+                    AnalyticsBarPoint(month: shortMonth(month), type: "收入", amount: income),
+                    AnalyticsBarPoint(month: shortMonth(month), type: "支出", amount: expense)
+                ]
+            }
+
+            let lineGrouped = Dictionary(grouping: currencyRecords, by: { $0.month })
+            let monthlyLinePoints = lineGrouped.keys.sorted().compactMap { month in
+                let monthRecords = lineGrouped[month] ?? []
+                let net = monthRecords.reduce(0) { $0 + $1.signedAmount }
+                return AnalyticsLinePoint(month: month, monthDisplay: shortMonth(month), net: net)
+            }
+
+            let currentKey = currentMonthKey(searchYear: searchYear, searchMonth: searchMonth, now: now)
+            let previousKey = previousMonthKey(for: currentKey, now: now)
+            let currentMonthRecords = records.filter { $0.displayCurrency == effectiveCurrency && $0.month == currentKey }
+            let previousMonthRecords = records.filter { $0.displayCurrency == effectiveCurrency && $0.month == previousKey }
+
+            let cal = Calendar.current
+            let dailyGrouped = Dictionary(grouping: currencyRecords.filter { $0.month == currentKey }, by: { cal.component(.day, from: $0.date) })
+            let dailyScatterPoints = dailyGrouped.keys.sorted().flatMap { day in
+                let dayRecords = dailyGrouped[day] ?? []
+                let income = dayRecords.filter(\.isIncome).reduce(0) { $0 + $1.amount }
+                let expense = dayRecords.filter(\.isExpense).reduce(0) { $0 + $1.amount }
+                return [
+                    AnalyticsDotPoint(day: day, type: "收入", amount: income),
+                    AnalyticsDotPoint(day: day, type: "支出", amount: expense)
+                ]
+            }
+            .filter { $0.amount > 0 }
+
+            let currentExpense = currentMonthRecords.filter(\.isExpense).reduce(0) { $0 + $1.amount }
+            let previousExpense = previousMonthRecords.filter(\.isExpense).reduce(0) { $0 + $1.amount }
+            let currentIncome = currentMonthRecords.filter(\.isIncome).reduce(0) { $0 + $1.amount }
+            let dayCount = daysElapsed(for: currentKey, now: now)
+            let largestExpense = currentMonthRecords.filter(\.isExpense).map(\.amount).max() ?? 0
+
+            let health = HealthMetrics(
+                monthExpenseChange: previousExpense > 0 ? (currentExpense - previousExpense) / previousExpense * 100 : nil,
+                savingsRate: currentIncome > 0 ? (currentIncome - currentExpense) / currentIncome * 100 : nil,
+                dailyAverageExpense: dayCount > 0 ? currentExpense / Double(dayCount) : nil,
+                largestExpenseRatio: currentExpense > 0 ? largestExpense / currentExpense * 100 : nil
+            )
+
+            return AnalyticsSnapshot(
+                filteredRecords: filtered,
+                categoryAnalytics: categoryAnalytics,
+                expenseAnalytics: expenseAnalytics,
+                incomeAnalytics: incomeAnalytics,
+                availableCurrencies: availableCurrencies,
+                effectiveCurrency: effectiveCurrency,
+                analyticsRecords: currencyRecords,
+                monthlyBarPoints: monthlyBarPoints,
+                monthlyLinePoints: monthlyLinePoints,
+                dailyScatterPoints: dailyScatterPoints,
+                currentMonthRecords: currentMonthRecords,
+                previousMonthRecords: previousMonthRecords,
+                hasCurrentMonthRecords: !currentMonthRecords.isEmpty,
+                health: health
+            )
+        }
+
+        private static func currentMonthKey(searchYear: String, searchMonth: String, now: Date) -> String {
+            let cal = Calendar.current
+            if !searchYear.isEmpty || !searchMonth.isEmpty {
+                let year = searchYear.isEmpty ? String(cal.component(.year, from: now)) : searchYear.replacingOccurrences(of: "年", with: "")
+                let month = searchMonth.isEmpty ? String(cal.component(.month, from: now)) : searchMonth.replacingOccurrences(of: "月", with: "")
+                return String(format: "%04d-%02d", Int(year) ?? cal.component(.year, from: now), Int(month) ?? cal.component(.month, from: now))
+            }
+            return String(format: "%04d-%02d", cal.component(.year, from: now), cal.component(.month, from: now))
+        }
+
+        private static func previousMonthKey(for monthKey: String, now: Date) -> String {
+            let parts = monthKey.split(separator: "-").compactMap { Int($0) }
+            guard parts.count == 2 else { return monthKey }
+            let cal = Calendar.current
+            guard let thisMonth = cal.date(from: DateComponents(year: parts[0], month: parts[1])),
+                  let last = cal.date(byAdding: .month, value: -1, to: thisMonth) else { return monthKey }
+            return String(format: "%04d-%02d", cal.component(.year, from: last), cal.component(.month, from: last))
+        }
+
+        private static func daysElapsed(for monthKey: String, now: Date) -> Int {
+            let cal = Calendar.current
+            let parts = monthKey.split(separator: "-").compactMap { Int($0) }
+            guard parts.count == 2,
+                  let monthDate = cal.date(from: DateComponents(year: parts[0], month: parts[1])) else { return 0 }
+            if parts[0] == cal.component(.year, from: now) && parts[1] == cal.component(.month, from: now) {
+                return max(1, cal.component(.day, from: now))
+            }
+            return cal.range(of: .day, in: .month, for: monthDate)?.count ?? 30
+        }
+    }
+
+    private func rebuildSnapshot() {
+        let requestID = UUID()
+        activeRebuildID = requestID
+
+        let records = supabaseService.allRecords
+        let searchType = supabaseService.sharedSearchType
+        let searchText = supabaseService.sharedSearchText
+        let searchNote = supabaseService.sharedSearchNote
+        let searchCategory = supabaseService.sharedSearchCategory
+        let searchYear = supabaseService.sharedSearchYear
+        let searchMonth = supabaseService.sharedSearchMonth
+        let symbol = currencySymbol
+        let currency = analyticsCurrency
+        let now = Date()
+
+        Task.detached {
+            let snapshot = AnalyticsSnapshot.make(
+                records: records,
+                searchType: searchType,
+                searchText: searchText,
+                searchNote: searchNote,
+                searchCategory: searchCategory,
+                searchYear: searchYear,
+                searchMonth: searchMonth,
+                currencySymbol: symbol,
+                analyticsCurrency: currency,
+                now: now
+            )
+            await MainActor.run {
+                guard self.activeRebuildID == requestID else { return }
+                self.analyticsSnapshot = snapshot
+                self.analyticsReady = true
+            }
+        }
+    }
+
+    private func sectionHeader(_ title: String, icon: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(AppTheme.brandGradient)
+            Text(title)
+                .font(.appTitle)
+                .foregroundColor(AppTheme.textPrimary)
+            Spacer()
+        }
+        .padding(.top, 4)
+    }
+
+    private func sectionHeader(_ title: String, icon: String, @ViewBuilder trailing: () -> some View) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(AppTheme.brandGradient)
+            Text(title)
+                .font(.appTitle)
+                .foregroundColor(AppTheme.textPrimary)
+            Spacer()
+            trailing()
+        }
+        .padding(.top, 4)
+    }
+
+    private var healthCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 6) {
-                Image(systemName: "chart.bar.xaxis")
+                Image(systemName: "heart.text.square.fill")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(AppTheme.brandStart)
-                Text("收支概况")
+                Text("本月健康")
                     .font(.appTitle)
                     .foregroundColor(AppTheme.textPrimary)
                 Spacer()
             }
-            VStack(spacing: 8) {
-                HStack {
-                    Text("收入").font(.appBody).foregroundColor(.green)
-                    Spacer()
-                    Text(String(format: "+" + currencySymbol + "%.2f", incomeTotal))
-                        .font(.appBodyMedium).foregroundColor(.green)
-                }
-                HStack {
-                    Text("支出").font(.appBody).foregroundColor(AppTheme.brandStart)
-                    Spacer()
-                    Text(String(format: "-" + currencySymbol + "%.2f", expenseTotal))
-                        .font(.appBodyMedium).foregroundColor(AppTheme.textSecondary)
-                }
-                AppDivider()
-                HStack {
-                    Text("净收入").font(.appBodyMedium).foregroundColor(AppTheme.textPrimary)
-                    Spacer()
-                    Text(String(format: "%@" + currencySymbol + "%.2f", netTotal >= 0 ? "+" : "", netTotal))
-                        .font(.appBodyMedium).foregroundColor(netTotal >= 0 ? .green : AppTheme.brandStart)
-                }
+            VStack(spacing: 12) {
+                healthRow(title: "支出环比", value: monthExpenseChangeText, icon: monthExpenseChangeIcon, valueColor: monthExpenseChangeColor)
+                healthRow(title: "储蓄率", value: savingsRateText, icon: "percent", valueColor: .green)
+                healthRow(title: "日均支出", value: dailyAverageExpenseText, icon: "calendar", valueColor: AppTheme.textPrimary)
+                healthRow(title: "大额支出占比", value: largestExpenseRatioText, icon: "creditcard", valueColor: AppTheme.textPrimary)
             }
-            HStack {
-                Text("\(filteredRecords.count)笔记录")
-                    .font(.appSmall).foregroundColor(AppTheme.textTertiary)
+        }
+        .cardStyle()
+        .frame(maxWidth: .infinity)
+    }
+
+    private func healthRow(title: String, value: String, icon: String, valueColor: Color) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(AppTheme.brandStart)
+                .frame(width: 22)
+            Text(title)
+                .font(.appBody)
+                .foregroundColor(AppTheme.textPrimary)
+            Spacer()
+            Text(value)
+                .font(.appBodyMedium)
+                .foregroundColor(valueColor)
+        }
+    }
+
+    private var monthExpenseChangeText: String {
+        guard let change = monthExpenseChange else { return "上月无支出" }
+        return String(format: "%@%.1f%%", change >= 0 ? "+" : "", change)
+    }
+
+    private var monthExpenseChangeIcon: String {
+        guard let change = monthExpenseChange else { return "minus" }
+        return change > 0 ? "arrow.up.right" : "arrow.down.right"
+    }
+
+    private var monthExpenseChangeColor: Color {
+        guard let change = monthExpenseChange else { return AppTheme.textSecondary }
+        return change > 0 ? AppTheme.brandStart : .green
+    }
+
+    private var savingsRateText: String {
+        guard let rate = savingsRate else { return "本月无收入" }
+        return String(format: "%.1f%%", rate)
+    }
+
+    private var dailyAverageExpenseText: String {
+        guard let value = dailyAverageExpense else { return "--" }
+        return String(format: "%@%.2f", effectiveAnalyticsCurrency, value)
+    }
+
+    private var largestExpenseRatioText: String {
+        guard let ratio = largestExpenseRatio else { return "本月无支出" }
+        return String(format: "%.1f%%", ratio)
+    }
+    
+    private var totalCard: some View {
+        let income = analyticsRecords.filter(\.isIncome).reduce(0) { $0 + $1.amount }
+        let expense = analyticsRecords.filter(\.isExpense).reduce(0) { $0 + $1.amount }
+        let net = income - expense
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 6) {
+                Image(systemName: "chart.bar.xaxis")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(AppTheme.brandStart)
+                Text("资金总览")
+                    .font(.appTitle)
+                    .foregroundColor(AppTheme.textPrimary)
                 Spacer()
             }
+            if analyticsRecords.isEmpty {
+                Text("该币种暂无记录")
+                    .font(.appBody)
+                    .foregroundColor(AppTheme.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 28)
+            } else {
+                HStack(spacing: 10) {
+                    overviewValue(title: "收入", amount: income, prefix: "+", color: .green, currency: effectiveAnalyticsCurrency)
+                    overviewValue(title: "支出", amount: expense, prefix: "-", color: AppTheme.textSecondary, currency: effectiveAnalyticsCurrency)
+                }
+                AppDivider()
+                HStack(alignment: .firstTextBaseline) {
+                    Text("净结余")
+                        .font(.appBody)
+                        .foregroundColor(AppTheme.textSecondary)
+                    Spacer()
+                    Text(String(format: "%@%@%.2f", net >= 0 ? "+" : "", effectiveAnalyticsCurrency, net))
+                        .font(.system(size: 30, weight: .semibold))
+                        .foregroundColor(net >= 0 ? .green : AppTheme.brandStart)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.55)
+                }
+                HStack {
+                    Text("\(analyticsRecords.count)笔记录")
+                        .font(.appSmall)
+                        .foregroundColor(AppTheme.textTertiary)
+                    Spacer()
+                }
+            }
+        }
+        .cardStyle()
+        .frame(maxWidth: .infinity)
+    }
+
+    private func overviewValue(title: String, amount: Double, prefix: String, color: Color, currency: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.appSmall)
+                .foregroundColor(AppTheme.textSecondary)
+            Text(String(format: "%@%@%.2f", prefix, currency, amount))
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundColor(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var monthlyBarCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 6) {
+                Image(systemName: "chart.bar.fill")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(AppTheme.brandStart)
+                Text("月度收支")
+                    .font(.appTitle)
+                    .foregroundColor(AppTheme.textPrimary)
+                Spacer()
+            }
+            MonthlyBarChartView(points: monthlyBarPoints)
+                .frame(height: 230)
+        }
+        .cardStyle()
+        .frame(maxWidth: .infinity)
+    }
+
+    private var monthlyLineCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 6) {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(AppTheme.brandStart)
+                Text("净收入趋势")
+                    .font(.appTitle)
+                    .foregroundColor(AppTheme.textPrimary)
+                Spacer()
+            }
+            MonthlyNetLineChartView(points: monthlyLinePoints)
+                .frame(height: 220)
+        }
+        .cardStyle()
+        .frame(maxWidth: .infinity)
+    }
+
+    private var dailyScatterCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 6) {
+                Image(systemName: "circle.grid.2x2.fill")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(AppTheme.brandStart)
+                Text("每日收支分布")
+                    .font(.appTitle)
+                    .foregroundColor(AppTheme.textPrimary)
+                Spacer()
+            }
+            DailyScatterChartView(points: dailyScatterPoints)
+                .frame(height: 220)
         }
         .cardStyle()
         .frame(maxWidth: .infinity)
@@ -346,6 +807,7 @@ extension AnalyticsView {
     
     // 图例分组（仅从 categoryAnalytics 取对应步长的项）
     private func legendGroup(data: [CategoryAnalytics], start: Int, stride: Int) -> some View {
+        let showCurrency = Set(data.map { $0.currency }).count > 1
         var entries: [(offset: Int, element: CategoryAnalytics)] = []
         for (i, item) in data.enumerated() {
             if (i - start) % stride == 0 {
@@ -358,7 +820,7 @@ extension AnalyticsView {
                     Circle()
                         .fill(catColor(item.category))
                         .frame(width: 8, height: 8)
-                    Text(item.category)
+                    Text(showCurrency ? "\(item.category) \(item.currency)" : item.category)
                         .font(.appSmall).lineLimit(1).minimumScaleFactor(0.75)
                         .foregroundColor(AppTheme.textPrimary)
                    Text(String(format: "%.1f%%", item.ratio * 100))
@@ -373,33 +835,6 @@ extension AnalyticsView {
    }
    
 
-   
-   // 图例列
-   private func legendColumn(data: [CategoryAnalytics], start: Int, stride: Int) -> some View {
-       VStack(alignment: .leading, spacing: 10) {
-           ForEach(Array(data.enumerated()), id: \.offset) { idx, item in
-               if (idx - start) % stride == 0 {
-                   HStack(spacing: 6) {
-                       Circle()
-                           .fill(catColor(item.category))
-                           .frame(width: 9, height: 9)
-                   Text(item.category)
-                       .font(.appSmall)
-                       .lineLimit(1).minimumScaleFactor(0.75)
-                       .foregroundColor(AppTheme.textPrimary)
-
-                   Text(String(format: "%.1f%%", item.ratio * 100))
-                        .font(.system(size: 11))
-                       .lineLimit(1)
-                       .frame(minWidth: 52, alignment: .trailing)
-                       .foregroundColor(AppTheme.textSecondary)
-                   }
-               }
-           }
-           Spacer()
-       }
-   }
-    
     private func categoryCard(data: [CategoryAnalytics], title: String) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 6) {
@@ -426,82 +861,6 @@ extension AnalyticsView {
        .cardStyle()
        .frame(maxWidth: .infinity)
    }
-    
-    // MARK: - 月度趋势
-    struct MonthlyTrend: Identifiable {
-        let month: String
-        let monthDisplay: String
-        let expense: Double
-        let income: Double
-        var id: String { month }
-    }
-    
-    var monthlyTrend: [MonthlyTrend] {
-        let grouped = Dictionary(grouping: filteredRecords, by: { $0.month })
-        return grouped.map { month, records in
-            let exp = records.filter(\.isExpense).reduce(0) { $0 + $1.amount }
-            let inc = records.filter(\.isIncome).reduce(0) { $0 + $1.amount }
-            let df = DateFormatter()
-            df.dateFormat = "yyyy-MM"
-            guard let d = df.date(from: month) else {
-                return MonthlyTrend(month: month, monthDisplay: month, expense: exp, income: inc)
-            }
-            df.dateFormat = "MM月"
-            return MonthlyTrend(month: month, monthDisplay: df.string(from: d), expense: exp, income: inc)
-        }
-        .sorted { $0.month < $1.month }
-    }
-    
-    @ViewBuilder
-    private var trendCard: some View {
-        let allVals = monthlyTrend.flatMap { [$0.expense, $0.income] }
-        let maxVal = max(allVals.max() ?? 1, 1)
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 6) {
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(AppTheme.brandStart)
-                Text("月度趋势")
-                    .font(.appTitle)
-                    .foregroundColor(AppTheme.textPrimary)
-            }
-            
-            VStack(spacing: 12) {
-                ForEach(monthlyTrend) { trend in
-                    VStack(spacing: 4) {
-                        HStack {
-                            Text(trend.monthDisplay)
-                                .font(.system(size: 15, weight: .medium))
-                                .foregroundColor(AppTheme.textSecondary)
-                                .frame(width: 40, alignment: .leading)
-                            Spacer()
-                        }
-                        if trend.expense > 0 || trend.income > 0 {
-                            HStack(spacing: 0) {
-                                if trend.income > 0 {
-                                    RoundedRectangle(cornerRadius: 3)
-                                        .fill(Color.green)
-                                        .frame(width: max(6, CGFloat(trend.income / maxVal) * 100), height: 10)
-                                }
-                                Spacer().frame(width: 4)
-                                if trend.expense > 0 {
-                                    RoundedRectangle(cornerRadius: 3)
-                                        .fill(AppTheme.brandStart)
-                                        .frame(width: max(6, CGFloat(trend.expense / maxVal) * 100), height: 10)
-                                }
-                                Spacer()
-                                Text("+\(String(format: currencySymbol + "%.0f", trend.income))  \(String(format: currencySymbol + "%.0f", trend.expense))")
-                                    .font(.system(size: 15))
-                                    .foregroundColor(AppTheme.textTertiary)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        .cardStyle()
-        .frame(maxWidth: .infinity)
-    }
     private func analyticsTypeButton(_ label: String) -> some View {
         Button(action: { supabaseService.sharedSearchType = label }) {
             Text(label).font(.system(size: 17, weight: .medium))
@@ -627,7 +986,6 @@ struct PieSlice: Shape {
 
 struct CategoryDetailView: View {
     let analytics: AnalyticsView.CategoryAnalytics
-    @AppStorage("currency_symbol") private var currencySymbol = "¥"
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -639,7 +997,7 @@ struct CategoryDetailView: View {
                     .font(.appBodyMedium)
                     .foregroundColor(AppTheme.textPrimary)
                 Spacer()
-                Text(String(format: currencySymbol + "%.2f", analytics.amount))
+                Text(String(format: analytics.currency + "%.2f", analytics.amount))
                     .font(.appBodyMedium)
                     .foregroundColor(AppTheme.textPrimary)
                 Text("\(analytics.count)笔")
