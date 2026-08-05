@@ -63,3 +63,37 @@ struct AchievementPeriodTests {
         #expect(abs(AchievementEngine.weeklyBudget(monthly: 4330) - 1000) < 0.01)
     }
 }
+
+struct AchievementHealthTests {
+    private let calendar = Calendar(identifier: .gregorian)
+    private func date(_ y: Int, _ m: Int, _ d: Int) -> Date {
+        calendar.date(from: DateComponents(year: y, month: m, day: d))!
+    }
+
+    @Test func healthScoreWeightsSavingsRate() {
+        let summaries: [String: PeriodSummary] = [
+            "2026-08": PeriodSummary(key: "2026-08", periodType: .month, income: 1000, expense: 500, largestExpense: 100, recordCount: 10),
+            "2026-07": PeriodSummary(key: "2026-07", periodType: .month, income: 1000, expense: 600, largestExpense: 200, recordCount: 10),
+            "2026-06": PeriodSummary(key: "2026-06", periodType: .month, income: 1000, expense: 700, largestExpense: 300, recordCount: 10)
+        ]
+        let health = AchievementEngine.health(
+            summaries: summaries,
+            budget: BudgetSetting(monthlyBudget: 1000),
+            now: date(2026, 8, 3),
+            calendar: calendar
+        )
+        #expect(health.score > 0)
+        #expect(health.savingsRate == 50)
+        #expect(health.budgetControl == 50)
+    }
+
+    @Test func emptyDataKeepsScoreZero() {
+        let health = AchievementEngine.health(
+            summaries: [:],
+            budget: BudgetSetting(),
+            now: date(2026, 8, 3),
+            calendar: calendar
+        )
+        #expect(health.score == 0)
+    }
+}
