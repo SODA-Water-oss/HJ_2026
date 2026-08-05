@@ -214,4 +214,47 @@ extension AchievementEngine {
         guard parts.count == 2 else { return nil }
         return DateComponents(weekOfYear: parts[1], yearForWeekOfYear: parts[0])
     }
+
+    static func qualifyingMonthCount(summaries: [String: PeriodSummary], monthlyBudget: Double, calendar: Calendar = .current) -> Int {
+        summaries.values
+            .filter { $0.periodType == .month && $0.recordCount > 0 && $0.expense <= monthlyBudget }
+            .count
+    }
+
+    static func derivedBadgeStates(weekStreak: Int, qualifyingMonthCount: Int) -> [BadgeState] {
+        let weekThresholds: [(BadgeType, Int)] = [
+            (.week1, 1), (.week4, 4), (.week8, 8), (.week12, 12), (.week26, 26), (.week52, 52)
+        ]
+        let monthThresholds: [(BadgeType, Int)] = [
+            (.monthIron, 3), (.monthCopper, 6), (.monthSilver, 12), (.monthGold, 24)
+        ]
+        let weekStates = weekThresholds.map { BadgeState(badgeType: $0.0, isHeld: weekStreak >= $0.1, latestAwardedAt: nil, latestRevokedAt: nil) }
+        let monthStates = monthThresholds.map { BadgeState(badgeType: $0.0, isHeld: qualifyingMonthCount >= $0.1, latestAwardedAt: nil, latestRevokedAt: nil) }
+        return weekStates + monthStates
+    }
+
+    static func auditBadges(previous: [BadgeState], current: [BadgeState], now: Date) -> (states: [BadgeState], events: [BadgeAwardEvent]) {
+        var events: [BadgeAwardEvent] = []
+        var merged: [BadgeState] = []
+        for state in current {
+            let old = previous.first(where: { $0.badgeType == state.badgeType })
+            var latestAward = old?.latestAwardedAt
+            var latestRevoke = old?.latestRevokedAt
+            if state.isHeld, old?.isHeld != true {
+                latestAward = now
+                events.append(BadgeAwardEvent(badgeType: state.badgeType, periodKey: state.badgeType.rawValue, event: .awarded, occurredAt: now))
+            }
+            if !state.isHeld, old?.isHeld == true {
+                latestRevoke = now
+                events.append(BadgeAwardEvent(badgeType: state.badgeType, periodKey: state.badgeType.rawValue, event: .revoked, occurredAt: now))
+            }
+            merged.append(BadgeState(badgeType: state.badgeType, isHeld: state.isHeld, latestAwardedAt: latestAward, latestRevokedAt: latestRevoke))
+        }
+        return (merged, events)
+    }
+
+    static func goalProgress(goal: FinancialGoal, savedAmount: Double) -> GoalProgress {
+        let progress = goal.targetAmount > 0 ? savedAmount / goal.targetAmount * 100 : 0
+        return GoalProgress(goal: goal, savedAmount: savedAmount, percent: progress, estimatedCompletion: nil)
+    }
 }

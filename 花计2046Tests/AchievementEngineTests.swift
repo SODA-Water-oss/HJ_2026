@@ -147,3 +147,48 @@ struct AchievementStreakTests {
         #expect(streak == 0)
     }
 }
+
+struct AchievementBadgeTests {
+    private let calendar = Calendar(identifier: .gregorian)
+    private func date(_ y: Int, _ m: Int, _ d: Int) -> Date {
+        calendar.date(from: DateComponents(year: y, month: m, day: d))!
+    }
+
+    @Test func weekMilestonesDeriveFromStreak() {
+        let states = AchievementEngine.derivedBadgeStates(weekStreak: 12, qualifyingMonthCount: 3)
+        #expect(states.first(where: { $0.badgeType == .week1 })?.isHeld == true)
+        #expect(states.first(where: { $0.badgeType == .week12 })?.isHeld == true)
+        #expect(states.first(where: { $0.badgeType == .week52 })?.isHeld == false)
+        #expect(states.first(where: { $0.badgeType == .monthIron })?.isHeld == true)
+        #expect(states.first(where: { $0.badgeType == .monthGold })?.isHeld == false)
+    }
+
+    @Test func auditAppendsAwardAndRevokeEvents() {
+        let now = date(2026, 8, 3)
+        let before = AchievementEngine.derivedBadgeStates(weekStreak: 11, qualifyingMonthCount: 0)
+        let after = AchievementEngine.derivedBadgeStates(weekStreak: 12, qualifyingMonthCount: 0)
+        let result = AchievementEngine.auditBadges(previous: before, current: after, now: now)
+        #expect(result.events.contains { $0.badgeType == .week12 && $0.event == .awarded })
+        #expect(!result.events.contains { $0.badgeType == .week12 && $0.event == .revoked })
+
+        let dropped = AchievementEngine.derivedBadgeStates(weekStreak: 11, qualifyingMonthCount: 0)
+        let revoked = AchievementEngine.auditBadges(previous: after, current: dropped, now: now)
+        #expect(revoked.events.contains { $0.badgeType == .week12 && $0.event == .revoked })
+    }
+
+    @Test func qualifyingMonthCount() {
+        let summaries: [String: PeriodSummary] = [
+            "2026-04": PeriodSummary(key: "2026-04", periodType: .month, expense: 800, recordCount: 2),
+            "2026-05": PeriodSummary(key: "2026-05", periodType: .month, expense: 900, recordCount: 2),
+            "2026-06": PeriodSummary(key: "2026-06", periodType: .month, expense: 1100, recordCount: 2)
+        ]
+        let count = AchievementEngine.qualifyingMonthCount(summaries: summaries, monthlyBudget: 1000, calendar: calendar)
+        #expect(count == 2)
+    }
+
+    @Test func goalProgressPercent() {
+        let goal = FinancialGoal(name: "旅行", targetAmount: 10000, startingAmount: 2000)
+        let progress = AchievementEngine.goalProgress(goal: goal, savedAmount: 5000)
+        #expect(progress.percent == 50)
+    }
+}
