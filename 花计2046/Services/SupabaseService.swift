@@ -19,6 +19,7 @@ class SupabaseService: ObservableObject {
     @Published var allRecords: [Record] = []
     @Published var isExpensesLoading = false
     @Published var isRecordsLoading = false
+    @Published var recordsLoadError = false
     @Published var batchProgress: (Int, Int)? = nil
     @Published var isGloballyProcessing = false
     @Published var globalProcessingMessage = ""
@@ -175,12 +176,14 @@ class SupabaseService: ObservableObject {
         if !force, now.timeIntervalSince(lastFetchTime) < 3 { return }
         lastFetchTime = now
         isRecordsLoading = true
+        recordsLoadError = false
         do {
             let records = try await fetchAllRecords()
             allRecords = records
             expenses = records.filter { $0.isExpense }
             incomes = records.filter { $0.isIncome }
         } catch {
+            recordsLoadError = true
             Log.error("刷新全部记录失败: \(error)")
         }
         isRecordsLoading = false
