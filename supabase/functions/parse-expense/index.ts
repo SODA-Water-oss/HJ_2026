@@ -8,6 +8,7 @@ type ParseRequest =
   | { mode: "audio"; audioBase64: string; mimeType: string };
 
 type ParsedExpense = {
+  type: "expense" | "income";
   amount: number;
   category: string;
   merchant: string;
@@ -28,20 +29,28 @@ Deno.serve(async (request) => {
     const payload = (await request.json()) as ParseRequest;
     const parsed = await parseWithGemini(apiKey, payload);
 
-    return json(parsed);
+    return json({ items: parsed });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "Unknown error." }, 400);
+    return json(
+      { error: error instanceof Error ? error.message : "Unknown error." },
+      400
+    );
   }
 });
 
-async function parseWithGemini(apiKey: string, payload: ParseRequest): Promise<ParsedExpense> {
+async function parseWithGemini(
+  apiKey: string,
+  payload: ParseRequest
+): Promise<ParsedExpense[]> {
   const parts: Record<string, unknown>[] = [
     {
       text: [
-        "Extract one expense from the user input.",
-        "Return only valid JSON with these fields:",
-        "amount as a number, category as a short label, merchant as a string, note as optional string.",
-        "Use the user's language where practical. Do not include markdown.",
+        "Extract all expenses/income from the user input.",
+        "Return only valid JSON with this structure:",
+        '{"items":[{"type":"expense"|"income","amount":number,"category":"short label","merchant":"string","note":"optional string"}]}',
+        "Use the user's language. Do not include markdown.",
+        "Expense categories: 餐饮,交通,购物,娱乐,住房,日用,服饰,通讯,医疗,教育,其他.",
+        "Income categories: 工资,奖金,兼职,投资收益,理财,礼金,退款,其他.",
       ].join("\n"),
     },
   ];
@@ -68,7 +77,7 @@ async function parseWithGemini(apiKey: string, payload: ParseRequest): Promise<P
           responseMimeType: "application/json",
         },
       }),
-    },
+    }
   );
 
   if (!response.ok) {
@@ -82,24 +91,26 @@ async function parseWithGemini(apiKey: string, payload: ParseRequest): Promise<P
   }
 
   const cleaned = text.replace(/```json|```/g, "").trim();
-  const parsed = JSON.parse(cleaned) as ParsedExpense;
+  const parsed = JSON.parse(cleaned) as { items?: ParsedExpense[] } | ParsedExpense[];
 
-  if (!Number.isFinite(parsed.amount) || parsed.amount <= 0) {
-    throw new Error("Gemini returned an invalid amount.");
-  }
-  if (!parsed.category || !parsed.merchant) {
-    throw new Error("Gemini returned incomplete expense data.");
+  // 兼容 Gemini 可能直接返回数组或 {items: [...]} 两种格式
+  const items = Array.isArray(parsed) ? parsed : parsed.items;
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error("Gemini returned no items.");
   }
 
-  return {
-    amount: parsed.amount,
-    category: parsed.category,
-    merchant: parsed.merchant,
-    note: parsed.note ?? null,
-  };
+  return items
+    .map((item) => ({
+      type: ["expense", "income"].includes(item.type) ? item.type : "expense",
+      amount: Number.isFinite(item.amount) && item.amount > 0 ? item.amount : 0,
+      category: item.category || "其他",
+      merchant: item.merchant || "未知",
+      note: item.note ?? null,
+    }))
+    .filter((item) => item.amount > 0);
 }
 
-function json(body: unknown, status = 200) {
+function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },

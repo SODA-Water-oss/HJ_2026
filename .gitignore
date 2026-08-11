@@ -6,6 +6,7 @@ xcuserdata/
 # Xcode
 DerivedData/
 build/
+BuildTests/
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 *.xcodeproj/project.xcworkspace/xcuserdata/
@@ -17,12 +18,15 @@ SourcePackages/
 # Node (Edge Functions only)
 supabase/functions/*/node_modules/
 
-# Secrets
+# xcconfig — 只提交模板和占位配置，本地密钥文件忽略
 *.xcconfig
-!Configs/Test.xcconfig
+!Configs/Common.xcconfig
+!Configs/Debug.xcconfig
+!Configs/Release.xcconfig
+!Configs/Local.xcconfig.example
+
 Build-Device/
 *.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
-*.bak
 *.xcodeproj/project.xworkspace/
 *.bak
 *.bak2

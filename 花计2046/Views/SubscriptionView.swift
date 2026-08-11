@@ -61,7 +61,7 @@ struct SubscriptionView: View {
                     
                     // 反馈按钮
                     Button(action: {
-                        let email = "support@example.com"
+                        let email = "poundszero@126.com"
                         if let url = URL(string: "mailto:\(email)") {
                             UIApplication.shared.open(url)
                         }

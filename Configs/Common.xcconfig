@@ -1,0 +1,14 @@
+//
+// Common.xcconfig
+// 共享构建配置（不含真实密钥）
+// 真实密钥请写入 Local.xcconfig（该文件已被 git 忽略）
+//
+
+// MARK: - Supabase 占位配置
+// 请替换为你的 Supabase 项目地址
+SUPABASE_URL = https://your-project.supabase.co
+SUPABASE_FUNCTIONS_URL = https://your-project.functions.supabase.co/functions/v1
+
+// 注入生成的 Info.plist
+INFOPLIST_KEY_SUPABASE_URL = $(SUPABASE_URL)
+INFOPLIST_KEY_SUPABASE_FUNCTIONS_URL = $(SUPABASE_FUNCTIONS_URL)

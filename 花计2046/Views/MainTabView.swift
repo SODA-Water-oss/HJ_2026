@@ -1,9 +1,11 @@
 import SwiftUI
 import Supabase
+import StoreKit
 
 struct MainTabView: View {
     @EnvironmentObject var supabaseService: SupabaseService
     @ObservedObject private var userSettings = UserSettingsManager.shared
+    @StateObject private var storeKit = StoreKitManager.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = 2
     @State private var showLockScreen = false
@@ -172,6 +174,7 @@ struct MainTabView: View {
 struct ProfileView: View {
     @EnvironmentObject var supabaseService: SupabaseService
     @ObservedObject private var userSettings = UserSettingsManager.shared
+    @StateObject private var storeKit = StoreKitManager.shared
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject var authManager: AuthManager
     @State private var ledgerLockEnabled = UserSettingsManager.shared.ledgerLockEnabled
@@ -190,6 +193,9 @@ struct ProfileView: View {
     @State private var currencyPickerStep = 0
     @State private var selectedCurrency: (name: String, symbol: String)? = nil
     @State private var showLogoutAlert = false
+    @State private var showDeleteAccountAlert = false
+    @State private var showDeleteAccountConfirmAlert = false
+    @State private var isDeletingAccount = false
     private let currencyOptions: [(name: String, symbol: String)] = [("人民币", "¥"), ("美元", "$"), ("欧元", "€"), ("英镑", "£")]
     
     @ViewBuilder
@@ -216,6 +222,8 @@ struct ProfileView: View {
     
     @State private var showPatternSetup = false
     @State private var showPasswordText = false
+    @State private var showLegalDocument = false
+    @State private var legalDocumentType: LegalDocumentType?
     
     var body: some View {
         NavigationView {
@@ -234,8 +242,9 @@ struct ProfileView: View {
                             .foregroundColor(AppTheme.textPrimary)
                         
                         HStack {
-                            Circle().fill(AppTheme.brandGradient).frame(width: 8, height: 8)
-                            Text("高级版")
+                            Circle().fill(storeKit.isPremium ? AppTheme.brandGradient : LinearGradient(colors: [Color(hex: "#9CA3AF"), Color(hex: "#9CA3AF")], startPoint: .leading, endPoint: .trailing))
+                                .frame(width: 8, height: 8)
+                            Text(storeKit.isPremium ? "高级版" : "免费版")
                                 .font(.appSmall)
                                 .foregroundColor(AppTheme.textSecondary)
                         }
@@ -246,9 +255,103 @@ struct ProfileView: View {
                     .cornerRadius(16)
                     .shadow(color: AppTheme.cardShadow, radius: 10, x: 0, y: 4)
                     .padding(.horizontal, 16)
+
                     
                     Spacer(minLength: 10)
                     
+                    // Card: 订阅
+                    VStack(spacing: 0) {
+                        HStack {
+                            Image(systemName: storeKit.isPremium ? "crown.fill" : "crown")
+                                .font(.system(size: 24))
+                                .foregroundColor(AppTheme.brandStart)
+                                .frame(width: 32)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(storeKit.isPremium ? "已订阅高级版" : "升级到高级版")
+                                    .font(.appBody)
+                                    .foregroundColor(AppTheme.textPrimary)
+                                Text(storeKit.isPremium ? "享受无限 AI 解析与高级分析" : "解锁无限 AI 解析、高级图表等")
+                                    .font(.appSmall)
+                                    .foregroundColor(AppTheme.textSecondary)
+                            }
+                            Spacer()
+                        }
+                        .padding(16)
+                        
+                        if !storeKit.isPremium {
+                            Divider().padding(.horizontal, 16)
+                            
+                            if storeKit.products.isEmpty {
+                                HStack {
+                                    Spacer()
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                    Spacer()
+                                }
+                                .padding(16)
+                            } else {
+                                ForEach(storeKit.products) { product in
+                                    Button(action: {
+                                        Task {
+                                            do {
+                                                try await storeKit.purchase(product)
+                                            } catch {
+                                                Log.error("购买失败: \(error.localizedDescription)")
+                                            }
+                                        }
+                                    }) {
+                                        HStack {
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(product.displayName)
+                                                    .font(.appBodyMedium)
+                                                    .foregroundColor(AppTheme.textPrimary)
+                                                Text(product.description)
+                                                    .font(.appSmall)
+                                                    .foregroundColor(AppTheme.textSecondary)
+                                            }
+                                            Spacer()
+                                            Text(product.displayPrice)
+                                                .font(.system(size: 17, weight: .semibold))
+                                                .foregroundColor(AppTheme.brandStart)
+                                        }
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 12)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                    .disabled(storeKit.isLoading)
+                                    
+                                    if product.id != storeKit.products.last?.id {
+                                        Divider().padding(.horizontal, 16)
+                                    }
+                                }
+                            }
+                        }
+                        
+                        Divider().padding(.horizontal, 16)
+                        
+                        Button(action: {
+                            Task { await storeKit.restorePurchases() }
+                        }) {
+                            HStack {
+                                Image(systemName: "arrow.counterclockwise")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(AppTheme.brandStart)
+                                    .frame(width: 32)
+                                Text("恢复购买")
+                                    .font(.appBody)
+                                    .foregroundColor(AppTheme.textPrimary)
+                                Spacer()
+                            }
+                            .padding(16)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .disabled(storeKit.isLoading)
+                    }
+                    .background(Color.white)
+                    .cornerRadius(12)
+                    .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
+                    .padding(.horizontal, 16)
+
                     // Card 1: 安全
                     VStack(spacing: 0) {
                         // 账本锁
@@ -482,6 +585,52 @@ struct ProfileView: View {
                             }
                             .padding(16)
                         }
+                        
+                        Divider().padding(.horizontal, 16)
+                        
+                        // 隐私政策
+                        Button(action: {
+                            legalDocumentType = .privacyPolicy
+                            showLegalDocument = true
+                        }) {
+                            HStack {
+                                Image(systemName: "hand.raised")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(AppTheme.brandStart)
+                                    .frame(width: 32)
+                                Text("隐私政策")
+                                    .font(.appBody)
+                                    .foregroundColor(AppTheme.textPrimary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AppTheme.textTertiary)
+                            }
+                            .padding(16)
+                        }
+                        
+                        Divider().padding(.horizontal, 16)
+                        
+                        // 服务条款
+                        Button(action: {
+                            legalDocumentType = .termsOfService
+                            showLegalDocument = true
+                        }) {
+                            HStack {
+                                Image(systemName: "doc.text")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(AppTheme.brandStart)
+                                    .frame(width: 32)
+                                Text("服务条款")
+                                    .font(.appBody)
+                                    .foregroundColor(AppTheme.textPrimary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AppTheme.textTertiary)
+                            }
+                            .padding(16)
+                        }
                     }
                     .background(Color.white)
                     .cornerRadius(12)
@@ -510,8 +659,36 @@ struct ProfileView: View {
                     .cornerRadius(12)
                     .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
                     .padding(.horizontal, 16)
+                    
+                    Spacer(minLength: 10)
+                    
+                    // Card: 注销账号
+                    VStack(spacing: 0) {
+                        Button(action: { showDeleteAccountAlert = true }) {
+                            HStack {
+                                Image(systemName: "person.crop.circle.badge.xmark")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(Color(hex: "#EF4444"))
+                                    .frame(width: 32)
+                                Text("注销账号")
+                                    .font(.appBody)
+                                    .foregroundColor(Color(hex: "#EF4444"))
+                                Spacer()
+                            }
+                            .padding(16)
+                        }
+                        .disabled(isDeletingAccount)
+                    }
+                    .background(Color.white)
+                    .cornerRadius(12)
+                    .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
+                    .padding(.horizontal, 16)
                     .padding(.bottom, 16)
                 }
+            }
+            .task {
+                await storeKit.loadProducts()
+                await storeKit.restorePurchases()
             }
             .onAppear {
                 Task {
@@ -624,6 +801,30 @@ struct ProfileView: View {
             }
         } message: {
             Text("是否确定退出当前登录？")
+        }
+        .alert("注销账号", isPresented: $showDeleteAccountAlert) {
+            Button("取消", role: .cancel) { }
+            Button("继续", role: .destructive) {
+                showDeleteAccountConfirmAlert = true
+            }
+        } message: {
+            Text("注销账号将删除您的所有记账数据、设置和账号信息，且无法恢复。如有活跃订阅，请先到 App Store 取消。")
+        }
+        .alert("确认注销", isPresented: $showDeleteAccountConfirmAlert) {
+            Button("取消", role: .cancel) { }
+            Button("确认注销", role: .destructive) {
+                Task {
+                    isDeletingAccount = true
+                    do {
+                        try await authManager.deleteAccount()
+                    } catch {
+                        Log.error("注销账号失败: \(error.localizedDescription)")
+                    }
+                    isDeletingAccount = false
+                }
+            }
+        } message: {
+            Text("此操作不可恢复，确定要永久注销账号吗？")
         }
     }
 }

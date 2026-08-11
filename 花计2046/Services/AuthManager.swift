@@ -9,6 +9,8 @@ class AuthManager: ObservableObject {
     // MARK: - 发布属性
     @Published var authState: AuthState = .checking
     @Published var currentProfile: UserProfile?
+    /// 是否处于「重置密码」待设置新密码状态
+    @Published var pendingPasswordReset = false
     
     // 兼容旧代码的 isAuthenticated 属性
     var isAuthenticated: Bool {
@@ -17,7 +19,7 @@ class AuthManager: ObservableObject {
     }
     
     // Keychain 存储 key
-    private let sessionKey = "com.nsoft.gaode.auth_session"
+    private let sessionKey = "com.nsoft.huaji2046.auth_session"
     
     private init() {
         Log.info("AuthManager 初始化")
@@ -110,6 +112,7 @@ class AuthManager: ObservableObject {
     }
     
     // MARK: - 重置密码
+    /// 发送密码重置邮件
     func resetPassword(email: String) async {
         Log.info("AuthManager 重置密码 \(email)")
         
@@ -117,10 +120,95 @@ class AuthManager: ObservableObject {
             // Mock: 模拟发送邮件延迟
             try? await Task.sleep(nanoseconds: 1_000_000_000)
             Log.info("Mock: 重置密码邮件已发送（模拟）到 \(email)")
-        } else {
-            // TODO: 调用后端发送重置密码邮件
-            // try await supabaseService.resetPassword(email: email)
+            return
         }
+        
+        // 调用 Supabase 发送重置邮件，redirectTo 使用 App 自定义 scheme，
+        // 用户点击邮件链接后 iOS 会唤起本应用并携带重置 token
+        do {
+            try await SupabaseService.shared.client.auth.resetPasswordForEmail(
+                email,
+                redirectTo: AppConfig.passwordResetRedirectURL
+            )
+            Log.info("重置密码邮件已发送到 \(email)")
+        } catch {
+            Log.error("发送重置密码邮件失败: \(error.localizedDescription)")
+        }
+    }
+    
+    // MARK: - 处理重置密码深链
+    /// 处理邮件中的重置链接（自定义 scheme 唤起 App 时调用）
+    @discardableResult
+    func handlePasswordResetURL(_ url: URL) -> Bool {
+        guard let host = url.host, host == "reset-password" else { return false }
+        Log.info("收到密码重置深链: \(url.absoluteString)")
+        
+        // Supabase 重置链接格式：huaji2046://reset-password#access_token=...&refresh_token=...&type=recovery
+        guard let fragment = url.fragment,
+              let params = parseURLParams(fragment) else {
+            Log.error("重置链接缺少必要参数")
+            return false
+        }
+        
+        guard let accessToken = params["access_token"],
+              let refreshToken = params["refresh_token"] else {
+            Log.error("重置链接缺少 access_token / refresh_token")
+            return false
+        }
+        
+        // 用重置 token 建立会话（不完成登录，仅用于后续修改密码）
+        Task {
+            do {
+                try await SupabaseService.shared.client.auth.setSession(
+                    accessToken: accessToken,
+                    refreshToken: refreshToken
+                )
+                await MainActor.run {
+                    self.pendingPasswordReset = true
+                }
+                Log.info("重置会话建立成功，等待用户设置新密码")
+            } catch {
+                Log.error("建立重置会话失败: \(error.localizedDescription)")
+            }
+        }
+        return true
+    }
+    
+    /// 设置新密码（重置密码流程第二步，用户输入新密码后调用）
+    func setNewPassword(_ newPassword: String) async throws {
+        guard newPassword.count >= 6 else {
+            throw AuthError.invalidPassword
+        }
+        
+        if AppConfig.useMockServices {
+            Log.info("Mock: 密码已重置（模拟）")
+            await MainActor.run { pendingPasswordReset = false }
+            return
+        }
+        
+        do {
+            try await SupabaseService.shared.client.auth.update(user: UserAttributes(password: newPassword))
+            await MainActor.run {
+                pendingPasswordReset = false
+            }
+            Log.info("新密码设置成功")
+        } catch {
+            Log.error("设置新密码失败: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
+    /// 解析 URL 查询参数（fragment 或 query）
+    private func parseURLParams(_ raw: String) -> [String: String]? {
+        var params: [String: String] = [:]
+        for component in raw.components(separatedBy: "&") {
+            let pair = component.components(separatedBy: "=")
+            guard pair.count == 2 else { continue }
+            let key = pair[0].removingPercentEncoding ?? pair[0]
+            let value = pair[1].removingPercentEncoding ?? pair[1]
+            params[key] = value
+        }
+        return params.isEmpty ? nil : params
     }
     
     // MARK: - 登出
@@ -140,6 +228,61 @@ class AuthManager: ObservableObject {
         }
     }
     
+
+    
+    // MARK: - 账号删除
+    /// 删除当前用户账号及所有关联数据
+    func deleteAccount() async throws {
+        Log.info("AuthManager 删除账号")
+        
+        if AppConfig.useMockServices {
+            // Mock 模式下只清理本地状态
+            await clearLocalUserData()
+            return
+        }
+        
+        // 1. 调用后端删除账号
+        let _: [String: String] = try await BackendAPI.shared.post(
+            path: "delete-account",
+            body: DeleteAccountRequest()
+        )
+        
+        // 2. 清理本地数据
+        await clearLocalUserData()
+        Log.info("账号删除成功")
+    }
+    
+    /// 清理本地用户相关数据
+    @MainActor
+    private func clearLocalUserData() {
+        // Keychain
+        KeychainHelper.delete(key: sessionKey)
+        
+        // Supabase 状态
+        SupabaseService.shared.isAuthenticated = false
+        SupabaseService.shared.currentUser = nil
+        SupabaseService.shared.userProfile = nil
+        SupabaseService.shared.expenses = []
+        SupabaseService.shared.unreadExpenseCount = 0
+        
+        // StoreKit 本地订阅缓存
+        UserDefaults.standard.removeObject(forKey: "com.nsoft.huaji2046.is_premium")
+        
+        // 清除以用户 ID 为前缀的 UserDefaults 数据
+        let defaults = UserDefaults.standard
+        for key in defaults.dictionaryRepresentation().keys {
+            if key.hasPrefix("parse_usage_") ||
+               key.hasPrefix("bill_reminders_") ||
+               key.hasPrefix("mock_uid_") ||
+               key.hasPrefix("user_logs_") {
+                defaults.removeObject(forKey: key)
+            }
+        }
+        
+        self.authState = .unauthenticated
+        self.currentProfile = nil
+    }
+
     // MARK: - 内部逻辑
     
     private func validateCredentials(email: String, password: String) throws {
@@ -214,3 +357,6 @@ class AuthManager: ObservableObject {
     
     // 高级会员升级已移除，改用每日免费次数限制
 }
+
+private struct DeleteAccountRequest: Encodable {}
+

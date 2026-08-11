@@ -10,6 +10,9 @@ struct AuthView: View {
     @State private var errorMessage = ""
     @State private var isLoading = false
     @State private var showForgotPassword = false
+    @State private var agreedToTerms = false
+    @State private var showLegalDocument = false
+    @State private var legalDocumentType: LegalDocumentType?
     @State private var resetEmail = ""
     @State private var resetMessage = ""
     @State private var isResetting = false
@@ -55,7 +58,7 @@ struct AuthView: View {
                             }
                         }
                         
-                        Text("张佩")
+                        Text("花计2046")
                             .font(.system(size: 28, weight: .bold))
                             .foregroundColor(.white)
                         Text("智能记账系统")
@@ -145,6 +148,48 @@ struct AuthView: View {
                             .transition(.move(edge: .top).combined(with: .opacity))
                         }
                         
+                        // 用户协议（仅注册模式）
+                        if !isLogin {
+                            HStack(alignment: .top, spacing: 8) {
+                                Button(action: { agreedToTerms.toggle() }) {
+                                    Image(systemName: agreedToTerms ? "checkmark.square.fill" : "square")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(agreedToTerms ? AppTheme.brandStart : AppTheme.textTertiary)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                
+                                HStack(spacing: 4) {
+                                    Button(action: {
+                                        legalDocumentType = .privacyPolicy
+                                        showLegalDocument = true
+                                    }) {
+                                        Text("《隐私政策》")
+                                            .font(.system(size: 13))
+                                            .foregroundColor(AppTheme.brandStart)
+                                            .underline()
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                    
+                                    Text("和")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(AppTheme.textSecondary)
+                                    
+                                    Button(action: {
+                                        legalDocumentType = .termsOfService
+                                        showLegalDocument = true
+                                    }) {
+                                        Text("《服务条款》")
+                                            .font(.system(size: 13))
+                                            .foregroundColor(AppTheme.brandStart)
+                                            .underline()
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                }
+                            }
+                            .padding(.horizontal, 4)
+                            .padding(.top, 4)
+                            .transition(.opacity)
+                        }
                         // 错误提示
                         if !errorMessage.isEmpty {
                             HStack(spacing: 6) {
@@ -240,13 +285,23 @@ struct AuthView: View {
         }
     }
     
+    // MARK: - 密码重置
+    /// 绑定 pendingPasswordReset 状态，用于弹出设置新密码界面
+    private var passwordResetBinding: Binding<Bool> {
+        Binding(
+            get: { authManager.pendingPasswordReset },
+            set: { if !$0 { authManager.pendingPasswordReset = false } }
+        )
+    }
+    
     // MARK: - 表单验证
     var isFormValid: Bool {
         guard !email.trimmingCharacters(in: .whitespaces).isEmpty,
               !password.isEmpty else { return false }
         if !isLogin {
             guard !confirmPassword.isEmpty,
-                  password == confirmPassword else { return false }
+                  password == confirmPassword,
+                  agreedToTerms else { return false }
         }
         return true
     }
@@ -372,5 +427,143 @@ struct ForgotPasswordView: View {
             Spacer()
         }
         .background(.ultraThinMaterial)
+    }
+}
+
+// MARK: - 设置新密码视图
+struct SetNewPasswordView: View {
+    @EnvironmentObject var authManager: AuthManager
+    @Environment(\.dismiss) private var dismiss
+    @State private var newPassword = ""
+    @State private var confirmPassword = ""
+    @State private var errorMessage = ""
+    @State private var successMessage = ""
+    @State private var isSaving = false
+    @FocusState private var focusedField: Field?
+    
+    enum Field { case password, confirmPassword }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // 标题栏
+            HStack {
+                Button("取消") {
+                    authManager.pendingPasswordReset = false
+                    dismiss()
+                }
+                .foregroundColor(AppTheme.textSecondary)
+                Spacer()
+                Text("设置新密码")
+                    .font(.appBody.weight(.semibold))
+                    .foregroundColor(AppTheme.textPrimary)
+                Spacer()
+                Button("保存") { save() }
+                    .foregroundColor(AppTheme.brandStart)
+                    .fontWeight(.semibold)
+                    .disabled(isSaving || !isFormValid)
+                    .opacity(isFormValid ? 1.0 : 0.5)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            
+            Divider()
+            
+            VStack(spacing: 16) {
+                Text("请输入您的新密码（至少 6 位）")
+                    .font(.system(size: 15))
+                    .foregroundColor(AppTheme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 8)
+                
+                // 新密码
+                HStack(spacing: 10) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 17))
+                        .foregroundColor(focusedField == .password ? AppTheme.brandStart : AppTheme.textTertiary)
+                    SecureField("新密码", text: $newPassword)
+                        .font(.appBody)
+                        .focused($focusedField, equals: .password)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 13)
+                .background(Color.white)
+                .cornerRadius(10)
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(
+                    focusedField == .password ? AppTheme.brandStart : AppTheme.border,
+                    lineWidth: focusedField == .password ? 1.5 : 1))
+                .padding(.horizontal, 16)
+                
+                // 确认新密码
+                HStack(spacing: 10) {
+                    Image(systemName: "lock.shield.fill")
+                        .font(.system(size: 17))
+                        .foregroundColor(focusedField == .confirmPassword ? AppTheme.brandStart : AppTheme.textTertiary)
+                    SecureField("确认新密码", text: $confirmPassword)
+                        .font(.appBody)
+                        .focused($focusedField, equals: .confirmPassword)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 13)
+                .background(Color.white)
+                .cornerRadius(10)
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(
+                    focusedField == .confirmPassword ? AppTheme.brandStart : AppTheme.border,
+                    lineWidth: focusedField == .confirmPassword ? 1.5 : 1))
+                .padding(.horizontal, 16)
+                
+                // 错误/成功提示
+                if !errorMessage.isEmpty {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 15))
+                        Text(errorMessage)
+                            .font(.system(size: 15))
+                    }
+                    .foregroundColor(Color(hex: "#EF4444"))
+                    .padding(.horizontal, 16)
+                }
+                
+                if !successMessage.isEmpty {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 15))
+                        Text(successMessage)
+                            .font(.system(size: 15))
+                    }
+                    .foregroundColor(Color(hex: "#10B981"))
+                    .padding(.horizontal, 16)
+                }
+            }
+            Spacer()
+        }
+        .background(.ultraThinMaterial)
+    }
+    
+    private var isFormValid: Bool {
+        newPassword.count >= 6 && newPassword == confirmPassword
+    }
+    
+    private func save() {
+        guard isFormValid else { return }
+        errorMessage = ""
+        isSaving = true
+        
+        Task {
+            do {
+                try await authManager.setNewPassword(newPassword)
+                await MainActor.run {
+                    successMessage = "密码已更新，请使用新密码登录"
+                    isSaving = false
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    isSaving = false
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
     }
 }

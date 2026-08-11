@@ -1,0 +1,13 @@
+//
+// Local.xcconfig
+// 本地密钥配置文件（此文件为模板，复制为 Local.xcconfig 后填入真实值）
+// Local.xcconfig 已被 git 忽略，请勿提交到版本库。
+//
+
+// Supabase
+SUPABASE_URL = https://your-project.supabase.co
+SUPABASE_FUNCTIONS_URL = https://your-project.functions.supabase.co/functions/v1
+SUPABASE_ANON_KEY = your-anon-key
+
+// DEBUG 下 AI 文字解析使用 DeepSeek
+DEEPSEEK_API_KEY = your-deepseek-key

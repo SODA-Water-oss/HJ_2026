@@ -1,8 +1,0 @@
-// 共享配置（无密钥）
-SUPABASE_URL = https://iivroltxdlqzmscliuqw.supabase.co
-SUPABASE_FUNCTIONS_URL = https://iivroltxdlqzmscliuqw.functions.supabase.co/functions/v1
-
-// 以下值通过 INFOPLIST_KEY_ 注入到生成的 Info.plist
-INFOPLIST_KEY_SUPABASE_URL = $(SUPABASE_URL)
-INFOPLIST_KEY_SUPABASE_FUNCTIONS_URL = $(SUPABASE_FUNCTIONS_URL)
-

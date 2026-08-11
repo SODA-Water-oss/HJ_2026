@@ -1,0 +1,14 @@
+//
+// Release.xcconfig
+// Release / App Store 构建专用配置
+// 真实密钥请写入 Local.xcconfig（该文件已被 git 忽略）
+//
+
+#include "Common.xcconfig"
+
+// MARK: - Release 专用密钥占位
+SUPABASE_ANON_KEY = your-anon-key
+
+INFOPLIST_KEY_SUPABASE_ANON_KEY = $(SUPABASE_ANON_KEY)
+
+#include "Local.xcconfig"

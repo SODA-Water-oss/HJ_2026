@@ -1,18 +1,11 @@
 import SwiftUI
-#if !DEBUG
-import StripePaymentSheet
-#endif
 
 @main
 struct __2046App: App {
     @StateObject var authManager = AuthManager.shared
     @StateObject var supabaseService = SupabaseService.shared
     
-	init() {
-	#if !DEBUG
-       StripeAPI.defaultPublishableKey = AppConfig.stripePublishableKey
-       #endif
-        
+    init() {
         let appearance = UINavigationBarAppearance()
         appearance.configureWithDefaultBackground()
         appearance.backgroundColor = UIColor.white
@@ -66,6 +59,9 @@ struct __2046App: App {
                 }
             }
             .animation(.easeInOut(duration: 0.3), value: authManager.isAuthenticated)
+            .onOpenURL { url in
+                authManager.handlePasswordResetURL(url)
+            }
         }
     }
 }

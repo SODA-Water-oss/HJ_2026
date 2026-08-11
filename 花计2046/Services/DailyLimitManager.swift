@@ -1,8 +1,14 @@
 import Foundation
 
-/// 每日解析次数管理（按进账计费）
+/// 每日解析次数管理
 struct DailyLimitManager {
-    static let dailyLimit = 30
+    static let freeLimit = 30
+    static let premiumLimit = 9999
+    
+    /// 当前用户每日限额（根据本地缓存的订阅状态自动调整）
+    static var dailyLimit: Int {
+        StoreKitManager.cachedIsPremium() ? premiumLimit : freeLimit
+    }
     
     /// 以 userID 和日期为键的 UserDefaults key
     private static func key(for userId: UUID) -> String {

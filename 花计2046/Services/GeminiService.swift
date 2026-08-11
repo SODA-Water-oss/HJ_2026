@@ -39,11 +39,30 @@ class GeminiService: ObservableObject {
         let items: [ParsedExpense]
     }
 
-#if DEBUG
-    /// DEBUG 模式：使用 DeepSeek API 进行解析
+    /// 文字解析入口（DEBUG 走 DeepSeek，Release 走后端 Edge Function）
     func parseExpense(input: String) async throws -> [ParsedExpense] {
-        Log.info("DeepSeek 解析: input='\(input.prefix(200))'")
+        Log.info("AI 文字解析: input='\(input.prefix(200))'")
 
+        #if DEBUG
+        // DEBUG 模式优先使用 DeepSeek 直接解析，便于快速开发和离线测试
+        return try await parseWithDeepSeek(input: input)
+        #else
+        // Release 模式走后端 Gemini Edge Function
+        return try await parseWithBackend(input: input)
+        #endif
+    }
+
+    /// Release 模式：使用远程后端 API 解析文字
+    private func parseWithBackend(input: String) async throws -> [ParsedExpense] {
+        let result: ParseResult = try await BackendAPI.shared.post(
+            path: "parse-expense",
+            body: ParseTextRequest(input: input)
+        )
+        return normalize(items: result.items)
+    }
+
+    /// DEBUG 模式：使用 DeepSeek API 解析文字
+    private func parseWithDeepSeek(input: String) async throws -> [ParsedExpense] {
         let prompt = "你是一个智能记账助手。请从用户的输入中提取每一笔收支信息。" +
             "规则：type=expense（支出）或income（收入），根据语义判断。" +
             "merchant=名称(不含金额/单位/标点)。" +
@@ -62,13 +81,19 @@ class GeminiService: ObservableObject {
             throw error
         }
         Log.info("DeepSeek 解析成功: items=\(result.items.count)")
+        return normalize(items: result.items)
+    }
+
+    /// 统一后处理：修正非法类别、补全默认值
+    private func normalize(items: [ParsedExpense]) -> [ParsedExpense] {
         let validCats = CategoryManager.expenseCats + CategoryManager.incomeCats
-        return result.items.map { item in
+        return items.map { item in
             var finalCat = item.category
             if !validCats.contains(item.category) {
                 finalCat = item.type == .expense ? CategoryManager.defaultExpenseCat : CategoryManager.defaultIncomeCat
             }
             return ParsedExpense(
+                id: UUID(),
                 type: item.type,
                 amount: item.amount,
                 category: finalCat,
@@ -77,7 +102,6 @@ class GeminiService: ObservableObject {
             )
         }
     }
-
 
     /// 本地兜底解析：正则提取数字+文字，DeepSeek失败时使用
     private func fallbackParse(input: String) -> [ParsedExpense] {
@@ -140,7 +164,6 @@ class GeminiService: ObservableObject {
             throw NSError(domain: "DeepSeek", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: errMsg])
         }
 
-        // 解析 API 响应
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let choices = root["choices"] as? [[String: Any]],
               let first = choices.first,
@@ -151,7 +174,6 @@ class GeminiService: ObservableObject {
             throw NSError(domain: "DeepSeek", code: 0, userInfo: [NSLocalizedDescriptionKey: "响应格式异常"])
         }
 
-        // 从 content 中提取 JSON
         guard let jsonData = extractJSON(from: content) else {
             Log.error("DeepSeek 返回非JSON: \(content.prefix(300))")
             throw NSError(domain: "DeepSeek", code: 0, userInfo: [NSLocalizedDescriptionKey: "返回格式错误"])
@@ -183,9 +205,8 @@ class GeminiService: ObservableObject {
         if let msg = root["message"] as? String { return msg }
         return nil
     }
-#endif
 
-    /// Release 模式：使用远程后端 API 解析
+    /// 音频解析入口：始终走后端 Edge Function
     func parseExpenseFromAudio(audioData: Data) async throws -> [ParsedExpense] {
         let result: ParseResult = try await BackendAPI.shared.post(
             path: "parse-expense",
@@ -194,13 +215,13 @@ class GeminiService: ObservableObject {
                 mimeType: "audio/m4a"
             )
         )
-        return result.items.map { item in
-            var mutable = item
-            mutable.id = UUID()
-            mutable.type = item.type
-            return mutable
-        }
+        return normalize(items: result.items)
     }
+}
+
+private struct ParseTextRequest: Encodable {
+    let mode = "text"
+    let input: String
 }
 
 private struct ParseAudioRequest: Encodable {

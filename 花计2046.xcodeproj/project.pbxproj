@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		D20460000000000000000001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = D20460000000000000000005 /* Supabase */; };
-		D20460000000000000000002 /* StripePaymentSheet in Frameworks */ = {isa = PBXBuildFile; productRef = D20460000000000000000006 /* StripePaymentSheet */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -32,6 +31,9 @@
 		BAB9A72E2F87F23F00A25708 /* 花计2046.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "花计2046.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		BAB9A73D2F87F24100A25708 /* 花计2046Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "花计2046Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		BAB9A7472F87F24100A25708 /* 花计2046UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "花计2046UITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		BAB9A7A02F87F24100A25708 /* Common.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Common.xcconfig; sourceTree = "<group>"; };
+		BAB9A7A12F87F24100A25708 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		BAB9A7A22F87F24100A25708 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -58,7 +60,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				D20460000000000000000001 /* Supabase in Frameworks */,
-				D20460000000000000000002 /* StripePaymentSheet in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -82,6 +83,7 @@
 		BAB9A7252F87F23F00A25708 = {
 			isa = PBXGroup;
 			children = (
+				BAB9A7A32F87F24100A25708 /* Configs */,
 				BAB9A7302F87F23F00A25708 /* 花计2046 */,
 				BAB9A7402F87F24100A25708 /* 花计2046Tests */,
 				BAB9A74A2F87F24100A25708 /* 花计2046UITests */,
@@ -97,6 +99,16 @@
 				BAB9A7472F87F24100A25708 /* 花计2046UITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		BAB9A7A32F87F24100A25708 /* Configs */ = {
+			isa = PBXGroup;
+			children = (
+				BAB9A7A02F87F24100A25708 /* Common.xcconfig */,
+				BAB9A7A12F87F24100A25708 /* Debug.xcconfig */,
+				BAB9A7A22F87F24100A25708 /* Release.xcconfig */,
+			);
+			path = Configs;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -120,7 +132,6 @@
 			name = "花计2046";
 			packageProductDependencies = (
 				D20460000000000000000005 /* Supabase */,
-				D20460000000000000000006 /* StripePaymentSheet */,
 			);
 			productName = "花计2046";
 			productReference = BAB9A72E2F87F23F00A25708 /* 花计2046.app */;
@@ -206,7 +217,6 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				D20460000000000000000003 /* XCRemoteSwiftPackageReference "supabase-swift" */,
-				D20460000000000000000004 /* XCRemoteSwiftPackageReference "stripe-ios" */,
 				BA4BC2282FFD7F3C00A636AF /* XCRemoteSwiftPackageReference "swift-algorithms" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -404,25 +414,23 @@
 		};
 		BAB9A7522F87F24100A25708 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BAB9A7A12F87F24100A25708 /* Debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "花计2046/花计2046.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 55MKGSFZJ9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "张佩";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "高德 needs microphone access to turn voice expense notes into records.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "高德 使用语音识别将语音转为记账记录。";
-				INFOPLIST_KEY_STRIPE_PUBLISHABLE_KEY = pk_test_REPLACE_ME;
-				INFOPLIST_KEY_SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlpdnJvbHR4ZGxxem1zY2xpdXF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4MDAwMzIsImV4cCI6MjA5MTM3NjAzMn0.mFPtu9tP2vANBG30wAycfbgdpNVAGud3o4y2x6pRtbc;
-				INFOPLIST_KEY_SUPABASE_FUNCTIONS_URL = "https://iivroltxdlqzmscliuqw.functions.supabase.co/functions/v1";
-				INFOPLIST_KEY_SUPABASE_URL = "https://iivroltxdlqzmscliuqw.supabase.co";
+				INFOPLIST_FILE = "Configs/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "花计2046";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "花计2046 需要麦克风权限以将语音转为记账记录。";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "花计2046 使用语音识别将语音转为记账记录。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_USE_MOCK_SERVICES = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -431,7 +439,7 @@
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.nsoft.gaode;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nsoft.huaji2046;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -439,12 +447,13 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
 		BAB9A7532F87F24100A25708 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = BAB9A7A22F87F24100A25708 /* Release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -453,17 +462,13 @@
 				DEVELOPMENT_TEAM = 55MKGSFZJ9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "张佩";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "高德 needs microphone access to turn voice expense notes into records.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "高德 使用语音识别将语音转为记账记录。";
-				INFOPLIST_KEY_STRIPE_PUBLISHABLE_KEY = pk_test_REPLACE_ME;
-				INFOPLIST_KEY_SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlpdnJvbHR4ZGxxem1zY2xpdXF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4MDAwMzIsImV4cCI6MjA5MTM3NjAzMn0.mFPtu9tP2vANBG30wAycfbgdpNVAGud3o4y2x6pRtbc;
-				INFOPLIST_KEY_SUPABASE_FUNCTIONS_URL = "https://iivroltxdlqzmscliuqw.functions.supabase.co/functions/v1";
-				INFOPLIST_KEY_SUPABASE_URL = "https://iivroltxdlqzmscliuqw.supabase.co";
+				INFOPLIST_FILE = "Configs/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "花计2046";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "花计2046 需要麦克风权限以将语音转为记账记录。";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "花计2046 使用语音识别将语音转为记账记录。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -471,7 +476,7 @@
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.nsoft.gaode;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nsoft.huaji2046;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -479,7 +484,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
@@ -492,14 +497,14 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "nsoft.test.--2046Tests";
+				PRODUCT_BUNDLE_IDENTIFIER = com.nsoft.huaji2046.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/花计2046.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/花计2046";
 			};
 			name = Debug;
@@ -513,14 +518,14 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "nsoft.test.--2046Tests";
+				PRODUCT_BUNDLE_IDENTIFIER = com.nsoft.huaji2046.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/花计2046.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/花计2046";
 			};
 			name = Release;
@@ -532,14 +537,14 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "nsoft.test.--2046UITests";
+				PRODUCT_BUNDLE_IDENTIFIER = com.nsoft.huaji2046.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				TEST_TARGET_NAME = "花计2046";
 			};
 			name = Debug;
@@ -551,14 +556,14 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "nsoft.test.--2046UITests";
+				PRODUCT_BUNDLE_IDENTIFIER = com.nsoft.huaji2046.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				TEST_TARGET_NAME = "花计2046";
 			};
 			name = Release;
@@ -621,14 +626,6 @@
 				minimumVersion = 2.0.0;
 			};
 		};
-		D20460000000000000000004 /* XCRemoteSwiftPackageReference "stripe-ios" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/stripe/stripe-ios.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 24.0.0;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -636,11 +633,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D20460000000000000000003 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
-		};
-		D20460000000000000000006 /* StripePaymentSheet */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D20460000000000000000004 /* XCRemoteSwiftPackageReference "stripe-ios" */;
-			productName = StripePaymentSheet;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

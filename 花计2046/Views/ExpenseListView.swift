@@ -4,11 +4,14 @@ import Combine
 // MARK: - 账本主视图
 struct ExpenseListView: View {
     @EnvironmentObject var supabaseService: SupabaseService
+    @ObservedObject private var searchState = SearchState.shared
     @State private var selectedExpense: Expense?
     @State private var editingExpense: Expense?
     @State private var showDetail = false
     @State private var showEdit = false
     @State private var showDeleteAlert = false
+    @State private var showDeleteError = false
+    @State private var deleteErrorMessage = ""
     @State private var pendingDeleteExpense: Expense?
     @State private var showCategoryPicker = false
     @State private var showYearPicker = false
@@ -32,33 +35,13 @@ struct ExpenseListView: View {
     @State private var exportURL: URL?
     @State private var groupedCache: [MonthExpenseGroup] = []
     @State private var groupedReady = false
+    @State private var categoriesCache: [String] = []
+    @State private var yearOptionsCache: [String] = []
     
-    var categories: [String] {
-        // 从数据库中提取有数据的类别，支出在上、收入在下
-        let allExpenseCats = Set(supabaseService.allRecords.filter(\.isExpense).map(\.category))
-        let allIncomeCats = Set(supabaseService.allRecords.filter(\.isIncome).map(\.category))
-        let matchedExpense = CategoryManager.expenseCats.filter { allExpenseCats.contains($0) }
-        let matchedIncome = CategoryManager.incomeCats.filter { allIncomeCats.contains($0) }
-        let hasData = !allExpenseCats.isEmpty || !allIncomeCats.isEmpty
-        
-        switch supabaseService.sharedSearchType {
-        case "支出":
-            if hasData { return ["全部"] + matchedExpense }
-            return ["全部"] + CategoryManager.expenseCats
-        case "收入":
-            if hasData { return ["全部"] + matchedIncome }
-            return ["全部"] + CategoryManager.incomeCats
-        default:
-            if hasData { return ["全部"] + matchedExpense + matchedIncome }
-            return ["全部"] + CategoryManager.expenseCats + CategoryManager.incomeCats
-        }
-    }
+    var categories: [String] { categoriesCache }
     var monthOptions: [String] { ["全部"] + (1...12).map { String(format: "%02d月", $0) } }
     
-  var yearOptions: [String] {
-        let years = Set(supabaseService.expenses.map { String($0.month.prefix(4)) + "年" }).sorted(by: >)
-        return ["全部"] + years
-   }
+    var yearOptions: [String] { yearOptionsCache }
 
    var allFilteredIds: Set<UUID> { Set(searchGrouped.flatMap { $0.expenses.map { $0.id } }) }
    var isAllSelected: Bool { !allFilteredIds.isEmpty && selectedExpenseIds.isSuperset(of: allFilteredIds) }
@@ -68,16 +51,16 @@ struct ExpenseListView: View {
    }
    
    var hasActiveFilters: Bool {
-        !supabaseService.sharedSearchText.isEmpty || !supabaseService.sharedSearchNote.isEmpty || !supabaseService.sharedSearchCategory.isEmpty || !supabaseService.sharedSearchYear.isEmpty || !supabaseService.sharedSearchMonth.isEmpty || supabaseService.sharedSearchType != "全部"
+        !searchState.text.isEmpty || !searchState.note.isEmpty || !searchState.category.isEmpty || !searchState.year.isEmpty || !searchState.month.isEmpty || searchState.type != "全部"
    }
     var filterSummaryText: String {
         var parts: [String] = []
-        if supabaseService.sharedSearchType != "全部" { parts.append(supabaseService.sharedSearchType) }
-        if !supabaseService.sharedSearchYear.isEmpty { parts.append(supabaseService.sharedSearchYear) }
-        if !supabaseService.sharedSearchMonth.isEmpty { parts.append(supabaseService.sharedSearchMonth) }
-        if !supabaseService.sharedSearchCategory.isEmpty { parts.append(supabaseService.sharedSearchCategory) }
-        if !supabaseService.sharedSearchText.isEmpty { parts.append("名称:\(supabaseService.sharedSearchText)") }
-        if !supabaseService.sharedSearchNote.isEmpty { parts.append("备注:\(supabaseService.sharedSearchNote)") }
+        if searchState.type != "全部" { parts.append(searchState.type) }
+        if !searchState.year.isEmpty { parts.append(searchState.year) }
+        if !searchState.month.isEmpty { parts.append(searchState.month) }
+        if !searchState.category.isEmpty { parts.append(searchState.category) }
+        if !searchState.text.isEmpty { parts.append("名称:\(searchState.text)") }
+        if !searchState.note.isEmpty { parts.append("备注:\(searchState.note)") }
         return parts.joined(separator: " · ")
     }
     
@@ -87,23 +70,23 @@ struct ExpenseListView: View {
 
     private var searchKey: String {
         [
-            supabaseService.sharedSearchType,
-            supabaseService.sharedSearchText,
-            supabaseService.sharedSearchNote,
-            supabaseService.sharedSearchCategory,
-            supabaseService.sharedSearchYear,
-            supabaseService.sharedSearchMonth
+            searchState.type,
+            searchState.text,
+            searchState.note,
+            searchState.category,
+            searchState.year,
+            searchState.month
         ].joined(separator: "\u{1F}")
     }
 
     private func computeSearchGrouped() -> [MonthExpenseGroup] {
         let typeFiltered: [Expense]
-        switch supabaseService.sharedSearchType {
+        switch searchState.type {
         case "支出": typeFiltered = supabaseService.allRecords.filter { $0.isExpense }
         case "收入": typeFiltered = supabaseService.allRecords.filter { $0.isIncome }
         default: typeFiltered = supabaseService.allRecords
         }
-        if supabaseService.sharedSearchText.isEmpty && supabaseService.sharedSearchCategory.isEmpty && supabaseService.sharedSearchYear.isEmpty && supabaseService.sharedSearchMonth.isEmpty && supabaseService.sharedSearchNote.isEmpty {
+        if searchState.text.isEmpty && searchState.category.isEmpty && searchState.year.isEmpty && searchState.month.isEmpty && searchState.note.isEmpty {
             let grouped = Dictionary(grouping: typeFiltered) { $0.month }
             return grouped.map { key, value in
                 MonthExpenseGroup(month: key, monthDisplay: value.first?.monthDisplay ?? key, expenses: value.sorted { $0.date > $1.date })
@@ -111,11 +94,11 @@ struct ExpenseListView: View {
         }
         let filtered = typeFiltered.filter { e in
             e.matchesSearch(
-                searchText: supabaseService.sharedSearchText,
-                searchNote: supabaseService.sharedSearchNote,
-                searchCategory: supabaseService.sharedSearchCategory,
-                searchYear: supabaseService.sharedSearchYear,
-                searchMonth: supabaseService.sharedSearchMonth
+                searchText: searchState.text,
+                searchNote: searchState.note,
+                searchCategory: searchState.category,
+                searchYear: searchState.year,
+                searchMonth: searchState.month
             )
         }
         let grouped = Dictionary(grouping: filtered) { $0.month }
@@ -126,7 +109,28 @@ struct ExpenseListView: View {
 
     private func rebuildGrouped() {
         groupedCache = computeSearchGrouped()
+        rebuildDerivedData()
         groupedReady = true
+    }
+    
+    /// 重建只依赖数据本身的派生缓存（类别列表、年份列表），避免每次渲染全量过滤
+    private func rebuildDerivedData() {
+        let allExpenseCats = Set(supabaseService.allRecords.filter(\.isExpense).map(\.category))
+        let allIncomeCats = Set(supabaseService.allRecords.filter(\.isIncome).map(\.category))
+        let matchedExpense = CategoryManager.expenseCats.filter { allExpenseCats.contains($0) }
+        let matchedIncome = CategoryManager.incomeCats.filter { allIncomeCats.contains($0) }
+        let hasData = !allExpenseCats.isEmpty || !allIncomeCats.isEmpty
+        
+        switch searchState.type {
+        case "支出":
+            categoriesCache = hasData ? ["全部"] + matchedExpense : ["全部"] + CategoryManager.expenseCats
+        case "收入":
+            categoriesCache = hasData ? ["全部"] + matchedIncome : ["全部"] + CategoryManager.incomeCats
+        default:
+            categoriesCache = hasData ? ["全部"] + matchedExpense + matchedIncome : ["全部"] + CategoryManager.expenseCats + CategoryManager.incomeCats
+        }
+        
+        yearOptionsCache = ["全部"] + Set(supabaseService.expenses.map { String($0.month.prefix(4)) + "年" }).sorted(by: >)
     }
 
     @ViewBuilder
@@ -265,18 +269,30 @@ struct ExpenseListView: View {
                 Button("确认删除", role: .destructive) {
                     if let expense = pendingDeleteExpense {
                         Task {
-                            try? await supabaseService.deleteExpense(expense)
-                            await UserLogManager.log(action: "删除", detail: "删除(1)", supabaseService: supabaseService)
+                            do {
+                                try await supabaseService.deleteExpense(expense)
+                                await UserLogManager.log(action: "删除", detail: "删除(1)", supabaseService: supabaseService)
+                            } catch {
+                                await MainActor.run {
+                                    deleteErrorMessage = error.localizedDescription
+                                    showDeleteError = true
+                                }
+                            }
                         }
                     }
                     pendingDeleteExpense = nil
                 }
             } message: { Text("是否确定删除该笔账单？") }
+            .alert("删除失败", isPresented: $showDeleteError) {
+                Button("知道了", role: .cancel) { }
+            } message: {
+                Text(deleteErrorMessage.isEmpty ? "删除失败，请检查网络后重试" : deleteErrorMessage)
+            }
         }
         .ignoresSafeArea(.keyboard)
-        .sheet(isPresented: $showYearPicker) { YearWheelPicker(selection: $supabaseService.sharedSearchYear, options: yearOptions).presentationDetents([.height(230)]) }
-        .sheet(isPresented: $showMonthPicker) { MonthWheelPicker(selection: $supabaseService.sharedSearchMonth, options: monthOptions).presentationDetents([.height(270)]) }
-        .sheet(isPresented: $showCategoryPicker) { CategoryWheelPicker(selection: $supabaseService.sharedSearchCategory, options: categories).presentationDetents([.height(230)]) }
+        .sheet(isPresented: $showYearPicker) { YearWheelPicker(selection: $searchState.year, options: yearOptions).presentationDetents([.height(230)]) }
+        .sheet(isPresented: $showMonthPicker) { MonthWheelPicker(selection: $searchState.month, options: monthOptions).presentationDetents([.height(270)]) }
+        .sheet(isPresented: $showCategoryPicker) { CategoryWheelPicker(selection: $searchState.category, options: categories).presentationDetents([.height(230)]) }
    .sheet(isPresented: $showBatchNoteSheet) { batchOperationSheet }
     .sheet(isPresented: $showShareSheet) {
         if let url = exportURL {
@@ -312,40 +328,40 @@ struct ExpenseListView: View {
     @ViewBuilder private var searchPanel: some View {
         VStack(spacing: 8) {
             HStack(spacing: 0) {
-                Button(action: { supabaseService.sharedSearchType = "全部" }) {
+                Button(action: { searchState.type = "全部" }) {
                     Text("全部").font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(supabaseService.sharedSearchType == "全部" ? AnyShapeStyle(LinearGradient(colors: [Color(hex: "#A855F7"), Color(hex: "#C084FC")], startPoint: .leading, endPoint: .trailing)) : AnyShapeStyle(Color(hex: "#B0B0B0")))
+                        .foregroundStyle(searchState.type == "全部" ? AnyShapeStyle(LinearGradient(colors: [Color(hex: "#A855F7"), Color(hex: "#C084FC")], startPoint: .leading, endPoint: .trailing)) : AnyShapeStyle(Color(hex: "#B0B0B0")))
                         .frame(maxWidth: .infinity).padding(.vertical, 7)
-                        .background(supabaseService.sharedSearchType == "全部" ? AppTheme.brandStart.opacity(0.15) : Color.white)
+                        .background(searchState.type == "全部" ? AppTheme.brandStart.opacity(0.15) : Color.white)
                         .cornerRadius(6)
                 }
-                Button(action: { supabaseService.sharedSearchType = "收入" }) {
+                Button(action: { searchState.type = "收入" }) {
                     Text("收入").font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(supabaseService.sharedSearchType == "收入" ? AnyShapeStyle(LinearGradient(colors: [Color(hex: "#A855F7"), Color(hex: "#C084FC")], startPoint: .leading, endPoint: .trailing)) : AnyShapeStyle(Color(hex: "#B0B0B0")))
+                        .foregroundStyle(searchState.type == "收入" ? AnyShapeStyle(LinearGradient(colors: [Color(hex: "#A855F7"), Color(hex: "#C084FC")], startPoint: .leading, endPoint: .trailing)) : AnyShapeStyle(Color(hex: "#B0B0B0")))
                         .frame(maxWidth: .infinity).padding(.vertical, 7)
-                        .background(supabaseService.sharedSearchType == "收入" ? Color(hex: "#A855F7").opacity(0.15) : Color.white)
+                        .background(searchState.type == "收入" ? Color(hex: "#A855F7").opacity(0.15) : Color.white)
                         .cornerRadius(6)
                 }
-                Button(action: { supabaseService.sharedSearchType = "支出" }) {
+                Button(action: { searchState.type = "支出" }) {
                     Text("支出").font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(supabaseService.sharedSearchType == "支出" ? AnyShapeStyle(LinearGradient(colors: [Color(hex: "#A855F7"), Color(hex: "#C084FC")], startPoint: .leading, endPoint: .trailing)) : AnyShapeStyle(Color(hex: "#B0B0B0")))
+                        .foregroundStyle(searchState.type == "支出" ? AnyShapeStyle(LinearGradient(colors: [Color(hex: "#A855F7"), Color(hex: "#C084FC")], startPoint: .leading, endPoint: .trailing)) : AnyShapeStyle(Color(hex: "#B0B0B0")))
                         .frame(maxWidth: .infinity).padding(.vertical, 7)
-                        .background(supabaseService.sharedSearchType == "支出" ? Color(hex: "#A855F7").opacity(0.15) : Color.white)
+                        .background(searchState.type == "支出" ? Color(hex: "#A855F7").opacity(0.15) : Color.white)
                         .cornerRadius(6)
                 }
             }
             .background(AppTheme.background)
             .cornerRadius(7)
             HStack(spacing: 8) {
-                SearchNameField(text: $supabaseService.sharedSearchText, placeholder: "搜索名称...")
-                    .byteLimited($supabaseService.sharedSearchText, max: 50)
-                SearchNameField(text: $supabaseService.sharedSearchNote, placeholder: "搜索备注...")
-                    .byteLimited($supabaseService.sharedSearchNote, max: 200)
+                SearchNameField(text: $searchState.text, placeholder: "搜索名称...")
+                    .byteLimited($searchState.text, max: 50)
+                SearchNameField(text: $searchState.note, placeholder: "搜索备注...")
+                    .byteLimited($searchState.note, max: 200)
             }
             HStack(spacing: 8) {
-                FilterChip(label: supabaseService.sharedSearchYear.isEmpty ? "全部年份" : supabaseService.sharedSearchYear, isActive: !supabaseService.sharedSearchYear.isEmpty) { showYearPicker = true }
-                FilterChip(label: supabaseService.sharedSearchMonth.isEmpty ? "全部月份" : supabaseService.sharedSearchMonth, isActive: !supabaseService.sharedSearchMonth.isEmpty) { showMonthPicker = true }
-                FilterChip(label: supabaseService.sharedSearchCategory.isEmpty ? "全部类别" : supabaseService.sharedSearchCategory, isActive: !supabaseService.sharedSearchCategory.isEmpty) { showCategoryPicker = true }
+                FilterChip(label: searchState.year.isEmpty ? "全部年份" : searchState.year, isActive: !searchState.year.isEmpty) { showYearPicker = true }
+                FilterChip(label: searchState.month.isEmpty ? "全部月份" : searchState.month, isActive: !searchState.month.isEmpty) { showMonthPicker = true }
+                FilterChip(label: searchState.category.isEmpty ? "全部类别" : searchState.category, isActive: !searchState.category.isEmpty) { showCategoryPicker = true }
             }
             if hasActiveFilters {
                 Button(action: clearFilters) {
@@ -394,7 +410,7 @@ struct ExpenseListView: View {
     }
     
     private func clearFilters() {
-        withAnimation { supabaseService.sharedSearchText = ""; supabaseService.sharedSearchNote = ""; supabaseService.sharedSearchCategory = ""; supabaseService.sharedSearchYear = ""; supabaseService.sharedSearchMonth = ""; supabaseService.sharedSearchType = "全部"; selectedExpenseIds = [] }
+        withAnimation { searchState.text = ""; searchState.note = ""; searchState.category = ""; searchState.year = ""; searchState.month = ""; searchState.type = "全部"; selectedExpenseIds = [] }
     }
 
     private func toggleExpense(_ id: UUID) {

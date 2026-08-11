@@ -311,6 +311,11 @@ struct EditExpenseView: View {
         }
         .scrollDismissesKeyboard(.immediately)
         .navigationBarTitleDisplayMode(.inline)
+        .alert("无法保存", isPresented: $showSaveError) {
+            Button("知道了", role: .cancel) { }
+        } message: {
+            Text(saveError ?? "操作失败，请重试")
+        }
     }
     
     func saveChanges() {
@@ -350,10 +355,28 @@ struct EditExpenseView: View {
         isSaving = false
         onSave()
         dismiss()
-        // 异步同步到服务端
+        // 异步同步到服务端；失败时回滚本地修改并提示用户
         Task {
-            await UserLogManager.log(action: "编辑", detail: "编辑(1)", supabaseService: supabaseService)
-            try? await supabaseService.updateExpense(updatedExpense)
+            do {
+                try await supabaseService.updateExpense(updatedExpense)
+                await UserLogManager.log(action: "编辑", detail: "编辑(1)", supabaseService: supabaseService)
+            } catch {
+                await MainActor.run {
+                    // 回滚本地为原记录
+                    if let idx = supabaseService.allRecords.firstIndex(where: { $0.id == expense.id }) {
+                        var records = supabaseService.allRecords; records[idx] = expense; supabaseService.allRecords = records
+                    }
+                    supabaseService.expenses.removeAll { $0.id == updatedExpense.id }
+                    supabaseService.incomes.removeAll { $0.id == updatedExpense.id }
+                    if expense.type == .expense {
+                        supabaseService.expenses.append(expense)
+                    } else {
+                        supabaseService.incomes.append(expense)
+                    }
+                    saveError = "保存到云端失败：\(error.localizedDescription)"
+                    showSaveError = true
+                }
+            }
         }
     }
 }
@@ -500,35 +523,3 @@ struct CategoryEditPicker: View {
 
 
 
-struct DateWheelPicker: View {
-    @Binding var selection: Date
-    @State private var tempDate: Date = Date()
-    @Environment(\.dismiss) private var dismiss
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Button(action: { dismiss() }) { Text("取消").foregroundColor(.white).padding(.horizontal, 14).padding(.vertical, 6).background(Color(hex: "#4B5563")).cornerRadius(6) }
-                Spacer()
-                Text("选择时间")
-                    .font(.system(size: 17).weight(.semibold))
-                    .foregroundColor(AppTheme.brandStart)
-                Spacer()
-                Button(action: { selection = tempDate; dismiss() }) {
-                    Text("确定").foregroundColor(.white).padding(.horizontal, 16).padding(.vertical, 6).background(AppTheme.brandStart).cornerRadius(6)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            
-            Divider()
-            
-            DatePicker("", selection: $tempDate, displayedComponents: [.date, .hourAndMinute])
-                .datePickerStyle(.wheel)
-                .environment(\.locale, Locale(identifier: "zh_CN"))
-                .labelsHidden()
-        }
-        .background(.ultraThinMaterial)
-        .onAppear { tempDate = selection }
-    }
-}

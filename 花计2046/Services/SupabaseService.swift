@@ -23,12 +23,6 @@ class SupabaseService: ObservableObject {
     @Published var batchProgress: (Int, Int)? = nil
     @Published var isGloballyProcessing = false
     @Published var globalProcessingMessage = ""
-    @Published var sharedSearchText = ""
-    @Published var sharedSearchNote = ""
-    @Published var sharedSearchCategory = ""
-    @Published var sharedSearchMonth = ""
-    @Published var sharedSearchYear = ""
-    @Published var sharedSearchType = "全部"
     private var lastFetchTime: Date = .distantPast
    
     private var mockExpenses: [Expense] = []
@@ -590,6 +584,23 @@ extension SupabaseService {
             return
         }
         try await client.from("bill_reminders").delete().eq("id", value: reminder.id).execute()
+    }
+}
+
+
+// MARK: - 订阅状态同步
+extension SupabaseService {
+    /// 更新当前用户的 premium 状态
+    func updatePremiumStatus(_ isPremium: Bool) async throws {
+        guard !AppConfig.useMockServices,
+              let userId = currentUser?.id else {
+            return
+        }
+        try await client.from("profiles")
+            .update(["is_premium": isPremium])
+            .eq("id", value: userId)
+            .execute()
+        Log.info("profiles.is_premium 已更新: \(isPremium)")
     }
 }
 

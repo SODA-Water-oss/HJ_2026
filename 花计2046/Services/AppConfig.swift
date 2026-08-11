@@ -1,20 +1,53 @@
 import Foundation
 
+/// 应用配置统一从 Info.plist 读取。
+/// 真实密钥通过 xcconfig → INFOPLIST_KEY_* 注入，避免写入源码。
 enum AppConfig {
-    // MARK: - Feature Flag for Test Builds
-   static let useMockServices: Bool = {
-        // 已切换到 Supabase 云端存储
-        // 用户数据通过 Supabase Auth + RLS 隔离
+    // MARK: - Feature Flag
+    static let useMockServices: Bool = {
+        #if DEBUG
+        // Debug 下可通过 Xcode Build Settings 的 USE_MOCK_SERVICES 控制
+        return Bundle.main.object(forInfoDictionaryKey: "USE_MOCK_SERVICES") as? String == "YES"
+        #else
         return false
-   }()
+        #endif
+    }()
 
-    // MARK: - DeepSeek API
-    // 替换为你的 DeepSeek API Key
-    static let deepSeekAPIKey: String = "sk-d28d949ce07e4bc4bc5ce0a47da0f52e"
+    // MARK: - DeepSeek（仅 DEBUG 文字解析使用）
+    static var deepSeekAPIKey: String {
+        string(for: "DEEPSEEK_API_KEY")
+    }
 
-    // MARK: - Hardcoded Configuration (bypasses Info.plist)
-    static let supabaseURL: URL = URL(string: "https://iivroltxdlqzmscliuqw.supabase.co")!
-    static let supabaseAnonKey: String = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlpdnJvbHR4ZGxxem1zY2xpdXF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4MDAwMzIsImV4cCI6MjA5MTM3NjAzMn0.mFPtu9tP2vANBG30wAycfbgdpNVAGud3o4y2x6pRtbc"
-    static let supabaseFunctionsURL: URL = URL(string: "https://iivroltxdlqzmscliuqw.functions.supabase.co/functions/v1")!
-    static let stripePublishableKey: String = "pk_test_REPLACE_ME"
+    // MARK: - Supabase
+    static var supabaseURL: URL {
+        url(for: "SUPABASE_URL")
+    }
+
+    static var supabaseAnonKey: String {
+        string(for: "SUPABASE_ANON_KEY")
+    }
+
+    static var supabaseFunctionsURL: URL {
+        url(for: "SUPABASE_FUNCTIONS_URL")
+    }
+
+    // MARK: - 密码重置深链
+    /// 密码重置邮件的 redirect URL（自定义 scheme，需与 Info.plist 中的 CFBundleURLSchemes 一致）
+    static var passwordResetRedirectURL: URL? {
+        URL(string: "huaji2046://reset-password")
+    }
+
+    // MARK: - Helpers
+    private static func string(for key: String) -> String {
+        Bundle.main.object(forInfoDictionaryKey: key) as? String ?? ""
+    }
+
+    private static func url(for key: String) -> URL {
+        let raw = string(for: key)
+        guard let url = URL(string: raw), !raw.isEmpty else {
+            // 开发阶段缺失配置时给一个明显无效的占位 URL，避免可选类型污染全工程
+            return URL(string: "https://example.com")!
+        }
+        return url
+    }
 }

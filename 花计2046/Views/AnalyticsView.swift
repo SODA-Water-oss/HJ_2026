@@ -4,6 +4,7 @@ import Combine
 struct AnalyticsView: View {
     @AppStorage("currency_symbol") private var currencySymbol = "¥"
     @EnvironmentObject var supabaseService: SupabaseService
+    @ObservedObject private var searchState = SearchState.shared
     @State private var showYearPicker = false
     @State private var showMonthPicker = false
     @State private var showCategoryPicker = false
@@ -21,7 +22,7 @@ struct AnalyticsView: View {
         let matchedIncome = CategoryManager.incomeCats.filter { allIncomeCats.contains($0) }
         let hasData = !allExpenseCats.isEmpty || !allIncomeCats.isEmpty
         
-        switch supabaseService.sharedSearchType {
+        switch searchState.type {
         case "支出":
             if hasData { return ["全部"] + matchedExpense }
             return ["全部"] + CategoryManager.expenseCats
@@ -35,26 +36,26 @@ struct AnalyticsView: View {
     }
     var monthOptions: [String] { ["全部"] + (1...12).map { String(format: "%02d月", $0) } }
     var yearOptions: [String] { let years = Set(supabaseService.expenses.map { String($0.month.prefix(4)) + "年" }).sorted(by: >); return ["全部"] + years }
-    var hasActiveFilters: Bool { !supabaseService.sharedSearchText.isEmpty || !supabaseService.sharedSearchNote.isEmpty || !supabaseService.sharedSearchCategory.isEmpty || !supabaseService.sharedSearchYear.isEmpty || !supabaseService.sharedSearchMonth.isEmpty || supabaseService.sharedSearchType != "全部" }
+    var hasActiveFilters: Bool { !searchState.text.isEmpty || !searchState.note.isEmpty || !searchState.category.isEmpty || !searchState.year.isEmpty || !searchState.month.isEmpty || searchState.type != "全部" }
     var filterSummaryText: String {
         var parts: [String] = []
-        if supabaseService.sharedSearchType != "全部" { parts.append(supabaseService.sharedSearchType) }
-        if !supabaseService.sharedSearchYear.isEmpty { parts.append(supabaseService.sharedSearchYear) }
-        if !supabaseService.sharedSearchMonth.isEmpty { parts.append(supabaseService.sharedSearchMonth) }
-        if !supabaseService.sharedSearchCategory.isEmpty { parts.append(supabaseService.sharedSearchCategory) }
-        if !supabaseService.sharedSearchText.isEmpty { parts.append("名称:\(supabaseService.sharedSearchText)") }
-        if !supabaseService.sharedSearchNote.isEmpty { parts.append("备注:\(supabaseService.sharedSearchNote)") }
+        if searchState.type != "全部" { parts.append(searchState.type) }
+        if !searchState.year.isEmpty { parts.append(searchState.year) }
+        if !searchState.month.isEmpty { parts.append(searchState.month) }
+        if !searchState.category.isEmpty { parts.append(searchState.category) }
+        if !searchState.text.isEmpty { parts.append("名称:\(searchState.text)") }
+        if !searchState.note.isEmpty { parts.append("备注:\(searchState.note)") }
         return parts.joined(separator: " · ")
     }
     
     private var snapshotKey: String {
         [
-            supabaseService.sharedSearchType,
-            supabaseService.sharedSearchText,
-            supabaseService.sharedSearchNote,
-            supabaseService.sharedSearchCategory,
-            supabaseService.sharedSearchYear,
-            supabaseService.sharedSearchMonth,
+            searchState.type,
+            searchState.text,
+            searchState.note,
+            searchState.category,
+            searchState.year,
+            searchState.month,
             currencySymbol,
             analyticsCurrency
         ].joined(separator: "\u{1F}")
@@ -236,7 +237,7 @@ struct AnalyticsView: View {
                     }
                     
                     // 支出
-                    if supabaseService.sharedSearchType == "全部" || supabaseService.sharedSearchType == "支出" {
+                    if searchState.type == "全部" || searchState.type == "支出" {
                         if !expenseAnalytics.isEmpty {
                             sectionHeader("支出", icon: "arrow.down.circle")
                             pieCard(data: expenseAnalytics, title: "支出占比")
@@ -245,7 +246,7 @@ struct AnalyticsView: View {
                     }
                     
                     // 收入
-                    if supabaseService.sharedSearchType == "全部" || supabaseService.sharedSearchType == "收入" {
+                    if searchState.type == "全部" || searchState.type == "收入" {
                         if !incomeAnalytics.isEmpty {
                             sectionHeader("收入", icon: "arrow.up.circle")
                             pieCard(data: incomeAnalytics, title: "收入占比")
@@ -277,9 +278,9 @@ struct AnalyticsView: View {
         }
         .ignoresSafeArea(.keyboard)
         .overlay(alignment: .bottomTrailing) { floatingSearchButton }
-        .sheet(isPresented: $showYearPicker) { YearWheelPicker(selection: $supabaseService.sharedSearchYear, options: yearOptions).presentationDetents([.height(230)]) }
-        .sheet(isPresented: $showMonthPicker) { MonthWheelPicker(selection: $supabaseService.sharedSearchMonth, options: monthOptions).presentationDetents([.height(270)]) }
-        .sheet(isPresented: $showCategoryPicker) { CategoryWheelPicker(selection: $supabaseService.sharedSearchCategory, options: categories).presentationDetents([.height(230)]) }
+        .sheet(isPresented: $showYearPicker) { YearWheelPicker(selection: $searchState.year, options: yearOptions).presentationDetents([.height(230)]) }
+        .sheet(isPresented: $showMonthPicker) { MonthWheelPicker(selection: $searchState.month, options: monthOptions).presentationDetents([.height(270)]) }
+        .sheet(isPresented: $showCategoryPicker) { CategoryWheelPicker(selection: $searchState.category, options: categories).presentationDetents([.height(230)]) }
         .sheet(isPresented: $showGoalManagement) {
             GoalManagementSheet(manager: AchievementManager.shared)
         }
@@ -316,18 +317,18 @@ struct AnalyticsView: View {
                 .background(AppTheme.background)
                 .cornerRadius(7)
             HStack(spacing: 8) {
-                SearchNameField(text: $supabaseService.sharedSearchText, placeholder: "搜索名称...")
-                    .byteLimited($supabaseService.sharedSearchText, max: 50)
-                SearchNameField(text: $supabaseService.sharedSearchNote, placeholder: "搜索备注...")
-                    .byteLimited($supabaseService.sharedSearchNote, max: 200)
+                SearchNameField(text: $searchState.text, placeholder: "搜索名称...")
+                    .byteLimited($searchState.text, max: 50)
+                SearchNameField(text: $searchState.note, placeholder: "搜索备注...")
+                    .byteLimited($searchState.note, max: 200)
             }
             HStack(spacing: 8) {
-                FilterChip(label: supabaseService.sharedSearchYear.isEmpty ? "全部年份" : supabaseService.sharedSearchYear, isActive: !supabaseService.sharedSearchYear.isEmpty) { showYearPicker = true }
-                FilterChip(label: supabaseService.sharedSearchMonth.isEmpty ? "全部月份" : supabaseService.sharedSearchMonth, isActive: !supabaseService.sharedSearchMonth.isEmpty) { showMonthPicker = true }
-                FilterChip(label: supabaseService.sharedSearchCategory.isEmpty ? "全部类别" : supabaseService.sharedSearchCategory, isActive: !supabaseService.sharedSearchCategory.isEmpty) { showCategoryPicker = true }
+                FilterChip(label: searchState.year.isEmpty ? "全部年份" : searchState.year, isActive: !searchState.year.isEmpty) { showYearPicker = true }
+                FilterChip(label: searchState.month.isEmpty ? "全部月份" : searchState.month, isActive: !searchState.month.isEmpty) { showMonthPicker = true }
+                FilterChip(label: searchState.category.isEmpty ? "全部类别" : searchState.category, isActive: !searchState.category.isEmpty) { showCategoryPicker = true }
             }
             if hasActiveFilters {
-                Button(action: { withAnimation { supabaseService.sharedSearchText = ""; supabaseService.sharedSearchNote = ""; supabaseService.sharedSearchCategory = ""; supabaseService.sharedSearchYear = ""; supabaseService.sharedSearchMonth = ""; supabaseService.sharedSearchType = "全部" } }) {
+                Button(action: { withAnimation { searchState.text = ""; searchState.note = ""; searchState.category = ""; searchState.year = ""; searchState.month = ""; searchState.type = "全部" } }) {
                     HStack(spacing: 4) {
                         Image(systemName: "xmark.circle.fill").font(.system(size: 15))
                         Text("清除筛选").font(.system(size: 15))
@@ -548,12 +549,12 @@ extension AnalyticsView {
         activeRebuildID = requestID
 
         let records = supabaseService.allRecords
-        let searchType = supabaseService.sharedSearchType
-        let searchText = supabaseService.sharedSearchText
-        let searchNote = supabaseService.sharedSearchNote
-        let searchCategory = supabaseService.sharedSearchCategory
-        let searchYear = supabaseService.sharedSearchYear
-        let searchMonth = supabaseService.sharedSearchMonth
+        let searchType = searchState.type
+        let searchText = searchState.text
+        let searchNote = searchState.note
+        let searchCategory = searchState.category
+        let searchYear = searchState.year
+        let searchMonth = searchState.month
         let symbol = currencySymbol
         let currency = analyticsCurrency
         let now = Date()
@@ -881,11 +882,11 @@ extension AnalyticsView {
        .frame(maxWidth: .infinity)
    }
     private func analyticsTypeButton(_ label: String) -> some View {
-        Button(action: { supabaseService.sharedSearchType = label }) {
+        Button(action: { searchState.type = label }) {
             Text(label).font(.system(size: 17, weight: .medium))
-                .foregroundStyle(supabaseService.sharedSearchType == label ? AnyShapeStyle(LinearGradient(colors: [Color(hex: "#A855F7"), Color(hex: "#C084FC")], startPoint: .leading, endPoint: .trailing)) : AnyShapeStyle(Color(hex: "#B0B0B0")))
+                .foregroundStyle(searchState.type == label ? AnyShapeStyle(LinearGradient(colors: [Color(hex: "#A855F7"), Color(hex: "#C084FC")], startPoint: .leading, endPoint: .trailing)) : AnyShapeStyle(Color(hex: "#B0B0B0")))
                 .frame(maxWidth: .infinity).padding(.vertical, 7)
-                .background(supabaseService.sharedSearchType == label ? (label == "全部" ? AppTheme.brandStart.opacity(0.15) : Color(hex: "#A855F7").opacity(0.15)) : Color.white)
+                .background(searchState.type == label ? (label == "全部" ? AppTheme.brandStart.opacity(0.15) : Color(hex: "#A855F7").opacity(0.15)) : Color.white)
                 .cornerRadius(6)
         }
     }
