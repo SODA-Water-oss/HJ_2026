@@ -230,7 +230,7 @@ struct DailyLimitManagerTests {
     @Test func defaultDailyLimitIsFreeLimit() {
         // 测试环境默认无订阅缓存，应为免费额度
         #expect(DailyLimitManager.freeLimit == 30)
-        #expect(DailyLimitManager.premiumLimit == 9999)
+        #expect(DailyLimitManager.dailyLimit == 30)
     }
 
     @Test func incrementAndUsedCountTrackPerUser() {
@@ -259,13 +259,8 @@ struct DailyLimitManagerTests {
         #expect(DailyLimitManager.remainingCount(for: userId) >= 0)
     }
 
-    @Test func premiumCacheEnablesPremiumLimit() {
-        // 手动设置订阅缓存后，dailyLimit 应切换到 premium 额度
-        let defaults = UserDefaults.standard
-        defaults.set(true, forKey: "com.nsoft.huaji2046.is_premium")
-        defer { defaults.removeObject(forKey: "com.nsoft.huaji2046.is_premium") }
-
-        #expect(StoreKitManager.cachedIsPremium() == true)
-        #expect(DailyLimitManager.dailyLimit == DailyLimitManager.premiumLimit)
+    @Test func dailyLimitFixedInFreeMode() {
+        // 全免费模式：每日限额固定为免费额度，不依赖任何订阅状态
+        #expect(DailyLimitManager.dailyLimit == DailyLimitManager.freeLimit)
     }
 }

@@ -5,7 +5,6 @@ import StoreKit
 struct MainTabView: View {
     @EnvironmentObject var supabaseService: SupabaseService
     @ObservedObject private var userSettings = UserSettingsManager.shared
-    @StateObject private var storeKit = StoreKitManager.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = 2
     @State private var showLockScreen = false
@@ -174,7 +173,6 @@ struct MainTabView: View {
 struct ProfileView: View {
     @EnvironmentObject var supabaseService: SupabaseService
     @ObservedObject private var userSettings = UserSettingsManager.shared
-    @StateObject private var storeKit = StoreKitManager.shared
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject var authManager: AuthManager
     @State private var ledgerLockEnabled = UserSettingsManager.shared.ledgerLockEnabled
@@ -241,13 +239,6 @@ struct ProfileView: View {
                             .font(.appTitle)
                             .foregroundColor(AppTheme.textPrimary)
                         
-                        HStack {
-                            Circle().fill(storeKit.isPremium ? AppTheme.brandGradient : LinearGradient(colors: [Color(hex: "#9CA3AF"), Color(hex: "#9CA3AF")], startPoint: .leading, endPoint: .trailing))
-                                .frame(width: 8, height: 8)
-                            Text(storeKit.isPremium ? "高级版" : "免费版")
-                                .font(.appSmall)
-                                .foregroundColor(AppTheme.textSecondary)
-                        }
                     }
                     .padding(.vertical, 16)
                     .frame(maxWidth: .infinity)
@@ -259,108 +250,6 @@ struct ProfileView: View {
                     
                     Spacer(minLength: 10)
                     
-                    // Card: 订阅
-                    VStack(spacing: 0) {
-                        HStack {
-                            Image(systemName: storeKit.isPremium ? "crown.fill" : "crown")
-                                .font(.system(size: 24))
-                                .foregroundColor(AppTheme.brandStart)
-                                .frame(width: 32)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(storeKit.isPremium ? "已订阅高级版" : "升级到高级版")
-                                    .font(.appBody)
-                                    .foregroundColor(AppTheme.textPrimary)
-                                Text(storeKit.isPremium ? "享受无限 AI 解析与高级分析" : "解锁无限 AI 解析、高级图表等")
-                                    .font(.appSmall)
-                                    .foregroundColor(AppTheme.textSecondary)
-                            }
-                            Spacer()
-                        }
-                        .padding(16)
-                        
-                        if !storeKit.isPremium {
-                            Divider().padding(.horizontal, 16)
-                            
-                            if storeKit.isLoading && storeKit.products.isEmpty {
-                                HStack {
-                                    Spacer()
-                                    ProgressView()
-                                        .scaleEffect(0.8)
-                                    Spacer()
-                                }
-                                .padding(16)
-                            } else if storeKit.products.isEmpty {
-                                HStack {
-                                    Spacer()
-                                    Text("暂无订阅商品")
-                                        .font(.appSmall)
-                                        .foregroundColor(AppTheme.textTertiary)
-                                    Spacer()
-                                }
-                                .padding(16)
-                            } else {
-                                ForEach(storeKit.products) { product in
-                                    Button(action: {
-                                        Task {
-                                            do {
-                                                try await storeKit.purchase(product)
-                                            } catch {
-                                                Log.error("购买失败: \(error.localizedDescription)")
-                                            }
-                                        }
-                                    }) {
-                                        HStack {
-                                            VStack(alignment: .leading, spacing: 2) {
-                                                Text(product.displayName)
-                                                    .font(.appBodyMedium)
-                                                    .foregroundColor(AppTheme.textPrimary)
-                                                Text(product.description)
-                                                    .font(.appSmall)
-                                                    .foregroundColor(AppTheme.textSecondary)
-                                            }
-                                            Spacer()
-                                            Text(product.displayPrice)
-                                                .font(.system(size: 17, weight: .semibold))
-                                                .foregroundColor(AppTheme.brandStart)
-                                        }
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 12)
-                                    }
-                                    .buttonStyle(PlainButtonStyle())
-                                    .disabled(storeKit.isLoading)
-                                    
-                                    if product.id != storeKit.products.last?.id {
-                                        Divider().padding(.horizontal, 16)
-                                    }
-                                }
-                            }
-                        }
-                        
-                        Divider().padding(.horizontal, 16)
-                        
-                        Button(action: {
-                            Task { await storeKit.restorePurchases() }
-                        }) {
-                            HStack {
-                                Image(systemName: "arrow.counterclockwise")
-                                    .font(.system(size: 24))
-                                    .foregroundColor(AppTheme.brandStart)
-                                    .frame(width: 32)
-                                Text("恢复购买")
-                                    .font(.appBody)
-                                    .foregroundColor(AppTheme.textPrimary)
-                                Spacer()
-                            }
-                            .padding(16)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        .disabled(storeKit.isLoading)
-                    }
-                    .background(Color.white)
-                    .cornerRadius(12)
-                    .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
-                    .padding(.horizontal, 16)
-
                     // Card 1: 安全
                     VStack(spacing: 0) {
                         // 账本锁
@@ -695,10 +584,6 @@ struct ProfileView: View {
                     .padding(.bottom, 16)
                 }
             }
-            .task {
-                await storeKit.loadProducts()
-                await storeKit.restorePurchases()
-            }
             .onAppear {
                 Task {
                     await userSettings.loadFromCloud()
@@ -817,7 +702,7 @@ struct ProfileView: View {
                 showDeleteAccountConfirmAlert = true
             }
         } message: {
-            Text("注销账号将删除您的所有记账数据、设置和账号信息，且无法恢复。如有活跃订阅，请先到 App Store 取消。")
+            Text("注销账号将删除您的所有记账数据、设置和账号信息，且无法恢复。")
         }
         .alert("确认注销", isPresented: $showDeleteAccountConfirmAlert) {
             Button("取消", role: .cancel) { }
