@@ -139,31 +139,16 @@ class AuthManager: ObservableObject {
     
     // MARK: - 处理重置密码深链
     /// 处理邮件中的重置链接（自定义 scheme 唤起 App 时调用）
+    /// 使用 SDK 标准的 session(from:) 完成 PKCE 验证码交换，
+    /// 兼容 supabase-swift 默认的 PKCE 流程（链接中携带 code 而非 access_token）
     @discardableResult
     func handlePasswordResetURL(_ url: URL) -> Bool {
         guard let host = url.host, host == "reset-password" else { return false }
         Log.info("收到密码重置深链: \(url.absoluteString)")
         
-        // Supabase 重置链接格式：huaji2046://reset-password#access_token=...&refresh_token=...&type=recovery
-        guard let fragment = url.fragment,
-              let params = parseURLParams(fragment) else {
-            Log.error("重置链接缺少必要参数")
-            return false
-        }
-        
-        guard let accessToken = params["access_token"],
-              let refreshToken = params["refresh_token"] else {
-            Log.error("重置链接缺少 access_token / refresh_token")
-            return false
-        }
-        
-        // 用重置 token 建立会话（不完成登录，仅用于后续修改密码）
         Task {
             do {
-                try await SupabaseService.shared.client.auth.setSession(
-                    accessToken: accessToken,
-                    refreshToken: refreshToken
-                )
+                _ = try await SupabaseService.shared.client.auth.session(from: url)
                 await MainActor.run {
                     self.pendingPasswordReset = true
                 }
@@ -198,20 +183,7 @@ class AuthManager: ObservableObject {
             throw error
         }
     }
-    
-    /// 解析 URL 查询参数（fragment 或 query）
-    private func parseURLParams(_ raw: String) -> [String: String]? {
-        var params: [String: String] = [:]
-        for component in raw.components(separatedBy: "&") {
-            let pair = component.components(separatedBy: "=")
-            guard pair.count == 2 else { continue }
-            let key = pair[0].removingPercentEncoding ?? pair[0]
-            let value = pair[1].removingPercentEncoding ?? pair[1]
-            params[key] = value
-        }
-        return params.isEmpty ? nil : params
-    }
-    
+        
     // MARK: - 登出
     func signOut() {
         Log.info("AuthManager 登出")
