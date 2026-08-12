@@ -210,6 +210,10 @@ struct AnalyticsView: View {
                     }
                     AnalyticsAchievementView(manager: AchievementManager.shared)
 
+                    // AI 趣味点评
+                    AIReviewCard()
+                        .environmentObject(supabaseService)
+
                     // 收支综合
                     sectionHeader("收支综合", icon: "chart.bar.xaxis") {
                         if availableCurrencies.count > 1 {
