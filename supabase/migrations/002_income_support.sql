@@ -11,7 +11,8 @@ ALTER INDEX IF EXISTS expenses_user_date_idx RENAME TO records_user_date_idx;
 ALTER INDEX IF EXISTS expenses_user_category_idx RENAME TO records_user_category_idx;
 
 -- 3. 新增按 type 查询的索引
-CREATE INDEX IF NOT EXISTS records_user_month_idx ON public.records(user_id, (to_char(date, 'YYYY-MM')));
+-- 按月索引：to_char 非 IMMUTABLE 无法用于索引表达式，改用 date_trunc（IMMUTABLE）
+CREATE INDEX IF NOT EXISTS records_user_month_idx ON public.records(user_id, date_trunc('month', date AT TIME ZONE 'UTC'));
 CREATE INDEX IF NOT EXISTS records_user_type_idx ON public.records(user_id, type);
 
 -- 4. 触发器改名
