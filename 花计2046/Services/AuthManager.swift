@@ -113,7 +113,7 @@ class AuthManager: ObservableObject {
     
     // MARK: - 重置密码
     /// 发送密码重置邮件
-    func resetPassword(email: String) async {
+    func resetPassword(email: String) async throws {
         Log.info("AuthManager 重置密码 \(email)")
         
         if AppConfig.useMockServices {
@@ -133,6 +133,7 @@ class AuthManager: ObservableObject {
             Log.info("重置密码邮件已发送到 \(email)")
         } catch {
             Log.error("发送重置密码邮件失败: \(error.localizedDescription)")
+            throw error
         }
     }
     

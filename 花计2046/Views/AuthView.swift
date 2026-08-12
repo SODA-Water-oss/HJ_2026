@@ -15,6 +15,7 @@ struct AuthView: View {
     @State private var legalDocumentType: LegalDocumentType?
     @State private var resetEmail = ""
     @State private var resetMessage = ""
+    @State private var resetErrorMessage = ""
     @State private var isResetting = false
     @FocusState private var focusedField: Field?
     
@@ -229,13 +230,22 @@ struct AuthView: View {
                                     isPresented: $showForgotPassword,
                                     resetEmail: $resetEmail,
                                     resetMessage: $resetMessage,
+                                    resetErrorMessage: $resetErrorMessage,
                                     isResetting: $isResetting,
                                     onReset: { email in
                                         Task {
-                                            await authManager.resetPassword(email: email)
-                                            await MainActor.run {
-                                                isResetting = false
-                                                resetMessage = "重置密码邮件已发送，请检查邮箱"
+                                            do {
+                                                try await authManager.resetPassword(email: email)
+                                                await MainActor.run {
+                                                    isResetting = false
+                                                    resetMessage = "重置密码邮件已发送，请检查邮箱"
+                                                    resetErrorMessage = ""
+                                                }
+                                            } catch {
+                                                await MainActor.run {
+                                                    isResetting = false
+                                                    resetErrorMessage = error.userFriendlyDescription
+                                                }
                                             }
                                         }
                                     }
@@ -356,6 +366,7 @@ struct ForgotPasswordView: View {
     @Binding var isPresented: Bool
     @Binding var resetEmail: String
     @Binding var resetMessage: String
+    @Binding var resetErrorMessage: String
     @Binding var isResetting: Bool
     let onReset: (String) -> Void
     @FocusState private var focused: Bool
@@ -401,6 +412,7 @@ struct ForgotPasswordView: View {
                         .foregroundColor(focused ? AppTheme.brandStart : AppTheme.textTertiary)
                     TextField("注册邮箱", text: $resetEmail)
                         .font(.appBody)
+                        .foregroundColor(AppTheme.textPrimary)
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
                         .focused($focused)
@@ -421,6 +433,17 @@ struct ForgotPasswordView: View {
                             .font(.system(size: 15))
                     }
                     .foregroundColor(Color(hex: "#10B981"))
+                    .padding(.horizontal, 16)
+                }
+                
+                if !resetErrorMessage.isEmpty {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 15))
+                        Text(resetErrorMessage)
+                            .font(.system(size: 15))
+                    }
+                    .foregroundColor(Color(hex: "#EF4444"))
                     .padding(.horizontal, 16)
                 }
             }
