@@ -323,12 +323,12 @@ struct AuthView: View {
             } catch let error as AuthError {
                 await MainActor.run {
                     isLoading = false
-                    errorMessage = error.localizedDescription
+                    errorMessage = error.userFriendlyDescription
                 }
             } catch {
                 await MainActor.run {
                     isLoading = false
-                    errorMessage = error.localizedDescription
+                    errorMessage = error.userFriendlyDescription
                 }
             }
         }
@@ -561,7 +561,7 @@ struct SetNewPasswordView: View {
             } catch {
                 await MainActor.run {
                     isSaving = false
-                    errorMessage = error.localizedDescription
+                    errorMessage = error.userFriendlyDescription
                 }
             }
         }

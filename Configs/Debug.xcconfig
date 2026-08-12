@@ -10,10 +10,8 @@
 SUPABASE_ANON_KEY = your-anon-key
 DEEPSEEK_API_KEY = your-deepseek-key
 
-INFOPLIST_KEY_SUPABASE_ANON_KEY = $(SUPABASE_ANON_KEY)
-INFOPLIST_KEY_DEEPSEEK_API_KEY = $(DEEPSEEK_API_KEY)
 
 // Debug 下默认关闭 Mock，便于连接真实后端测试；需要纯本地 UI 测试时可改为 YES
-INFOPLIST_KEY_USE_MOCK_SERVICES = NO
+USE_MOCK_SERVICES = NO
 
 #include "Local.xcconfig"

@@ -373,7 +373,7 @@ struct EditExpenseView: View {
                     } else {
                         supabaseService.incomes.append(expense)
                     }
-                    saveError = "保存到云端失败：\(error.localizedDescription)"
+                    saveError = "保存到云端失败：\(error.userFriendlyDescription)"
                     showSaveError = true
                 }
             }

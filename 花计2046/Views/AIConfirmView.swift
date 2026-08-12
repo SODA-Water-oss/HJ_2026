@@ -312,7 +312,7 @@ struct AIConfirmView: View {
                     group.addTask { [offset] in
                         let _nE = item.merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty; let _aB = item.amount <= 0; if _nE && _aB { return (offset, false, "未录入有效名称、金额") }; if _nE { return (offset, false, "未录入有效名称") }; if _aB { return (offset, false, "未录入有效金额") }
                         do { try await supabaseService.addExpense(expense); return (offset, true, "保存成功") }
-                        catch { Log.error("保存失败: \(error.localizedDescription)"); return (offset, false, "\(item.merchant) ¥\(item.amount): \(error.localizedDescription)") }
+                        catch { Log.error("保存失败: \(error.localizedDescription)"); return (offset, false, "\(item.merchant) ¥\(item.amount): \(error.userFriendlyDescription)") }
                     }
                 }
                 for await (offset, ok, msg) in group {

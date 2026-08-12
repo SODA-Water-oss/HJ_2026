@@ -274,7 +274,7 @@ struct ExpenseListView: View {
                                 await UserLogManager.log(action: "删除", detail: "删除(1)", supabaseService: supabaseService)
                             } catch {
                                 await MainActor.run {
-                                    deleteErrorMessage = error.localizedDescription
+                                    deleteErrorMessage = error.userFriendlyDescription
                                     showDeleteError = true
                                 }
                             }

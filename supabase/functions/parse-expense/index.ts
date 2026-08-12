@@ -45,12 +45,14 @@ async function parseWithGemini(
   const parts: Record<string, unknown>[] = [
     {
       text: [
-        "Extract all expenses/income from the user input.",
-        "Return only valid JSON with this structure:",
-        '{"items":[{"type":"expense"|"income","amount":number,"category":"short label","merchant":"string","note":"optional string"}]}',
-        "Use the user's language. Do not include markdown.",
-        "Expense categories: 餐饮,交通,购物,娱乐,住房,日用,服饰,通讯,医疗,教育,其他.",
-        "Income categories: 工资,奖金,兼职,投资收益,理财,礼金,退款,其他.",
+        "你是一个智能记账助手。请从用户输入中提取每一笔收支信息。",
+        "只输出合法 JSON，结构如下：",
+        '{"items":[{"type":"expense"或"income","amount":数字,"category":"类别","merchant":"商家名称","note":"备注(可选)"}]}',
+        "所有字段必须使用中文，不要输出 markdown。",
+        "支出类别从：餐饮,交通,购物,娱乐,住房,日用,服饰,通讯,医疗,教育,其他 中选择。",
+        "收入类别从：工资,奖金,兼职,投资收益,理财,礼金,退款,其他 中选择。",
+        "商家名称通常是金额前面的词，去掉金额和标点。",
+        "支持多笔，每笔输出一项。",
       ].join("\n"),
     },
   ];

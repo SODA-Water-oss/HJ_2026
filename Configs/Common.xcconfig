@@ -10,5 +10,3 @@ SUPABASE_URL = https:/$()/your-project.supabase.co
 SUPABASE_FUNCTIONS_URL = https:/$()/your-project.functions.supabase.co/functions/v1
 
 // 注入生成的 Info.plist
-INFOPLIST_KEY_SUPABASE_URL = $(SUPABASE_URL)
-INFOPLIST_KEY_SUPABASE_FUNCTIONS_URL = $(SUPABASE_FUNCTIONS_URL)
