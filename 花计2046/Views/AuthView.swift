@@ -277,6 +277,14 @@ struct AuthView: View {
                     .foregroundColor(AppTheme.brandStart)
             }
         }
+        .overlay {
+            if authManager.pendingPasswordReset {
+                SetNewPasswordView()
+                    .environmentObject(authManager)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: authManager.pendingPasswordReset)
     }
     
     // MARK: - 分段按钮
@@ -293,15 +301,6 @@ struct AuthView: View {
                         .fill(selected ? AppTheme.brandStart : Color.clear)
                 )
         }
-    }
-    
-    // MARK: - 密码重置
-    /// 绑定 pendingPasswordReset 状态，用于弹出设置新密码界面
-    private var passwordResetBinding: Binding<Bool> {
-        Binding(
-            get: { authManager.pendingPasswordReset },
-            set: { if !$0 { authManager.pendingPasswordReset = false } }
-        )
     }
     
     // MARK: - 表单验证
@@ -363,6 +362,9 @@ struct RoundedCorner: Shape {
 
 // MARK: - 忘记密码视图
 struct ForgotPasswordView: View {
+    @EnvironmentObject var authManager: AuthManager
+    @State private var showDebugLink = false
+    @State private var debugLink = ""
     @Binding var isPresented: Bool
     @Binding var resetEmail: String
     @Binding var resetMessage: String
@@ -447,6 +449,41 @@ struct ForgotPasswordView: View {
                     .padding(.horizontal, 16)
                 }
             }
+            
+            // 开发者测试入口（模拟器无法通过自定义 scheme 唤起 App，用此入口验证重置流程）
+            DisclosureGroup("开发者测试：粘贴重置链接", isExpanded: $showDebugLink) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("在邮件中复制真实链接（https://...auth/v1/verify?token=...）粘贴到下方：")
+                        .font(.system(size: 12))
+                        .foregroundColor(AppTheme.textSecondary)
+                    TextField("粘贴重置链接", text: $debugLink)
+                        .font(.system(size: 12))
+                        .foregroundColor(AppTheme.textPrimary)
+                        .textFieldStyle(.roundedBorder)
+                    Button("模拟打开链接") {
+                        guard let url = URL(string: debugLink.trimmingCharacters(in: .whitespacesAndNewlines)) else { return }
+                        isPresented = false
+                        Task {
+                            await authManager.handleResetURLFromTest(url)
+                        }
+                    }
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(AppTheme.brandStart)
+                    
+                    if !authManager.debugResetMessage.isEmpty {
+                        Text(authManager.debugResetMessage)
+                            .font(.system(size: 12))
+                            .foregroundColor(authManager.pendingPasswordReset ? Color(hex: "#10B981") : Color(hex: "#EF4444"))
+                            .multilineTextAlignment(.leading)
+                    }
+                }
+                .padding(.top, 8)
+            }
+            .font(.system(size: 13))
+            .foregroundColor(AppTheme.textSecondary)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 20)
+            
             Spacer()
         }
         .background(.ultraThinMaterial)
@@ -472,7 +509,6 @@ struct SetNewPasswordView: View {
             HStack {
                 Button("取消") {
                     authManager.pendingPasswordReset = false
-                    dismiss()
                 }
                 .foregroundColor(AppTheme.textSecondary)
                 Spacer()
@@ -579,7 +615,7 @@ struct SetNewPasswordView: View {
                     isSaving = false
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                    dismiss()
+                    authManager.pendingPasswordReset = false
                 }
             } catch {
                 await MainActor.run {
