@@ -132,7 +132,17 @@ class AuthManager: ObservableObject {
             throw AuthError.serverError("重置密码链接未配置")
         }
         
-        let recoverURL = AppConfig.supabaseURL.appendingPathComponent("auth/v1/recover")
+        // redirect_to 必须放在 URL 查询参数（与 supabase-swift 官方实现一致），
+        // 放在 body options 会被 Supabase 忽略并回退到 Site URL
+        var urlComponents = URLComponents(
+            url: AppConfig.supabaseURL.appendingPathComponent("auth/v1/recover"),
+            resolvingAgainstBaseURL: false
+        )
+        urlComponents?.queryItems = [URLQueryItem(name: "redirect_to", value: redirectURL.absoluteString)]
+        guard let recoverURL = urlComponents?.url else {
+            throw AuthError.serverError("重置密码链接配置错误")
+        }
+        
         var request = URLRequest(url: recoverURL)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -140,8 +150,7 @@ class AuthManager: ObservableObject {
         request.timeoutInterval = 30
         
         let body: [String: Any] = [
-            "email": email,
-            "options": ["redirectTo": redirectURL.absoluteString]
+            "email": email
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
