@@ -72,14 +72,37 @@ final class StoreKitManager: ObservableObject {
         defer { isLoading = false }
         
         do {
-            products = try await Product.products(for: Self.productIDs)
+            // 沙盒/弱网环境下 Product.products 可能长时间不返回，加超时避免界面一直转圈
+            products = try await withTimeout(seconds: 8) {
+                try await Product.products(for: Self.productIDs)
+            }
             products.sort { $0.price < $1.price }
             Log.info("IAP 商品加载成功: \(products.map { $0.displayName }.joined(separator: ", "))")
         } catch {
-            lastError = .purchaseFailed(error.localizedDescription)
-            Log.error("加载 IAP 商品失败: \(error.localizedDescription)")
+            if let timeout = error as? TimeoutError {
+                Log.error("加载 IAP 商品超时")
+            } else {
+                lastError = .purchaseFailed(error.localizedDescription)
+                Log.error("加载 IAP 商品失败: \(error.localizedDescription)")
+            }
         }
     }
+    
+    /// 带超时的异步执行（超时抛 TimeoutError）
+    private func withTimeout<T>(seconds: Double, operation: @escaping () async throws -> T) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask { try await operation() }
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                throw TimeoutError()
+            }
+            let result = try await group.next()!
+            group.cancelAll()
+            return result
+        }
+    }
+    
+    private struct TimeoutError: Error {}
     
     // MARK: - 购买
     /// 购买指定商品

@@ -281,11 +281,20 @@ struct ProfileView: View {
                         if !storeKit.isPremium {
                             Divider().padding(.horizontal, 16)
                             
-                            if storeKit.products.isEmpty {
+                            if storeKit.isLoading && storeKit.products.isEmpty {
                                 HStack {
                                     Spacer()
                                     ProgressView()
                                         .scaleEffect(0.8)
+                                    Spacer()
+                                }
+                                .padding(16)
+                            } else if storeKit.products.isEmpty {
+                                HStack {
+                                    Spacer()
+                                    Text("暂无订阅商品")
+                                        .font(.appSmall)
+                                        .foregroundColor(AppTheme.textTertiary)
                                     Spacer()
                                 }
                                 .padding(16)
