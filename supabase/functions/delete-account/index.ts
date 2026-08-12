@@ -12,7 +12,7 @@ Deno.serve(async (request) => {
 
   try {
     const supabaseURL = requiredEnv("SUPABASE_URL");
-    const serviceRoleKey = requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
+    const serviceRoleKey = requiredEnv("SERVICE_ROLE_KEY");
 
     // 1. 鉴权当前用户
     const authHeader = request.headers.get("Authorization") ?? "";

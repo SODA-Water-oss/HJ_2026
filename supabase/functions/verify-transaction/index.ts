@@ -27,7 +27,7 @@ Deno.serve(async (request) => {
     if (!jwt) throw new Error("Missing user authorization.");
 
     const supabaseURL = requiredEnv("SUPABASE_URL");
-    const serviceRoleKey = requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
+    const serviceRoleKey = requiredEnv("SERVICE_ROLE_KEY");
     const supabase = createClient(supabaseURL, serviceRoleKey);
 
     const { data: userData, error: userError } = await supabase.auth.getUser(jwt);
