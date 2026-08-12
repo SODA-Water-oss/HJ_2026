@@ -11,8 +11,6 @@ class AuthManager: ObservableObject {
     @Published var currentProfile: UserProfile?
     /// 是否处于「重置密码」待设置新密码状态
     @Published var pendingPasswordReset = false
-    /// 开发者测试入口的诊断信息
-    @Published var debugResetMessage = ""
     
     // 兼容旧代码的 isAuthenticated 属性
     var isAuthenticated: Bool {
@@ -201,47 +199,13 @@ class AuthManager: ObservableObject {
                 _ = try await SupabaseService.shared.client.auth.session(from: url)
                 await MainActor.run {
                     self.pendingPasswordReset = true
-                    self.debugResetMessage = "验证成功，请设置新密码"
                 }
                 Log.info("重置会话建立成功，等待用户设置新密码")
             } catch {
-                let msg = "验证失败: \(error.localizedDescription)"
                 Log.error("建立重置会话失败: \(error.localizedDescription)")
-                await MainActor.run { self.debugResetMessage = msg }
             }
         }
         return true
-    }
-    
-    /// 开发者测试入口：粘贴 Supabase verify URL 后，请求它并捕获重定向到自定义 scheme 的链接，
-    /// 再交给 session(from:) 完成 PKCE 验证（模拟器无法通过 custom scheme 唤起 App，用此方法验证）
-    func handleResetURLFromTest(_ url: URL) async {
-        await MainActor.run { debugResetMessage = "正在请求验证链接..." }
-        let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest = 30
-        let capturer = RedirectCapturer()
-        let session = URLSession(configuration: config, delegate: capturer, delegateQueue: nil)
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        
-        do {
-            let (_, response) = try await session.data(for: request)
-            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
-            if let redirectURL = capturer.capturedURL {
-                Log.info("测试入口捕获到重定向: \(redirectURL.absoluteString)")
-                await MainActor.run { debugResetMessage = "捕获到重定向，正在完成验证..." }
-                _ = handlePasswordResetURL(redirectURL)
-            } else {
-                let msg = "未捕获到重定向（HTTP \(status)）。请确认：1) 链接是新的 2) 在 App 内刚点过「发送」"
-                Log.error("测试入口：\(msg)")
-                await MainActor.run { debugResetMessage = msg }
-            }
-        } catch {
-            let msg = "请求验证链接失败: \(error.localizedDescription)"
-            Log.error("测试入口：\(msg)")
-            await MainActor.run { debugResetMessage = msg }
-        }
     }
     
     /// 设置新密码（重置密码流程第二步，用户输入新密码后调用）
@@ -417,23 +381,3 @@ class AuthManager: ObservableObject {
 
 private struct DeleteAccountRequest: Encodable {}
 
-
-/// 捕获 Supabase verify URL 重定向到自定义 scheme 的 URLSession 代理
-private class RedirectCapturer: NSObject, URLSessionTaskDelegate {
-    var capturedURL: URL?
-
-    func urlSession(
-        _ session: URLSession,
-        task: URLSessionTask,
-        willPerformHTTPRedirection response: HTTPURLResponse,
-        newRequest request: URLRequest,
-        completionHandler: @escaping (URLRequest?) -> Void
-    ) {
-        if let url = request.url, url.scheme == "huaji2046" {
-            capturedURL = url
-            completionHandler(nil) // 不继续跟随，停止请求
-        } else {
-            completionHandler(request) // 继续跟随 http/https
-        }
-    }
-}
