@@ -285,6 +285,11 @@ struct AuthView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: authManager.pendingPasswordReset)
+        .sheet(item: $legalDocumentType) { type in
+            NavigationView {
+                LegalDocumentView(documentType: type)
+            }
+        }
     }
     
     // MARK: - 分段按钮
