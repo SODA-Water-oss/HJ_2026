@@ -105,9 +105,17 @@ struct AnalyticsAchievementView: View {
                 }
             }
             if let states = manager.snapshot?.badgeStates {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 64))], spacing: 10) {
-                    ForEach(states) { state in
-                        Badge24View(badgeType: state.badgeType, isHeld: state.isHeld, latestAwardedAt: state.latestAwardedAt)
+                let held = states.filter { $0.isHeld }
+                if held.isEmpty {
+                    Text("暂无获得的徽章，继续加油！")
+                        .font(.appSmall)
+                        .foregroundColor(AppTheme.textTertiary)
+                        .padding(.vertical, 8)
+                } else {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 64))], spacing: 10) {
+                        ForEach(held) { state in
+                            Badge24View(badgeType: state.badgeType, isHeld: true, latestAwardedAt: state.latestAwardedAt)
+                        }
                     }
                 }
             }
@@ -149,7 +157,11 @@ struct RulesSheetView: View {
                     ruleBlock(title: "徽章会变化吗？", content: "徽章实时审核，数据变更后会自动颁发或撤销。")
                 }
                 .padding(20)
+                .frame(maxWidth: .infinity)
+                .background(Color.white)
             }
+            .background(Color.white)
+            .scrollContentBackground(.hidden)
             .navigationTitle("评分规则")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -158,6 +170,7 @@ struct RulesSheetView: View {
                 }
             }
         }
+        .background(Color.white)
     }
 
     private func ruleBlock(title: String, content: String) -> some View {
