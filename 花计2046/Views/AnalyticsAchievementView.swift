@@ -3,6 +3,8 @@ import SwiftUI
 struct AnalyticsAchievementView: View {
     @ObservedObject var manager: AchievementManager
 
+    @State private var showRules = false
+
     var body: some View {
         VStack(spacing: 12) {
             healthCard
@@ -12,9 +14,11 @@ struct AnalyticsAchievementView: View {
             }
             badgeDrawer
             weeklySummaryCard
-            rulesCard
         }
         .frame(maxWidth: .infinity)
+        .sheet(isPresented: $showRules) {
+            RulesSheetView()
+        }
     }
 
     private var healthCard: some View {
@@ -23,6 +27,11 @@ struct AnalyticsAchievementView: View {
             HStack {
                 Text("财务健康分").font(.appTitle).foregroundColor(AppTheme.textPrimary)
                 Spacer()
+                Button(action: { showRules = true }) {
+                    Image(systemName: "questionmark.circle")
+                        .font(.system(size: 16))
+                        .foregroundColor(AppTheme.textTertiary)
+                }
                 if let score = snapshot?.health.score {
                     Text("\(score)").font(.system(size: 34, weight: .semibold)).foregroundColor(AppTheme.brandStart)
                 }
@@ -86,7 +95,15 @@ struct AnalyticsAchievementView: View {
 
     private var badgeDrawer: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("徽章").font(.appTitle).foregroundColor(AppTheme.textPrimary)
+            HStack {
+                Text("徽章").font(.appTitle).foregroundColor(AppTheme.textPrimary)
+                Spacer()
+                Button(action: { showRules = true }) {
+                    Image(systemName: "questionmark.circle")
+                        .font(.system(size: 16))
+                        .foregroundColor(AppTheme.textTertiary)
+                }
+            }
             if let states = manager.snapshot?.badgeStates {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 64))], spacing: 10) {
                     ForEach(states) { state in
@@ -116,24 +133,50 @@ struct AnalyticsAchievementView: View {
         .cardStyle()
     }
 
-    private var rulesCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("评分规则").font(.appTitle).foregroundColor(AppTheme.textPrimary)
-            Text("健康分五维各 20 分：储蓄率、预算控制、支出稳定性、结余趋势、大额支出占比。")
-                .font(.appSmall).foregroundColor(AppTheme.textSecondary)
-            Text("日健康：支出不超今日预算且当天有结余。周达标：周支出不超周预算。")
-                .font(.appSmall).foregroundColor(AppTheme.textSecondary)
-            Text("徽章：连续 1/4/8/12/26/52 周；月度达标 3/6/12/24 个月得铁/铜/银/金。")
-                .font(.appSmall).foregroundColor(AppTheme.textSecondary)
-            Text("徽章实时审核，数据变更后自动颁发或撤销。")
-                .font(.appSmall).foregroundColor(AppTheme.textTertiary)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardStyle()
-    }
 }
 
+/// 评分规则弹窗（问题解答模式）
+struct RulesSheetView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    ruleBlock(title: "财务健康分怎么算？", content: "健康分由五个维度组成，每个维度 20 分：\n• 储蓄率\n• 预算控制\n• 支出稳定性\n• 结余趋势\n• 大额支出占比")
+                    ruleBlock(title: "日健康 / 周达标怎么判断？", content: "• 日健康：当日支出不超过今日预算，且当天有结余\n• 周达标：本周支出不超过周预算")
+                    ruleBlock(title: "徽章怎么获得？", content: "• 连续达标：连续 1 / 4 / 8 / 12 / 26 / 52 周\n• 月度等级：月度达标 3 / 6 / 12 / 24 个月，分别获得铁 / 铜 / 银 / 金徽章")
+                    ruleBlock(title: "徽章会变化吗？", content: "徽章实时审核，数据变更后会自动颁发或撤销。")
+                }
+                .padding(20)
+            }
+            .navigationTitle("评分规则")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func ruleBlock(title: String, content: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(AppTheme.textPrimary)
+            Text(content)
+                .font(.system(size: 14))
+                .foregroundColor(AppTheme.textSecondary)
+                .lineSpacing(4)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color.white)
+        .cornerRadius(12)
+        .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
+    }
+}
 struct Badge24View: View {
     let badgeType: BadgeType
     let isHeld: Bool
