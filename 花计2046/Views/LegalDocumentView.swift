@@ -47,7 +47,8 @@ private struct WebView: UIViewRepresentable {
     }
     
     func updateUIView(_ webView: WKWebView, context: Context) {
-        guard let url = Bundle.main.url(forResource: fileName, withExtension: "html", subdirectory: "Legal") else {
+        // HTML 资源打包在 App 根目录（同步组拍平子目录），无需指定 subdirectory
+        guard let url = Bundle.main.url(forResource: fileName, withExtension: "html") else {
             // 兜底：显示本地找不到文件的提示
             let html = "<html><body style='font-family:sans-serif;padding:20px;color:#666;'>无法加载文档</body></html>"
             webView.loadHTMLString(html, baseURL: nil)
