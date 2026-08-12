@@ -166,7 +166,7 @@ struct RulesSheetView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") { dismiss() }
+                    Button("关闭") { dismiss() }
                 }
             }
         }
