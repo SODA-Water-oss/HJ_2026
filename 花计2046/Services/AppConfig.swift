@@ -31,10 +31,11 @@ enum AppConfig {
         url(for: "SUPABASE_FUNCTIONS_URL")
     }
 
-    // MARK: - 密码重置深链
-    /// 密码重置邮件的 redirect URL（自定义 scheme，需与 Info.plist 中的 CFBundleURLSchemes 一致）
+    // MARK: - 密码重置
+    /// 密码重置邮件的 redirect URL（指向自适应的重置密码网页，支持 PC/手机/平板任意设备）
+    /// 部署方式见 docs/reset-password.html（GitHub Pages 等静态托管）
     static var passwordResetRedirectURL: URL? {
-        URL(string: "huaji2046://reset-password")
+        URL(string: "https://soda-water-oss.github.io/HJ_2026/reset-password.html")
     }
 
     // MARK: - Helpers

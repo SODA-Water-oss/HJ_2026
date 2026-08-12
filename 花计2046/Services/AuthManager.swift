@@ -125,13 +125,36 @@ class AuthManager: ObservableObject {
             return
         }
         
-        // 调用 Supabase 发送重置邮件，redirectTo 使用 App 自定义 scheme，
-        // 用户点击邮件链接后 iOS 会唤起本应用并携带重置 token
+        // 直接调用 Supabase recover 接口发送重置邮件。
+        // 不使用 SDK 的 PKCE 流程（PKCE 验证码只在 App 内，跨设备网页无法完成验证），
+        // 改为 implicit 流程：邮件链接验证后带 access_token 跳转到自适应网页。
+        guard let redirectURL = AppConfig.passwordResetRedirectURL else {
+            throw AuthError.serverError("重置密码链接未配置")
+        }
+        
+        let recoverURL = AppConfig.supabaseURL.appendingPathComponent("auth/v1/recover")
+        var request = URLRequest(url: recoverURL)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(AppConfig.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.timeoutInterval = 30
+        
+        let body: [String: Any] = [
+            "email": email,
+            "options": ["redirectTo": redirectURL.absoluteString]
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
         do {
-            try await SupabaseService.shared.client.auth.resetPasswordForEmail(
-                email,
-                redirectTo: AppConfig.passwordResetRedirectURL
-            )
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                throw AuthError.serverError("无法连接服务器")
+            }
+            guard (200..<300).contains(http.statusCode) else {
+                let raw = String(data: data, encoding: .utf8) ?? ""
+                Log.error("发送重置邮件失败 HTTP\(http.statusCode): \(raw.prefix(200))")
+                throw AuthError.serverError("发送重置邮件失败，请稍后重试")
+            }
             Log.info("重置密码邮件已发送到 \(email)")
         } catch {
             Log.error("发送重置密码邮件失败: \(error.localizedDescription)")
