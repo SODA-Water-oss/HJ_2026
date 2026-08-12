@@ -109,7 +109,23 @@ class AuthManager: ObservableObject {
         if AppConfig.useMockServices {
             try await mockAuthenticate(email: email, password: password, isNewUser: true)
         } else {
-            let session = try await SupabaseService.shared.client.auth.signUp(email: email, password: password); let userId = session.user.id; let profile = UserProfile(id: userId, email: email, createdAt: Date()); let authSession = AuthSession(userId: userId, email: email, token: session.session?.accessToken ?? "", createdAt: profile.createdAt); KeychainHelper.saveCodable(authSession, forKey: sessionKey); await MainActor.run { completeAuthentication(profile: profile) }; Log.info("云端注册成功 userId=\(userId)")
+            let response = try await SupabaseService.shared.client.auth.signUp(email: email, password: password)
+            let userId = response.user.id
+            
+            // 关键：检查会话是否有效。
+            // 若 Supabase 开启了「邮箱确认」，注册后 session 为空，
+            // 此时不能直接进入 App（否则后续所有请求都会被 RLS 拒绝），
+            // 应提示用户去邮箱完成确认后再登录。
+            guard let accessToken = response.session?.accessToken else {
+                Log.info("注册成功但需邮箱确认，未进入登录状态")
+                throw AuthError.serverError("注册成功！确认邮件已发送，请到邮箱完成确认后再登录")
+            }
+            
+            let profile = UserProfile(id: userId, email: email, createdAt: Date())
+            let authSession = AuthSession(userId: userId, email: email, token: accessToken, createdAt: profile.createdAt)
+            KeychainHelper.saveCodable(authSession, forKey: sessionKey)
+            await MainActor.run { completeAuthentication(profile: profile) }
+            Log.info("云端注册成功 userId=\(userId)")
         }
     }
     
