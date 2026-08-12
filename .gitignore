@@ -7,6 +7,7 @@ xcuserdata/
 DerivedData/
 build/
 BuildTests/
+BuildDevice/
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 *.xcodeproj/project.xcworkspace/xcuserdata/
@@ -35,3 +36,6 @@ Build-Device/
 
 # Codex brainstorming companion
 .superpowers/
+
+# Supabase CLI 临时文件
+supabase/.temp/
