@@ -1151,6 +1151,9 @@
         }
       }
     },
+    "在邮件中复制真实链接（https://...auth/v1/verify?token=...）粘贴到下方：" : {
+
+    },
     "坚持" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1527,6 +1530,9 @@
           }
         }
       }
+    },
+    "开发者测试：粘贴重置链接" : {
+
     },
     "开始录音..." : {
       "extractionState" : "stale",
@@ -2634,6 +2640,9 @@
         }
       }
     },
+    "模拟打开链接" : {
+
+    },
     "欧元" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3227,6 +3236,9 @@
           }
         }
       }
+    },
+    "粘贴重置链接" : {
+
     },
     "结余趋势" : {
       "extractionState" : "stale",
