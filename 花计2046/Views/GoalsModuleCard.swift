@@ -160,20 +160,20 @@ struct GoalsModuleCard: View {
                     .foregroundColor(AppTheme.textTertiary)
             } else {
                 ForEach(weeklyItems) { item in
-                    badgeRow(name: item.displayName, title: "周达成", count: achievedCount(for: item), isWeekly: true)
+                    badgeRow(name: item.displayName, title: "周达成", count: achievedCount(for: item), limit: badgeLimit(for: item), isWeekly: true)
                 }
                 ForEach(monthlyItems) { item in
-                    badgeRow(name: item.displayName, title: "月达成", count: achievedCount(for: item), isWeekly: false)
+                    badgeRow(name: item.displayName, title: "月达成", count: achievedCount(for: item), limit: badgeLimit(for: item), isWeekly: false)
                 }
             }
-            Text("达成 1 个周期目标获得 1 枚徽章")
+            Text("每达成一个周期获得1枚，集满即闭环不再新增（每周6 / 每月5）")
                 .font(.appTiny)
                 .foregroundColor(AppTheme.textTertiary)
         }
     }
 
-    /// 单条目标徽章行：目标名称（固定列宽保证对齐）+ 周/月达成 + 徽章
-    private func badgeRow(name: String, title: String, count: Int, isWeekly: Bool) -> some View {
+    /// 单条目标徽章行：目标名称（固定列宽保证对齐）+ 周/月达成 + 徽章（封顶，集满显示已集满）
+    private func badgeRow(name: String, title: String, count: Int, limit: Int, isWeekly: Bool) -> some View {
         HStack(alignment: .center, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
@@ -187,18 +187,28 @@ struct GoalsModuleCard: View {
             .frame(width: 88, alignment: .leading)
             Spacer(minLength: 8)
             HStack(spacing: 6) {
-                ForEach(0..<min(max(count, 0), 8), id: \.self) { _ in
+                ForEach(0..<count, id: \.self) { _ in
                     if isWeekly { WeeklyBadgeView() } else { MonthlyBadgeView() }
                 }
                 if count == 0 {
                     Text("--").font(.appSmall).foregroundColor(AppTheme.textTertiary)
-                }
-                if count > 8 {
-                    Text("+\\(count - 8)")
-                        .font(.appSmall)
-                        .foregroundColor(AppTheme.textSecondary)
+                } else if count >= limit {
+                    Text("已集满 ✓")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.green)
                 }
             }
+        }
+    }
+
+    /// 每个目标的徽章上限（集满闭环，不再新增；一行放得下，避免排版撑乱）
+    private func badgeLimit(for item: GoalTargetItem) -> Int {
+        switch item.timeDimension {
+        case "每周": return 6
+        case "每月": return 5
+        case "每年": return 3
+        case "日期区间": return 1
+        default: return 3
         }
     }
 
@@ -263,7 +273,8 @@ struct GoalsModuleCard: View {
         default:
             break
         }
-        return count
+        // 封顶：达到上限即闭环，不再累计
+        return min(count, badgeLimit(for: item))
     }
 
     private func achieved(records: [Record], start: Date, end: Date, item: GoalTargetItem) -> Bool {
