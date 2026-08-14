@@ -160,11 +160,9 @@ struct GoalsModuleCard: View {
     private func badgeGroup(title: String, count: Int, icon: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title).font(.appSmall).foregroundColor(AppTheme.textSecondary)
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 ForEach(0..<min(max(count, 0), 10), id: \.self) { _ in
-                    Image(systemName: icon)
-                        .font(.system(size: 22))
-                        .foregroundStyle(color)
+                    AchievementBadgeView(color: color)
                 }
                 if count > 10 {
                     Text("+\\(count - 10)")
@@ -515,5 +513,50 @@ struct GoalTargetAddSheet: View {
             }
         }
         .preferredColorScheme(.light)
+    }
+}
+
+/// 精致的达成徽章：圆形渐变底 + 皇冠图标 + 光晕
+struct AchievementBadgeView: View {
+    let color: Color
+
+    var body: some View {
+        ZStack {
+            // 渐变圆底
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [color.opacity(0.28), color.opacity(0.06)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 46, height: 46)
+
+            // 圆环边框
+            Circle()
+                .stroke(
+                    LinearGradient(
+                        colors: [color.opacity(0.7), color.opacity(0.25)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1.5
+                )
+                .frame(width: 46, height: 46)
+
+            // 皇冠图标
+            Image(systemName: "crown.fill")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [color, color.opacity(0.75)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .shadow(color: color.opacity(0.5), radius: 3, x: 0, y: 1)
+        }
+        .frame(width: 48, height: 48)
     }
 }
