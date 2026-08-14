@@ -39,8 +39,8 @@ struct AIReviewCard: View {
                 // 打字机显示 + 打字中光标闪烁
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
                     Text(displayedText)
-                        // 手写体：系统楷体 STKaiti
-                        .font(.custom("STKaiti", size: 16))
+                        // 手写体：系统楷体 Hannotate SC
+                        .font(.custom("Hannotate SC", size: 16))
                         .foregroundColor(AppTheme.brandStart)
                         .lineSpacing(7)
                     if isTyping {
@@ -64,7 +64,7 @@ struct AIReviewCard: View {
     /// 闪烁光标（标准紫色）
     private var cursorView: some View {
         Text("▍")
-            .font(.custom("STKaiti", size: 16))
+            .font(.custom("Hannotate SC", size: 16))
             .foregroundColor(AppTheme.brandEnd)
             .opacity(cursorBlink ? 1 : 0.15)
             .onAppear {
