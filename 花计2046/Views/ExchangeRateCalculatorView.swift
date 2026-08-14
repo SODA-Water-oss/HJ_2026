@@ -43,6 +43,8 @@ struct ExchangeRateCalculatorView: View {
     }
     
     private var rateDescription: String {
+        if isUpdating { return "正在获取最新汇率…" }
+        guard !liveRates.isEmpty else { return "--" }
         let fromRate = liveRates[fromCurrency.id] ?? fromCurrency.rateToCNY
         let toRate = liveRates[toCurrency.id] ?? toCurrency.rateToCNY
         guard toRate > 0 else { return "--" }
@@ -134,14 +136,31 @@ struct ExchangeRateCalculatorView: View {
                         
                         AppDivider()
                         
-                        HStack(alignment: .firstTextBaseline) {
-                            Text(String(format: "%.2f", resultValue))
-                                .font(.system(size: 32, weight: .semibold))
-                                .foregroundColor(AppTheme.brandStart)
-                            Text(toCurrency.symbol)
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundColor(AppTheme.brandStart)
-                            Spacer()
+                        if isUpdating {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .tint(AppTheme.brandStart)
+                                Text("汇率更新中，请稍候…")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(AppTheme.textSecondary)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        } else if liveRates.isEmpty {
+                            Text("尚未获取最新汇率，请先点击「刷新汇率」再换算")
+                                .font(.system(size: 15))
+                                .foregroundColor(AppTheme.textTertiary)
+                                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        } else {
+                            HStack(alignment: .firstTextBaseline) {
+                                Text(String(format: "%.2f", resultValue))
+                                    .font(.system(size: 32, weight: .semibold))
+                                    .foregroundColor(AppTheme.brandStart)
+                                Text(toCurrency.symbol)
+                                    .font(.system(size: 20, weight: .semibold))
+                                    .foregroundColor(AppTheme.brandStart)
+                                Spacer()
+                            }
                         }
                         
                         AppDivider()
@@ -151,7 +170,7 @@ struct ExchangeRateCalculatorView: View {
                                 .font(.system(size: 15))
                                 .foregroundColor(AppTheme.textSecondary)
                             Button(action: swapCurrencies) {
-                                Image(systemName: "arrow.up.arrow.down.circle.fill")
+                                Image(systemName: "arrow.left.arrow.right.circle.fill")
                                     .font(.system(size: 16))
                                     .foregroundStyle(AppTheme.brandGradient)
                             }
@@ -160,6 +179,11 @@ struct ExchangeRateCalculatorView: View {
                             Text("更新于 " + timeFormatted(updated))
                                 .font(.appSmall)
                                 .foregroundColor(AppTheme.textTertiary)
+                        }
+                        if let err = rateError {
+                            Text(err)
+                                .font(.appSmall)
+                                .foregroundColor(Color(hex: "#DC2626"))
                         }
                         
                         Button(action: { Task { await fetchRates() } }) {
@@ -265,7 +289,7 @@ struct ExchangeRateCalculatorView: View {
                 }
             }
         } catch {
-            rateError = "获取汇率失败，使用上次缓存"
+            rateError = liveRates.isEmpty ? "获取汇率失败，请检查网络后重试" : "获取汇率失败，使用上次缓存"
         }
         isUpdating = false
     }

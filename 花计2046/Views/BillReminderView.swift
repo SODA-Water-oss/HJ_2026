@@ -282,6 +282,12 @@ struct BillReminderView: View {
                 if let idx = bills.firstIndex(where: { $0.id == bill.id }) {
                     bills.remove(at: idx)
                     saveBills()
+                    // 同步删除云端数据并取消本地通知，避免切换页面后重新出现
+                    let codable = bill.toCodable(userId: supabaseService.currentUser?.id ?? UUID())
+                    Task {
+                        try? await supabaseService.deleteBillReminder(codable)
+                        NotificationManager.cancelBillNotification(billId: bill.id.uuidString)
+                    }
                 }
             })
         }
@@ -571,6 +577,7 @@ struct BillFormView: View {
     @State private var reminderTime: Date = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
     @State private var showValidationAlert = false
    @State private var validationMessage = ""
+    @State private var showDeleteConfirm = false
     
    private var currentMaxDay: Int {
         switch recurrence {
@@ -818,11 +825,8 @@ struct BillFormView: View {
                         .buttonStyle(AppSecondaryButtonStyle())
                         
                         if bill != nil {
-                            Button(action: {
-                                onDelete?()
-                                dismiss()
-                            }) {
-                                Text("删除此账单")
+                            Button(action: { showDeleteConfirm = true }) {
+                                Text("删除提醒")
                                     .font(.appBody)
                                     .foregroundColor(AppTheme.brandStart)
                                     .frame(maxWidth: .infinity)
@@ -831,6 +835,15 @@ struct BillFormView: View {
                             .background(Color.white)
                             .cornerRadius(8)
                             .overlay(RoundedRectangle(cornerRadius: 8).stroke(AppTheme.border, lineWidth: 1))
+                            .confirmationDialog("删除提醒", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+                                Button("删除", role: .destructive) {
+                                    onDelete?()
+                                    dismiss()
+                                }
+                                Button("取消", role: .cancel) { }
+                            } message: {
+                                Text("确定要删除该提醒吗？删除后不可恢复。")
+                            }
                         }
                     }
                     .padding(.horizontal, 20)
