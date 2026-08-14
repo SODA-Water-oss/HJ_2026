@@ -171,11 +171,17 @@ struct ExpenseListView: View {
             onDeleteConfirm: {
                 let ids = Array(selectedExpenseIds)
                 let count = ids.count
+                // 乐观删除：先更新本地列表，页面立即生效（不依赖服务端耗时）
+                let idSet = Set(ids)
+                supabaseService.allRecords = supabaseService.allRecords.filter { !idSet.contains($0.id) }
+                supabaseService.expenses = supabaseService.expenses.filter { !idSet.contains($0.id) }
+                supabaseService.incomes = supabaseService.incomes.filter { !idSet.contains($0.id) }
+                selectedExpenseIds = []
+                rebuildGrouped()
+                // 后台同步服务端（失败仅记日志，本地已生效）
                 Task {
                     try? await supabaseService.batchDeleteExpenses(ids: ids)
                     await UserLogManager.log(action: "批量删除", detail: "批量删除(\(count))", supabaseService: supabaseService)
-                    selectedExpenseIds = []
-                    rebuildGrouped()
                 }
             },
             onDateConfirm: { date in
