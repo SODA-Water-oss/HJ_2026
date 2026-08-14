@@ -431,18 +431,20 @@ struct BillReminderView: View {
                         }
                     }
                     
-                    // 标记已付/完成按钮
+                    // 标记已付/完成按钮（醒目实心紫色，避免被忽略）
                     if !bill.isPaidThisPeriod && !bill.isCompleted {
                         Button(action: { markPaid(bill) }) {
                             Text(bill.recurrence == .once ? "标记完成" : "标记已付")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(AppTheme.brandStart)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .background(AppTheme.brandStart.opacity(0.1))
-                                .cornerRadius(6)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 7)
+                                .background(AppTheme.brandGradient)
+                                .cornerRadius(8)
+                                .shadow(color: AppTheme.brandShadow, radius: 4, x: 0, y: 2)
                         }
                         .buttonStyle(.plain)
+                        .contentShape(Rectangle())
                     }
                 }
                 .frame(minWidth: 44)
