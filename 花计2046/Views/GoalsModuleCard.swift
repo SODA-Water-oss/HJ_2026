@@ -215,6 +215,7 @@ struct GoalTargetSettingSheet: View {
     @Binding var items: [GoalTargetItem]
     @Environment(\.dismiss) private var dismiss
     @State private var showAddForm = false
+    @State private var pendingDelete: GoalTargetItem?
 
     var body: some View {
         NavigationStack {
@@ -253,8 +254,7 @@ struct GoalTargetSettingSheet: View {
                                 }
                                 Spacer()
                                 Button(role: .destructive) {
-                                    items.removeAll { $0.id == item.id }
-                                    GoalTargetItem.save(items)
+                                    pendingDelete = item
                                 } label: {
                                     Image(systemName: "trash")
                                 }
@@ -291,6 +291,25 @@ struct GoalTargetSettingSheet: View {
             }
             .sheet(isPresented: $showAddForm) {
                 GoalTargetAddSheet(items: $items)
+            }
+            .alert("确认删除", isPresented: Binding(
+                get: { pendingDelete != nil },
+                set: { if !$0 { pendingDelete = nil } }
+            )) {
+                Button("取消", role: .cancel) { pendingDelete = nil }
+                Button("删除", role: .destructive) {
+                    if let target = pendingDelete {
+                        items.removeAll { $0.id == target.id }
+                        GoalTargetItem.save(items)
+                    }
+                    pendingDelete = nil
+                }
+            } message: {
+                if let target = pendingDelete {
+                    Text("确定删除「\(target.category)目标 · \(target.timeDimension)」吗？删除后不可恢复。")
+                } else {
+                    Text("确定删除该目标吗？")
+                }
             }
         }
         .preferredColorScheme(.light)
