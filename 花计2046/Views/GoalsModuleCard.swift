@@ -161,11 +161,15 @@ struct GoalsModuleCard: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title).font(.appSmall).foregroundColor(AppTheme.textSecondary)
             HStack(spacing: 8) {
-                ForEach(0..<min(max(count, 0), 10), id: \.self) { _ in
-                    AchievementBadgeView(color: color)
+                ForEach(0..<min(max(count, 0), 8), id: \.self) { _ in
+                    if icon == "crown.fill" && color == AppTheme.brandEnd {
+                        WeeklyBadgeView()
+                    } else {
+                        MonthlyBadgeView()
+                    }
                 }
-                if count > 10 {
-                    Text("+\\(count - 10)")
+                if count > 8 {
+                    Text("+\\(count - 8)")
                         .font(.appSmall)
                         .foregroundColor(AppTheme.textSecondary)
                 }
@@ -516,47 +520,144 @@ struct GoalTargetAddSheet: View {
     }
 }
 
-/// 精致的达成徽章：圆形渐变底 + 皇冠图标 + 光晕
-struct AchievementBadgeView: View {
-    let color: Color
+/// 周达成徽章（华丽）：渐变圆底 + 紫色皇冠 + 四角星点缀 + 光晕
+struct WeeklyBadgeView: View {
+    private var color: Color { AppTheme.brandEnd }
 
     var body: some View {
         ZStack {
+            // 外圈光晕
+            Circle()
+                .fill(color.opacity(0.16))
+                .frame(width: 54, height: 54)
+
             // 渐变圆底
             Circle()
                 .fill(
                     LinearGradient(
-                        colors: [color.opacity(0.28), color.opacity(0.06)],
+                        colors: [color.opacity(0.38), color.opacity(0.08)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
                 .frame(width: 46, height: 46)
 
-            // 圆环边框
+            // 渐变圆环
             Circle()
                 .stroke(
                     LinearGradient(
-                        colors: [color.opacity(0.7), color.opacity(0.25)],
+                        colors: [Color.white, color, color.opacity(0.3)],
                         startPoint: .top,
                         endPoint: .bottom
                     ),
-                    lineWidth: 1.5
+                    lineWidth: 2
                 )
                 .frame(width: 46, height: 46)
 
-            // 皇冠图标
+            // 皇冠
             Image(systemName: "crown.fill")
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundStyle(
+                    LinearGradient(colors: [color, Color(hex: "#A855F7").opacity(0.7)], startPoint: .top, endPoint: .bottom)
+                )
+                .shadow(color: color.opacity(0.6), radius: 3, x: 0, y: 1)
+
+            // 四角星点缀
+            sparkle(offset: CGSize(width: -20, height: -20), size: 5)
+            sparkle(offset: CGSize(width: 20, height: -18), size: 4)
+            sparkle(offset: CGSize(width: -22, height: 18), size: 4)
+            sparkle(offset: CGSize(width: 22, height: 20), size: 5)
+        }
+        .frame(width: 54, height: 54)
+    }
+
+    private func sparkle(offset: CGSize, size: CGFloat) -> some View {
+        Image(systemName: "sparkle")
+            .font(.system(size: size))
+            .foregroundColor(color.opacity(0.85))
+            .offset(offset)
+    }
+}
+
+/// 月达成徽章（更加华丽）：放射光线 + 双圆环 + 金色皇冠 + 多星点缀
+struct MonthlyBadgeView: View {
+    private var color: Color { Color(hex: "#EAB308") }
+
+    var body: some View {
+        ZStack {
+            // 大光晕
+            Circle()
+                .fill(color.opacity(0.18))
+                .frame(width: 66, height: 66)
+
+            // 放射光线（8 条）
+            ForEach(0..<8, id: \.self) { i in
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(
+                        LinearGradient(
+                            colors: [color.opacity(0.9), color.opacity(0.0)],
+                            startPoint: .center,
+                            endPoint: .top
+                        )
+                    )
+                    .frame(width: 3.5, height: 26)
+                    .offset(y: -26)
+                    .rotationEffect(.degrees(Double(i) * 45))
+            }
+
+            // 渐变圆底
+            Circle()
+                .fill(
                     LinearGradient(
-                        colors: [color, color.opacity(0.75)],
+                        colors: [color.opacity(0.42), Color(hex: "#FDE68A").opacity(0.15)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 54, height: 54)
+
+            // 双圆环
+            Circle()
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white, color, color.opacity(0.35)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 2.2
+                )
+                .frame(width: 54, height: 54)
+            Circle()
+                .stroke(color.opacity(0.45), lineWidth: 1)
+                .frame(width: 44, height: 44)
+
+            // 金色皇冠
+            Image(systemName: "crown.fill")
+                .font(.system(size: 26, weight: .semibold))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [Color(hex: "#FBBF24"), Color(hex: "#B45309")],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                 )
-                .shadow(color: color.opacity(0.5), radius: 3, x: 0, y: 1)
+                .shadow(color: color.opacity(0.7), radius: 4, x: 0, y: 2)
+
+            // 多点 sparkle 点缀
+            sparkle(offset: CGSize(width: -26, height: -26), size: 6)
+            sparkle(offset: CGSize(width: 26, height: -24), size: 5)
+            sparkle(offset: CGSize(width: -28, height: 24), size: 5)
+            sparkle(offset: CGSize(width: 28, height: 26), size: 6)
+            sparkle(offset: CGSize(width: 0, height: -32), size: 4)
+            sparkle(offset: CGSize(width: 0, height: 32), size: 4)
         }
-        .frame(width: 48, height: 48)
+        .frame(width: 66, height: 66)
+    }
+
+    private func sparkle(offset: CGSize, size: CGFloat) -> some View {
+        Image(systemName: "sparkle")
+            .font(.system(size: size))
+            .foregroundColor(color.opacity(0.9))
+            .offset(offset)
     }
 }
