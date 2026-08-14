@@ -300,42 +300,45 @@ struct AIConfirmView: View {
         Log.info("开始保存 \(parsedItems.count) 笔支出")
 
         Task {
-            var savedCount = 0
-            var savedIndices = Set<Int>()
+            // 批量保存：一次网络请求 + 一次性本地更新（性能优化）
+            let toSave = parsedItems.enumerated().filter { !deletedIndices.contains($0.offset) }
+            var validPairs: [(index: Int, expense: Expense)] = []
             var failedItems: [String] = []
 
-            // 并发保存
-            let toSave = parsedItems.enumerated().filter { !deletedIndices.contains($0.offset) }
-            await withTaskGroup(of: (Int, Bool, String).self) { group in
-                for (offset, item) in toSave {
-                    let expense = Expense(id: UUID(), userId: userId, type: item.type, amount: item.amount, category: item.category, merchant: item.merchant, date: Date(), note: item.note, currency: currencySymbol)
-                    group.addTask { [offset] in
-                        let _nE = item.merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty; let _aB = item.amount <= 0; if _nE && _aB { return (offset, false, "未录入有效名称、金额") }; if _nE { return (offset, false, "未录入有效名称") }; if _aB { return (offset, false, "未录入有效金额") }
-                        do { try await supabaseService.addExpense(expense); return (offset, true, "保存成功") }
-                        catch { Log.error("保存失败: \(error.localizedDescription)"); return (offset, false, "\(item.merchant) ¥\(item.amount): \(error.userFriendlyDescription)") }
-                    }
-                }
-                for await (offset, ok, msg) in group {
-                    if ok { savedCount += 1; savedIndices.insert(offset) }
-                    else { failedItems.append(msg) }
-                }
+            for (offset, item) in toSave {
+                let nameEmpty = item.merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                let amountBad = item.amount <= 0
+                if nameEmpty && amountBad { failedItems.append("未录入有效名称、金额"); continue }
+                if nameEmpty { failedItems.append("未录入有效名称"); continue }
+                if amountBad { failedItems.append("未录入有效金额"); continue }
+                let expense = Expense(id: UUID(), userId: userId, type: item.type, amount: item.amount, category: item.category, merchant: item.merchant, date: Date(), note: item.note, currency: currencySymbol)
+                validPairs.append((offset, expense))
+            }
 
-      }
+            var cloudSucceeded = false
+            if !validPairs.isEmpty {
+                do {
+                    try await supabaseService.batchAddExpenses(validPairs.map { $0.expense })
+                    cloudSucceeded = true
+                } catch {
+                    failedItems.append("云端保存失败：\(error.userFriendlyDescription)")
+                }
+            }
 
             await MainActor.run {
                 isSaving = false
-                if failedItems.isEmpty {
-                    Log.info("全部保存成功: \(savedCount) 笔")
-                    Task { await UserLogManager.log(action: "进账", detail: "进账(\(savedCount))", supabaseService: supabaseService) }
+                if cloudSucceeded && failedItems.isEmpty {
+                    Log.info("全部保存成功: \(validPairs.count) 笔")
+                    Task { await UserLogManager.log(action: "进账", detail: "进账(\(validPairs.count))", supabaseService: supabaseService) }
                     onSuccess?()
-                } else if savedCount > 0 {
-                    // 部分成功：移除已保存的，保留失败的
-                    for idx in savedIndices.sorted(by: >) {
-                       parsedItems.remove(at: idx)
-                   }
-                   deletedIndices = []
-                   errorMessage = "\(savedCount) 笔已进账，\(failedItems.count) 笔失败，请修改后重试"
-                   Log.warn("部分保存: \(errorMessage ?? "")")
+                } else if cloudSucceeded {
+                    // 校验失败的项保留，成功项移除
+                    for (index, _) in validPairs.sorted(by: { $0.index > $1.index }) {
+                        parsedItems.remove(at: index)
+                    }
+                    deletedIndices = []
+                    errorMessage = "\(validPairs.count) 笔已进账，\(failedItems.count) 笔失败，请修改后重试"
+                    Log.warn("部分保存: \(errorMessage ?? "")")
                 } else {
                     errorMessage = "全部进账失败：\(failedItems.joined(separator: "；"))"
                     Log.warn("全部失败: \(errorMessage ?? "")")

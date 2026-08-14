@@ -267,6 +267,48 @@ class SupabaseService: ObservableObject {
        Log.info("云端添加成功")
    }
    
+   /// 批量插入多条记录：一次网络请求 + 一次性本地更新（性能优化）
+   func batchAddExpenses(_ expenses: [Expense]) async throws {
+       guard !expenses.isEmpty else { return }
+       Log.info("批量添加支出 count=\(expenses.count)")
+       
+       if AppConfig.useMockServices {
+           var added = expenses
+           for i in added.indices { added[i].userId = currentUser?.id ?? added[i].userId }
+           mockExpenses.append(contentsOf: added)
+           saveExpensesToDefaults()
+           allRecords.append(contentsOf: added)
+           allRecords.sort { $0.date > $1.date }
+           for e in added {
+               if e.isIncome { incomes.append(e) } else { expenses.append(e) }
+           }
+           expenses.sort { $0.date > $1.date }
+           incomes.sort { $0.date > $1.date }
+           unreadExpenseCount += added.filter(\.isExpense).count
+           return
+       }
+       
+       // 云端一次性批量插入
+       var cloud = expenses
+       for i in cloud.indices { cloud[i].userId = currentUser?.id ?? cloud[i].userId }
+       try await client.from("records").insert(cloud).execute()
+       
+       // 本地一次性更新（只触发一次 UI 刷新）
+       var updatedAll = allRecords
+       updatedAll.append(contentsOf: expenses)
+       updatedAll.sort { $0.date > $1.date }
+       allRecords = updatedAll
+       
+       let addedIncomes = expenses.filter(\.isIncome)
+       let addedExpenses = expenses.filter(\.isExpense)
+       incomes.append(contentsOf: addedIncomes)
+       incomes.sort { $0.date > $1.date }
+       self.expenses.append(contentsOf: addedExpenses)
+       self.expenses.sort { $0.date > $1.date }
+       unreadExpenseCount += addedExpenses.count
+       Log.info("云端批量添加成功 count=\(expenses.count)")
+   }
+
    func updateExpense(_ expense: Expense) async throws {
        Log.info("更新支出 id=\(expense.id)")
        
