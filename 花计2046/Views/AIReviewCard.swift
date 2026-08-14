@@ -7,7 +7,6 @@ struct AIReviewCard: View {
     @State private var displayedText = ""
     @State private var isLoading = false
     @State private var isTyping = false
-    @State private var loadFailed = false
     @State private var cursorBlink = true
 
     var body: some View {
@@ -21,20 +20,12 @@ struct AIReviewCard: View {
                 .disabled(isLoading || isTyping)
             }
 
-            // 内容区
-            if isLoading {
-                // 等待 AI 生成：闪烁光标（无文字）
+            // 内容区：无内容时一律显示闪烁光标（等待 AI 生成）
+            if fullText.isEmpty {
                 HStack(spacing: 2) {
                     cursorView
                 }
                 .padding(.vertical, 18)
-            } else if loadFailed || (fullText.isEmpty && !isTyping) {
-                Button(action: { load() }) {
-                    Text("生成失败，点此重试")
-                        .font(.system(size: 14))
-                        .foregroundColor(AppTheme.brandStart)
-                        .padding(.vertical, 16)
-                }
             } else {
                 // 打字机显示 + 打字中光标闪烁
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
@@ -88,7 +79,6 @@ struct AIReviewCard: View {
     private func load() {
         guard !AppConfig.useMockServices else { return }
         isLoading = true
-        loadFailed = false
         Task {
             do {
                 let result: ReviewResponse = try await BackendAPI.shared.post(
@@ -105,7 +95,6 @@ struct AIReviewCard: View {
                 Log.error("最近收支评价生成失败: \(error.localizedDescription)")
                 await MainActor.run {
                     isLoading = false
-                    loadFailed = true
                 }
             }
         }
