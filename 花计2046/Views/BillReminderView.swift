@@ -649,12 +649,17 @@ struct BillFormView: View {
     /// 一次性提醒：日期为今天时只允许未来的时间，未来日期则任意时间
     private var onceTimeRange: ClosedRange<Date> {
         let cal = Calendar.current
-        let dayStart = cal.startOfDay(for: onceDate)
+        // reminderTime 只是“时:分”载体（日期部分固定为今天），范围基准日必须与它一致，
+        // 否则选中值落在范围外会被系统钳制到 00:00。
+        let dayStart = cal.startOfDay(for: reminderTime)
         let dayEnd = dayStart.addingTimeInterval(24 * 3600 - 1)
         let now = Date()
         if cal.isDateInToday(onceDate) {
-            return (now > dayStart ? now : dayStart)...dayEnd
+            // 日期是今天：只能选当前时间之后的时刻（下界不超过当天 23:59:59，避免范围倒置）
+            let lower = min(max(now, dayStart), dayEnd)
+            return lower...dayEnd
         }
+        // 未来日期：任意时刻
         return dayStart...dayEnd
     }
     
