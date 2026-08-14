@@ -82,7 +82,6 @@ struct ToolsView: View {
                     await UserSettingsManager.shared.loadFromCloud()
                     tools = orderedTools
                 }
-                }
             }
             .background(AppTheme.background.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
