@@ -551,6 +551,7 @@ struct BillReminderCodable: Codable, Identifiable {
     var recurrence: String
     var isEnabled: Bool
     var currency: String
+    var onceDate: String?
     var createdAt: String?
     var updatedAt: String?
     
@@ -564,6 +565,7 @@ struct BillReminderCodable: Codable, Identifiable {
         case recurrence
         case isEnabled = "is_enabled"
         case currency
+        case onceDate = "once_date"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }

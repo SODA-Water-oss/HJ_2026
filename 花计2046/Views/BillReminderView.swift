@@ -21,6 +21,15 @@ struct NotificationManager {
         content.badge = 1
         content.userInfo = ["bill_id": bill.id.uuidString]
         
+        // 一次性提醒：按指定日期时间触发一次
+        if bill.recurrence == .once {
+            let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: dueDate)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+            let request = UNNotificationRequest(identifier: bill.id.uuidString, content: content, trigger: trigger)
+            UNUserNotificationCenter.current().add(request)
+            return
+        }
+        
         // Schedule for due date at 9:00 AM
         var dateComponents = Calendar.current.dateComponents([.year, .month, .day], from: dueDate)
         dateComponents.hour = 9
@@ -58,11 +67,13 @@ struct BillItem: Identifiable, Codable {
     var isEnabled: Bool = true
     var lastNotified: Date?
     var currency: String = "¥"
+    var onceDate: Date?  // 一次性提醒的日期时间
     
     enum Recurrence: String, Codable, CaseIterable {
         case monthly = "每月"
         case quarterly = "每季度"
         case yearly = "每年"
+        case once = "一次性"
     }
     
    var nextDueDate: Date? {
@@ -74,6 +85,10 @@ struct BillItem: Identifiable, Codable {
         // 1. Determine target year and month
         var targetYear: Int
         var targetMonth: Int
+        
+        if recurrence == .once {
+            return onceDate
+        }
         
         switch recurrence {
         case .monthly:
@@ -122,6 +137,12 @@ struct BillItem: Identifiable, Codable {
     }
     
     var dueDateDisplay: String {
+        if recurrence == .once {
+            if let d = onceDate {
+                return "一次性 " + d.formatted(date: .abbreviated, time: .shortened)
+            }
+            return "一次性"
+        }
         switch recurrence {
         case .monthly: return "每月" + String(dueDay) + "日"
         case .quarterly:
@@ -373,6 +394,11 @@ extension BillItem {
         case "monthly": self.recurrence = .monthly
         case "quarterly": self.recurrence = .quarterly
         case "yearly": self.recurrence = .yearly
+        case "once":
+            self.recurrence = .once
+            if let raw = codable.onceDate {
+                self.onceDate = ISO8601DateFormatter().date(from: raw)
+            }
         default: self.recurrence = .monthly
         }
     }
@@ -383,6 +409,7 @@ extension BillItem {
             case .monthly: return "monthly"
             case .quarterly: return "quarterly"
             case .yearly: return "yearly"
+            case .once: return "once"
             }
         }()
         return BillReminderCodable(
@@ -394,7 +421,8 @@ extension BillItem {
             dueMonth: recurrence == .monthly ? 0 : dueMonth,
             recurrence: dbRec,
             isEnabled: isEnabled,
-            currency: currency
+            currency: currency,
+            onceDate: recurrence == .once ? onceDate.map { ISO8601DateFormatter().string(from: $0) } : nil
         )
     }
 }
@@ -416,7 +444,7 @@ struct BillFormView: View {
     
    private var currentMaxDay: Int {
         switch recurrence {
-        case .monthly:
+        case .monthly, .once:
             return 31
         case .quarterly:
             let m = dueMonth > 0 ? dueMonth : 1
@@ -440,6 +468,7 @@ struct BillFormView: View {
         _dueDay = State(initialValue: bill?.dueDay ?? today)
         _dueMonth = State(initialValue: bill?.dueMonth ?? thisMonth)
         _recurrence = State(initialValue: bill?.recurrence ?? .monthly)
+        _onceDate = State(initialValue: bill?.onceDate ?? Date().addingTimeInterval(24 * 60 * 60))
     }
     
     var body: some View {
@@ -511,6 +540,21 @@ struct BillFormView: View {
                             .cornerRadius(8)
                     }
                     
+                    // 一次性：指定日期和时间
+                    if recurrence == .once {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("提醒时间").font(.system(size: 17)).foregroundColor(AppTheme.textSecondary)
+                            DatePicker("日期时间", selection: $onceDate, displayedComponents: [.date, .hourAndMinute])
+                                .datePickerStyle(.compact)
+                                .padding(12)
+                                .background(AppTheme.background)
+                                .cornerRadius(AppTheme.elementRadius)
+                            Text("到指定时间提醒一次")
+                                .font(.appSmall)
+                                .foregroundColor(AppTheme.textTertiary)
+                        }
+                    }
+                    
                     // Month grid (季度/年份)
                     if recurrence == .quarterly || recurrence == .yearly {
                         VStack(alignment: .leading, spacing: 6) {
@@ -535,7 +579,8 @@ struct BillFormView: View {
                         }
                     }
                     
-                    // Due day
+                    // Due day（周期模式）
+                    if recurrence != .once {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("到期日").font(.system(size: 17)).foregroundColor(AppTheme.textSecondary)
                         
@@ -553,6 +598,7 @@ struct BillFormView: View {
                                     .frame(minWidth: 60)
                                 let dayLabel: String = {
                                     switch recurrence {
+                                    case .once: return "一次性"
                                     case .monthly: return "每月" + String(dueDay) + "日"
                                     case .quarterly:
                                         let names = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"]
@@ -594,7 +640,7 @@ struct BillFormView: View {
                             if dueDay > currentMaxDay { dueDay = currentMaxDay }
                         }
                     }
-                    
+                    }
                     }
                     .padding(20)
                     .background(Color.white)
@@ -674,7 +720,8 @@ struct BillFormView: View {
             recurrence: recurrence,
             isEnabled: bill?.isEnabled ?? true,
             lastNotified: bill?.lastNotified,
-            currency: UserDefaults.standard.string(forKey: "currency_symbol") ?? "¥"
+            currency: UserDefaults.standard.string(forKey: "currency_symbol") ?? "¥",
+            onceDate: recurrence == .once ? onceDate : nil
         )
         onSave(newBill)
         dismiss()
