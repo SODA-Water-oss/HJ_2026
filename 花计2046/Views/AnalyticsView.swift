@@ -218,21 +218,17 @@ struct AnalyticsView: View {
                         trend12Card
                     }
                     
-                    // 支出
+                    // 支出（标题在卡片内）
                     if searchState.type == "全部" || searchState.type == "支出" {
                         if !expenseAnalytics.isEmpty {
-                            sectionHeader("支出", icon: "arrow.down.circle")
-                            pieCard(data: expenseAnalytics, title: "支出占比")
-                            categoryCard(data: expenseAnalytics, title: "支出类别")
+                            categorySection(icon: "arrow.down.circle", title: "支出", data: expenseAnalytics)
                         }
                     }
                     
-                    // 收入
+                    // 收入（标题在卡片内）
                     if searchState.type == "全部" || searchState.type == "收入" {
                         if !incomeAnalytics.isEmpty {
-                            sectionHeader("收入", icon: "arrow.up.circle")
-                            pieCard(data: incomeAnalytics, title: "收入占比")
-                            categoryCard(data: incomeAnalytics, title: "收入类别")
+                            categorySection(icon: "arrow.up.circle", title: "收入", data: incomeAnalytics)
                         }
                     }
                 }
@@ -746,33 +742,6 @@ extension AnalyticsView {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func pieCard(data: [CategoryAnalytics], title: String) -> some View {
-        let count = data.count
-        let isMany = count > 6
-        return VStack(alignment: .leading, spacing: 16) {
-            AnalyticsSubHeader(icon: "chart.pie.fill", title: title)
-            
-            HStack(alignment: .top, spacing: isMany ? 12 : 24) {
-                PieChartView(data: data)
-                    .animation(.spring(response: 0.5, dampingFraction: 0.7), value: data.map { $0.id })
-                    .frame(width: isMany ? 100 : 140, height: isMany ? 100 : 140)
-                
-                HStack(alignment: .top, spacing: isMany ? 8 : 0) {
-                    if isMany {
-                        legendGroup(data: data, start: 0, stride: 2)
-                        legendGroup(data: data, start: 1, stride: 2)
-                    } else {
-                        legendGroup(data: data, start: 0, stride: 1)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-            }
-        }
-        .cardStyle()
-        .frame(maxWidth: .infinity)
-    }
-    
-    // 图例分组（仅从 categoryAnalytics 取对应步长的项）
     private func legendGroup(data: [CategoryAnalytics], start: Int, stride: Int) -> some View {
         let showCurrency = Set(data.map { $0.currency }).count > 1
         var entries: [(offset: Int, element: CategoryAnalytics)] = []
@@ -802,25 +771,62 @@ extension AnalyticsView {
    }
    
 
-    private func categoryCard(data: [CategoryAnalytics], title: String) -> some View {
+    private func categorySection(icon: String, title: String, data: [CategoryAnalytics]) -> some View {
         VStack(alignment: .leading, spacing: 16) {
+            AnalyticsModuleHeader(icon: icon, title: title)
+
+            pieContent(data: data, title: "\(title)占比")
+
+            AppDivider()
+
+            categoryContent(data: data, title: "\(title)类别")
+        }
+        .cardStyle()
+        .frame(maxWidth: .infinity)
+    }
+
+    private func pieContent(data: [CategoryAnalytics], title: String) -> some View {
+        let count = data.count
+        let isMany = count > 6
+        return VStack(alignment: .leading, spacing: 12) {
+            AnalyticsSubHeader(icon: "chart.pie.fill", title: title)
+
+            HStack(alignment: .top, spacing: isMany ? 12 : 24) {
+                PieChartView(data: data)
+                    .animation(.spring(response: 0.5, dampingFraction: 0.7), value: data.map { $0.id })
+                    .frame(width: isMany ? 100 : 140, height: isMany ? 100 : 140)
+
+                HStack(alignment: .top, spacing: isMany ? 8 : 0) {
+                    if isMany {
+                        legendGroup(data: data, start: 0, stride: 2)
+                        legendGroup(data: data, start: 1, stride: 2)
+                    } else {
+                        legendGroup(data: data, start: 0, stride: 1)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    private func categoryContent(data: [CategoryAnalytics], title: String) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
             AnalyticsSubHeader(icon: "chart.bar.fill", title: title)
-            
+
             if data.isEmpty {
                 Text("暂无数据")
                     .font(.appBody)
                     .foregroundColor(AppTheme.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 32)
+                    .padding(.vertical, 16)
             } else {
                 ForEach(data) { item in
                     CategoryDetailView(analytics: item)
                 }
             }
         }
-       .cardStyle()
-       .frame(maxWidth: .infinity)
-   }
+    }
+
     private func analyticsTypeButton(_ label: String) -> some View {
         Button(action: { searchState.type = label }) {
             Text(label).font(.system(size: 17, weight: .medium))
