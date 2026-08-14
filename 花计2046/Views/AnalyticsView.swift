@@ -218,17 +218,17 @@ struct AnalyticsView: View {
                         trend12Card
                     }
                     
-                    // 支出（标题在卡片内）
-                    if searchState.type == "全部" || searchState.type == "支出" {
-                        if !expenseAnalytics.isEmpty {
-                            categorySection(icon: "arrow.down.circle", title: "支出", data: expenseAnalytics)
-                        }
-                    }
-                    
-                    // 收入（标题在卡片内）
+                    // 收入（标题在卡片内，位于支出前）
                     if searchState.type == "全部" || searchState.type == "收入" {
                         if !incomeAnalytics.isEmpty {
                             categorySection(icon: "arrow.up.circle", title: "收入", data: incomeAnalytics)
+                        }
+                    }
+                    
+                    // 支出（标题在卡片内，位于收入后）
+                    if searchState.type == "全部" || searchState.type == "支出" {
+                        if !expenseAnalytics.isEmpty {
+                            categorySection(icon: "arrow.down.circle", title: "支出", data: expenseAnalytics)
                         }
                     }
                 }
@@ -624,7 +624,7 @@ extension AnalyticsView {
                     Spacer()
                     Text(String(format: "%@%@%.2f", net >= 0 ? "+" : "", effectiveAnalyticsCurrency, net))
                         .font(.system(size: 24, weight: .semibold))
-                        .foregroundColor(AppTheme.brandStart)
+                        .foregroundColor(AppTheme.brandEnd)
                 }
                 HStack {
                     Text("日均支出")

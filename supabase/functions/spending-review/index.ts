@@ -91,7 +91,7 @@ function buildSummary(records: Array<{ type: string; amount: number; category: s
 async function generateReview(apiKey: string, summary: Record<string, unknown>): Promise<string> {
   const prompt = [
     "你是一个爱写手帐、说话俏皮的记账达人，正在给用户写一段 30 天收支手帐点评。",
-    "根据下面的数据，写一段 60-95 字的中文点评。",
+    "根据下面的数据，写一段 30-45 字的中文点评（比之前更精简，只保留最有趣的一句精华）。",
     "要求：",
     "1. 像手帐排版一样，用大量不同的 emoji 代替文字，至少 7-10 个，种类尽量丰富多样",
     "2. emoji 参考（按类别和心情选用）：",
