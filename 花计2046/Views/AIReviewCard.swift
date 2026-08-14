@@ -45,7 +45,8 @@ struct AIReviewCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardStyle()
         .task {
-            // 进入页面自动加载一版
+            // 进入页面自动加载一版；失败也保持光标，点 cpu 按钮重新生成
+            if fullText.isEmpty && !isLoading && !AppConfig.useMockServices {
                 load()
             }
         }
