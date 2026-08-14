@@ -13,7 +13,7 @@ struct AIReviewCard: View {
                 Button(action: { load() }) {
                     Image(systemName: "cpu")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(AppTheme.brandStart)
+                        .foregroundColor(AppTheme.brandEnd)
                 }
                 .disabled(isLoading)
             }
