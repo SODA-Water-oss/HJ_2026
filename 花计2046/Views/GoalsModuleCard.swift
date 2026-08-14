@@ -65,8 +65,8 @@ struct GoalsModuleCard: View {
                 expense: currentPeriodSum(dimension: "每月", category: "支出", records: supabaseService.allRecords)
             )
 
-            // 其他维度目标条目（每年 / 日期区间）展示
-            let otherItems = items.filter { $0.timeDimension != "每周" && $0.timeDimension != "每月" }
+            // 其他维度目标条目（日期区间）展示；每年目标进入下方徽章区
+            let otherItems = items.filter { $0.timeDimension == "日期区间" }
             if !otherItems.isEmpty {
                 Divider()
                 ForEach(otherItems) { item in
@@ -142,8 +142,7 @@ struct GoalsModuleCard: View {
 
     // MARK: - 历史达成徽章（长期显示）
     private var achievementBadges: some View {
-        let weeklyItems = items.filter { $0.timeDimension == "每周" }
-        let monthlyItems = items.filter { $0.timeDimension == "每月" }
+        let badgeItems = items.filter { $0.timeDimension == "每周" || $0.timeDimension == "每月" || $0.timeDimension == "每年" }
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Image(systemName: "medal.fill")
@@ -154,26 +153,38 @@ struct GoalsModuleCard: View {
                     .foregroundColor(AppTheme.textPrimary)
                 Spacer()
             }
-            if weeklyItems.isEmpty && monthlyItems.isEmpty {
-                Text("设置每周或每月目标后，达成即可获得对应徽章")
+            if badgeItems.isEmpty {
+                Text("设置每周/每月/每年目标后，达成即可获得对应徽章")
                     .font(.appTiny)
                     .foregroundColor(AppTheme.textTertiary)
             } else {
-                ForEach(weeklyItems) { item in
-                    badgeRow(name: item.displayName, title: "周达成", count: achievedCount(for: item), limit: badgeLimit(for: item), isWeekly: true)
-                }
-                ForEach(monthlyItems) { item in
-                    badgeRow(name: item.displayName, title: "月达成", count: achievedCount(for: item), limit: badgeLimit(for: item), isWeekly: false)
+                ForEach(badgeItems) { item in
+                    badgeRow(
+                        name: item.displayName,
+                        title: badgeTitle(for: item),
+                        achieved: achievedLastPeriod(for: item),
+                        totalCount: achievedCountTotal(for: item),
+                        isWeekly: item.timeDimension == "每周"
+                    )
                 }
             }
-            Text("每达成一个周期获得1枚，集满即闭环不再新增（每周6 / 每月5）")
+            Text("只显示上一周期达成（上周/上月/上年），未达成不显示徽章")
                 .font(.appTiny)
                 .foregroundColor(AppTheme.textTertiary)
         }
     }
 
-    /// 单条目标徽章行：目标名称（固定列宽保证对齐）+ 周/月达成 + 徽章（封顶，集满显示已集满）
-    private func badgeRow(name: String, title: String, count: Int, limit: Int, isWeekly: Bool) -> some View {
+    private func badgeTitle(for item: GoalTargetItem) -> String {
+        switch item.timeDimension {
+        case "每周": return "周达成"
+        case "每月": return "月达成"
+        case "每年": return "年达成"
+        default: return "达成"
+        }
+    }
+
+    /// 单条目标徽章行：目标名称 + 周/月/年达成 + 上一周期徽章（未达成不显示）+ 历史累计次数文字
+    private func badgeRow(name: String, title: String, achieved: Bool, totalCount: Int, isWeekly: Bool) -> some View {
         HStack(alignment: .center, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
@@ -186,29 +197,14 @@ struct GoalsModuleCard: View {
             }
             .frame(width: 88, alignment: .leading)
             Spacer(minLength: 8)
-            HStack(spacing: 6) {
-                ForEach(0..<count, id: \.self) { _ in
-                    if isWeekly { WeeklyBadgeView() } else { MonthlyBadgeView() }
-                }
-                if count == 0 {
-                    Text("--").font(.appSmall).foregroundColor(AppTheme.textTertiary)
-                } else if count >= limit {
-                    Text("已集满 ✓")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.green)
-                }
+            if achieved {
+                if isWeekly { WeeklyBadgeView() } else { MonthlyBadgeView() }
             }
-        }
-    }
-
-    /// 每个目标的徽章上限（集满闭环，不再新增；一行放得下，避免排版撑乱）
-    private func badgeLimit(for item: GoalTargetItem) -> Int {
-        switch item.timeDimension {
-        case "每周": return 6
-        case "每月": return 5
-        case "每年": return 3
-        case "日期区间": return 1
-        default: return 3
+            if totalCount > 0 {
+                Text("累计 \(totalCount) 次")
+                    .font(.appTiny)
+                    .foregroundColor(AppTheme.textTertiary)
+            }
         }
     }
 
@@ -241,7 +237,31 @@ struct GoalsModuleCard: View {
     }
 
     /// 某个目标在历史周期中达成的次数（按目标名称一一匹配；周=52 周、月=24 个月、年=5 年、日期区间=1 次）
-    private func achievedCount(for item: GoalTargetItem) -> Int {
+    /// 上一完整周期是否达成（上周/上月/上年），未达成不显示徽章
+    private func achievedLastPeriod(for item: GoalTargetItem) -> Bool {
+        let records = supabaseService.allRecords
+        let cal = Calendar.current
+        let now = Date()
+        let range: (start: Date, end: Date)?
+        switch item.timeDimension {
+        case "每周":
+            let thisWeekStart = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)) ?? now
+            range = (cal.date(byAdding: .day, value: -7, to: thisWeekStart) ?? thisWeekStart, thisWeekStart)
+        case "每月":
+            let thisMonthStart = cal.date(from: cal.dateComponents([.year, .month], from: now)) ?? now
+            range = (cal.date(byAdding: .month, value: -1, to: thisMonthStart) ?? thisMonthStart, thisMonthStart)
+        case "每年":
+            let thisYearStart = cal.date(from: cal.dateComponents([.year], from: now)) ?? now
+            range = (cal.date(byAdding: .year, value: -1, to: thisYearStart) ?? thisYearStart, thisYearStart)
+        default:
+            range = nil
+        }
+        guard let r = range else { return false }
+        return achieved(records: records, start: r.start, end: r.end, item: item)
+    }
+
+    /// 历史累计达成次数（周=52、月=24、年=5），以文字保留成绩
+    private func achievedCountTotal(for item: GoalTargetItem) -> Int {
         let records = supabaseService.allRecords
         let cal = Calendar.current
         let now = Date()
@@ -265,16 +285,10 @@ struct GoalsModuleCard: View {
                 let start = cal.date(byAdding: .year, value: -1, to: end) ?? end
                 if achieved(records: records, start: start, end: end, item: item) { count += 1 }
             }
-        case "日期区间":
-            if let s = item.startDate, let e = item.endDate, e >= s,
-               achieved(records: records, start: s, end: e, item: item) {
-                count = 1
-            }
         default:
             break
         }
-        // 封顶：达到上限即闭环，不再累计
-        return min(count, badgeLimit(for: item))
+        return count
     }
 
     private func achieved(records: [Record], start: Date, end: Date, item: GoalTargetItem) -> Bool {
@@ -314,10 +328,47 @@ struct GoalTargetCard: View {
             Text(progressText)
                 .font(.appTiny)
                 .foregroundColor(AppTheme.textTertiary)
+            if achievedCount > 0 {
+                Text("累计达成 \(achievedCount) 次")
+                    .font(.appTiny)
+                    .foregroundColor(AppTheme.textTertiary)
+            }
         }
         .padding(12)
         .background(AppTheme.background)
         .cornerRadius(12)
+    }
+
+    /// 历史累计达成次数（每年=近5年、日期区间=1次），以文字保留成绩
+    private var achievedCount: Int {
+        let cal = Calendar.current
+        let now = Date()
+        var count = 0
+        switch item.timeDimension {
+        case "每年":
+            for i in 0..<5 {
+                let end = cal.date(byAdding: .year, value: -i, to: now) ?? now
+                let start = cal.date(byAdding: .year, value: -1, to: end) ?? end
+                if achieved(start: start, end: end) { count += 1 }
+            }
+        case "日期区间":
+            if let s = item.startDate, let e = item.endDate, e >= s, achieved(start: s, end: e) { count = 1 }
+        default:
+            break
+        }
+        return count
+    }
+
+    private func achieved(start: Date, end: Date) -> Bool {
+        guard item.amount > 0 else { return false }
+        let recs = records.filter { $0.date >= start && $0.date < end }
+        let actual: Double
+        if item.category == "收入" {
+            actual = recs.filter(\.isIncome).reduce(0) { $0 + $1.amount }
+        } else {
+            actual = recs.filter(\.isExpense).reduce(0) { $0 + $1.amount }
+        }
+        return actual >= item.amount
     }
 
     private var percent: Double {
