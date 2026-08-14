@@ -262,6 +262,7 @@ struct GoalTargetSettingSheet: View {
                         }
                     }
                     .listStyle(.insetGrouped)
+                    .scrollContentBackground(.hidden)
                 }
 
                 Text("目标设定后不可修改，只能删除后重新添加")
@@ -279,6 +280,9 @@ struct GoalTargetSettingSheet: View {
             }
             .navigationTitle("目标设置")
             .navigationBarTitleDisplayMode(.inline)
+            .background(Color.white)
+            .toolbarBackground(Color.white, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("关闭") { dismiss() }
@@ -325,8 +329,12 @@ struct GoalTargetAddSheet: View {
                         .keyboardType(.decimalPad)
                 }
             }
+            .scrollContentBackground(.hidden)
             .navigationTitle("增加目标")
             .navigationBarTitleDisplayMode(.inline)
+            .background(Color.white)
+            .toolbarBackground(Color.white, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
