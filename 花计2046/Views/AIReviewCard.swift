@@ -11,9 +11,8 @@ struct AIReviewCard: View {
         VStack(alignment: .leading, spacing: 10) {
             AnalyticsModuleHeader(icon: "sparkles", title: "30天记录点评") {
                 Button(action: { load() }) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(AppTheme.brandStart)
+                    Text("🤖")
+                        .font(.system(size: 16))
                 }
                 .disabled(isLoading)
             }
