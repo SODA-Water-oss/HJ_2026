@@ -191,6 +191,17 @@ struct BillItem: Identifiable, Codable {
         return cal.date(from: DateComponents(year: dayComp.year, month: dayComp.month, day: dayComp.day, hour: hour, minute: minute))
     }
 
+    /// 完整到期时刻（到期日 + 提醒时间）：一次性 = 完整时间；周期 = 下次到期日 + 提醒时间
+    var dueMoment: Date? {
+        if recurrence == .once { return onceFullDate }
+        guard let due = nextDueDate else { return nil }
+        let cal = Calendar.current
+        let comps = cal.dateComponents([.year, .month, .day], from: due)
+        let hour = reminderTime.map { cal.component(.hour, from: $0) } ?? 9
+        let minute = reminderTime.map { cal.component(.minute, from: $0) } ?? 0
+        return cal.date(from: DateComponents(year: comps.year, month: comps.month, day: comps.day, hour: hour, minute: minute))
+    }
+
     /// 一次性账单：已过期（完整提醒时间已过且未完成）
     var isExpiredOnce: Bool {
         recurrence == .once && paidDate == nil && onceFullDate != nil && onceFullDate! < Date()

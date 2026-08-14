@@ -103,6 +103,9 @@ struct MainTabView: View {
                     analyticsLockVerified = false
                     
                 }
+                if phase == .active {
+                    updateDueBillCount()
+                }
             }
             
             if supabaseService.isGloballyProcessing {
@@ -152,11 +155,11 @@ struct MainTabView: View {
             return
         }
         let now = Date()
+        // 严格按提醒时刻：到期日+提醒时间已到（且未付）才显示角标，不做提前 3 天预警
         dueBillCount = bills.filter { bill in
             guard bill.isEnabled, !bill.isPaidThisPeriod, !bill.isCompleted, !bill.isExpiredOnce,
-                  let due = bill.nextDueDate else { return false }
-            let daysLeft = Calendar.current.dateComponents([.day], from: now, to: due).day ?? 999
-            return daysLeft >= 0 && daysLeft <= 3
+                  let dueMoment = bill.dueMoment else { return false }
+            return dueMoment <= now
         }.count
     }
     
