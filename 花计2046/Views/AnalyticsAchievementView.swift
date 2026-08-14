@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct AnalyticsAchievementView: View {
+    @EnvironmentObject var supabaseService: SupabaseService
     @ObservedObject var manager: AchievementManager
 
     @State private var showRules = false
@@ -8,10 +9,10 @@ struct AnalyticsAchievementView: View {
     var body: some View {
         VStack(spacing: 12) {
             healthCard
-            HStack(spacing: 12) {
-                goalCard
-                streakCard
-            }
+            // 目标整体模块（收入/支出/冲刺目标）
+            GoalsModuleCard(manager: manager)
+                .environmentObject(supabaseService)
+            streakCard
             badgeDrawer
             weeklySummaryCard
         }
@@ -53,32 +54,6 @@ struct AnalyticsAchievementView: View {
             }
         }
         .padding(16)
-        .cardStyle()
-    }
-
-    private var goalCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("冲刺目标").font(.appSmall).foregroundColor(AppTheme.textSecondary)
-            if let progress = manager.snapshot?.currentGoalProgress {
-                Text(progress.goal.name).font(.appTitle).foregroundColor(AppTheme.textPrimary).lineLimit(1)
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 4).fill(AppTheme.border)
-                        RoundedRectangle(cornerRadius: 4).fill(Color.green).frame(width: geo.size.width * min(1, progress.percent / 100))
-                    }
-                }
-                .frame(height: 8)
-                Text(String(format: "%.0f%% 已存 ¥%.0f", progress.percent, progress.savedAmount))
-                    .font(.appSmall)
-                    .foregroundColor(AppTheme.textSecondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            } else {
-                Text("设第一个目标").font(.appBody).foregroundColor(AppTheme.textTertiary)
-            }
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
         .cardStyle()
     }
 
@@ -167,6 +142,16 @@ struct RulesSheetView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("关闭") { dismiss() }
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(Color.white)
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                        )
                 }
             }
         }

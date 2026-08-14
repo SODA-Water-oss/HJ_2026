@@ -9,7 +9,6 @@ struct AnalyticsView: View {
     @State private var showMonthPicker = false
     @State private var showCategoryPicker = false
     @State private var showSearch = false
-    @State private var showGoalManagement = false
     @State private var analyticsCurrency = ""
     @State private var analyticsSnapshot: AnalyticsSnapshot?
     @State private var analyticsReady = false
@@ -200,13 +199,6 @@ struct AnalyticsView: View {
                             .font(.appTitle)
                             .foregroundColor(AppTheme.textPrimary)
                         Spacer()
-                        Button {
-                            showGoalManagement = true
-                        } label: {
-                            Label("管理目标", systemImage: "target")
-                                .font(.appSmall)
-                                .foregroundColor(AppTheme.brandStart)
-                        }
                     }
                     AnalyticsAchievementView(manager: AchievementManager.shared)
 
@@ -285,9 +277,6 @@ struct AnalyticsView: View {
         .sheet(isPresented: $showYearPicker) { YearWheelPicker(selection: $searchState.year, options: yearOptions).presentationDetents([.height(230)]) }
         .sheet(isPresented: $showMonthPicker) { MonthWheelPicker(selection: $searchState.month, options: monthOptions).presentationDetents([.height(270)]) }
         .sheet(isPresented: $showCategoryPicker) { CategoryWheelPicker(selection: $searchState.category, options: categories).presentationDetents([.height(230)]) }
-        .sheet(isPresented: $showGoalManagement) {
-            GoalManagementSheet(manager: AchievementManager.shared)
-        }
         .onAppear { rebuildSnapshot() }
         .onChange(of: snapshotKey) { _ in rebuildSnapshot() }
         .onReceive(supabaseService.$allRecords) { _ in rebuildSnapshot() }
