@@ -9,14 +9,7 @@ struct AIReviewCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 18))
-                    .foregroundStyle(AppTheme.brandGradient)
-                Text("30天记录点评")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(AppTheme.textPrimary)
-                Spacer()
+            AnalyticsModuleHeader(icon: "sparkles", title: "30天记录点评") {
                 Button(action: { load() }) {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 14, weight: .medium))

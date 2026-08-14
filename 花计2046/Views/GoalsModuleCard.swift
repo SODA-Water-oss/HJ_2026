@@ -34,14 +34,7 @@ struct GoalsModuleCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "target")
-                    .font(.system(size: 18))
-                    .foregroundStyle(AppTheme.brandGradient)
-                Text("收支目标")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(AppTheme.textPrimary)
-                Spacer()
+            AnalyticsModuleHeader(icon: "target", title: "收支目标") {
                 Button(action: { showTargetSetting = true }) {
                     Label("目标设置", systemImage: "slider.horizontal.3")
                         .font(.system(size: 13))

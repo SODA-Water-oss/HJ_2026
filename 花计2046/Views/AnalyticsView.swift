@@ -583,27 +583,12 @@ extension AnalyticsView {
     }
 
     private func sectionHeader(_ title: String, icon: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(AppTheme.brandGradient)
-            Text(title)
-                .font(.appTitle)
-                .foregroundColor(AppTheme.textPrimary)
-            Spacer()
-        }
-        .padding(.top, 4)
+        AnalyticsModuleHeader(icon: icon, title: title)
+            .padding(.top, 4)
     }
 
-    private func sectionHeader(_ title: String, icon: String, @ViewBuilder trailing: () -> some View) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(AppTheme.brandGradient)
-            Text(title)
-                .font(.appTitle)
-                .foregroundColor(AppTheme.textPrimary)
-            Spacer()
+    private func sectionHeader(_ title: String, icon: String, @ViewBuilder trailing: @escaping () -> some View) -> some View {
+        AnalyticsModuleHeader(icon: icon, title: title) {
             trailing()
         }
         .padding(.top, 4)
@@ -634,15 +619,7 @@ extension AnalyticsView {
         let expense = currentMonthRecords.filter(\.isExpense).reduce(0) { $0 + $1.amount }
         let net = income - expense
         return VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 6) {
-                Image(systemName: "calendar")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(AppTheme.brandStart)
-                Text("\(currentMonthTitle) 小结")
-                    .font(.appTitle)
-                    .foregroundColor(AppTheme.textPrimary)
-                Spacer()
-            }
+            AnalyticsModuleHeader(icon: "calendar", title: "\(currentMonthTitle) 小结")
             if currentMonthRecords.isEmpty {
                 Text("该月暂无记录")
                     .font(.appBody)
@@ -707,15 +684,7 @@ extension AnalyticsView {
     // MARK: - 12个月收支双折线卡片
     private var trend12Card: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 6) {
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(AppTheme.brandStart)
-                Text("月度收支趋势")
-                    .font(.appTitle)
-                    .foregroundColor(AppTheme.textPrimary)
-                Spacer()
-            }
+            AnalyticsModuleHeader(icon: "chart.line.uptrend.xyaxis", title: "月度收支趋势")
             MonthlyDualLineChartView(points: monthlyTrendPoints)
                 .frame(height: 220)
         }
@@ -728,15 +697,7 @@ extension AnalyticsView {
         let expense = analyticsRecords.filter(\.isExpense).reduce(0) { $0 + $1.amount }
         let net = income - expense
         return VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 6) {
-                Image(systemName: "chart.bar.xaxis")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(AppTheme.brandStart)
-                Text("资金总览")
-                    .font(.appTitle)
-                    .foregroundColor(AppTheme.textPrimary)
-                Spacer()
-            }
+            AnalyticsModuleHeader(icon: "chart.bar.xaxis", title: "资金总览")
             if analyticsRecords.isEmpty {
                 Text("该币种暂无记录")
                     .font(.appBody)

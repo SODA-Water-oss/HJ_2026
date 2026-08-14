@@ -248,3 +248,38 @@ struct MonthlyDualLineChartView: View {
         .frame(maxWidth: .infinity)
     }
 }
+
+// MARK: - 分析页统一模块标题（图标 + 标题 + 可选右侧操作）
+/// 所有分析页模块标题统一：17 semibold 文字 + brandGradient 图标，左对齐
+struct AnalyticsModuleHeader<Trailing: View>: View {
+    let icon: String
+    let title: String
+    @ViewBuilder var trailing: () -> Trailing
+
+    init(icon: String, title: String, @ViewBuilder trailing: @escaping () -> Trailing) {
+        self.icon = icon
+        self.title = title
+        self.trailing = trailing
+    }
+
+    init(icon: String, title: String) where Trailing == EmptyView {
+        self.icon = icon
+        self.title = title
+        self.trailing = { EmptyView() }
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(AppTheme.brandGradient)
+                .frame(width: 24)
+            Text(title)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(AppTheme.textPrimary)
+                .lineLimit(1)
+            Spacer()
+            trailing()
+        }
+    }
+}
