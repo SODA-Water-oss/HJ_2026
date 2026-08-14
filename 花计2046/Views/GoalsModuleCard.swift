@@ -33,7 +33,7 @@ struct GoalsModuleCard: View {
     @State private var items: [GoalTargetItem] = GoalTargetItem.load()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             AnalyticsModuleHeader(icon: "target", title: "收支目标") {
                 Button(action: { showTargetSetting = true }) {
                     Label("目标设置", systemImage: "slider.horizontal.3")
@@ -42,38 +42,34 @@ struct GoalsModuleCard: View {
                 }
             }
 
-            if items.isEmpty {
-                Text("暂无目标，点击右上角「目标设置」添加收支目标")
-                    .font(.appSmall)
-                    .foregroundColor(AppTheme.textTertiary)
-                    .padding(.vertical, 12)
-                    .frame(maxWidth: .infinity, alignment: .center)
-            } else {
-                ForEach(items) { item in
+            // 本周收支（相对周目标）
+            periodSummary(
+                title: "本周",
+                dimension: "每周",
+                income: currentPeriodSum(dimension: "每周", category: "收入", records: supabaseService.allRecords),
+                expense: currentPeriodSum(dimension: "每周", category: "支出", records: supabaseService.allRecords)
+            )
+
+            // 本月收支（相对月目标）
+            periodSummary(
+                title: "本月",
+                dimension: "每月",
+                income: currentPeriodSum(dimension: "每月", category: "收入", records: supabaseService.allRecords),
+                expense: currentPeriodSum(dimension: "每月", category: "支出", records: supabaseService.allRecords)
+            )
+
+            // 其他维度目标条目（每年 / 日期区间）展示
+            let otherItems = items.filter { $0.timeDimension != "每周" && $0.timeDimension != "每月" }
+            if !otherItems.isEmpty {
+                Divider()
+                ForEach(otherItems) { item in
                     GoalTargetCard(item: item, records: supabaseService.allRecords)
                 }
             }
 
-            // 徽章：按目标达标数量展示
-            let achieved = items.filter { achievementPercent($0, records: supabaseService.allRecords) >= 100 }.count
-            if achieved > 0 {
-                Divider().padding(.vertical, 2)
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("目标达成徽章")
-                        .font(.system(size: 13))
-                        .foregroundColor(AppTheme.textSecondary)
-                    HStack(spacing: 10) {
-                        ForEach(0..<min(achieved, 12), id: \.self) { _ in
-                            Image(systemName: "star.fill")
-                                .font(.system(size: 26))
-                                .foregroundStyle(AppTheme.brandGradient)
-                        }
-                    }
-                    Text("已达成 \(achieved) 个目标")
-                        .font(.appTiny)
-                        .foregroundColor(AppTheme.textTertiary)
-                }
-            }
+            // 底部：历史达成徽章（长期显示）
+            Divider().padding(.vertical, 2)
+            achievementBadges
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardStyle()
@@ -82,44 +78,173 @@ struct GoalsModuleCard: View {
         }
     }
 
-    /// 目标达成度（0-100+）
-    func achievementPercent(_ item: GoalTargetItem, records: [Record]) -> Double {
-        guard item.amount > 0 else { return 0 }
-        let actual = actualAmount(item, records: records)
-        return actual / item.amount * 100
+    // MARK: - 周/月汇总
+    private func periodSummary(title: String, dimension: String, income: Double, expense: Double) -> some View {
+        let incomeTarget = targetAmount(dimension: dimension, category: "收入")
+        let expenseTarget = targetAmount(dimension: dimension, category: "支出")
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(AppTheme.textPrimary)
+                Spacer()
+            }
+            if incomeTarget == 0 && expenseTarget == 0 {
+                Text("未设置\(title)目标，点右上角「目标设置」添加")
+                    .font(.appSmall)
+                    .foregroundColor(AppTheme.textTertiary)
+            } else {
+                row(label: "收入", current: income, target: incomeTarget, color: .green, currency: CategoryManager.currencySymbol)
+                row(label: "支出", current: expense, target: expenseTarget, color: AppTheme.brandEnd, currency: CategoryManager.currencySymbol)
+            }
+        }
+        .padding(12)
+        .background(AppTheme.background)
+        .cornerRadius(12)
     }
 
-    /// 目标对应时间范围内、对应类别的实际金额
-    func actualAmount(_ item: GoalTargetItem, records: [Record]) -> Double {
-        guard let range = recordsRange(for: item) else { return 0 }
-        let inRange = records.filter { $0.date >= range.start && $0.date <= range.end }
-        if item.category == "收入" {
-            return inRange.filter(\.isIncome).reduce(0) { $0 + $1.amount }
-        } else {
-            return inRange.filter(\.isExpense).reduce(0) { $0 + $1.amount }
+    private func row(label: String, current: Double, target: Double, color: Color, currency: String) -> some View {
+        let percent = target > 0 ? current / target * 100 : 0
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(label).font(.appSmall).foregroundColor(AppTheme.textSecondary)
+                Spacer()
+                if target > 0 {
+                    Text(String(format: "%@%.0f / ¥%.0f（%.0f%%）", currency, current, target, percent))
+                        .font(.appSmall)
+                        .foregroundColor(percent >= 100 ? Color.green : AppTheme.textPrimary)
+                } else {
+                    Text(String(format: "%@%.0f", currency, current))
+                        .font(.appSmall)
+                        .foregroundColor(AppTheme.textPrimary)
+                }
+            }
+            if target > 0 {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 3).fill(AppTheme.border)
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(percent >= 100 ? Color.green : color)
+                            .frame(width: geo.size.width * min(1, percent / 100))
+                    }
+                }
+                .frame(height: 6)
+            }
         }
     }
 
-    func recordsRange(for item: GoalTargetItem) -> (start: Date, end: Date)? {
+    // MARK: - 历史达成徽章（长期显示）
+    private var achievementBadges: some View {
+        let weekAchieved = historicalAchievedCount(dimension: "每周")
+        let monthAchieved = historicalAchievedCount(dimension: "每月")
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: "medal.fill")
+                    .font(.system(size: 15))
+                    .foregroundStyle(AppTheme.brandGradient)
+                Text("目标达成徽章")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(AppTheme.textPrimary)
+                Spacer()
+            }
+            HStack(spacing: 14) {
+                badgeGroup(title: "周达成", count: weekAchieved, icon: "star.fill", color: AppTheme.brandEnd)
+                badgeGroup(title: "月达成", count: monthAchieved, icon: "trophy.fill", color: Color(hex: "#EAB308"))
+            }
+            Text("达成 1 个周期目标获得 1 枚徽章")
+                .font(.appTiny)
+                .foregroundColor(AppTheme.textTertiary)
+        }
+    }
+
+    private func badgeGroup(title: String, count: Int, icon: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.appSmall).foregroundColor(AppTheme.textSecondary)
+            HStack(spacing: 6) {
+                ForEach(0..<min(max(count, 0), 10), id: \.self) { _ in
+                    Image(systemName: icon)
+                        .font(.system(size: 22))
+                        .foregroundStyle(color)
+                }
+                if count > 10 {
+                    Text("+\\(count - 10)")
+                        .font(.appSmall)
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+                if count == 0 {
+                    Text("--")
+                        .font(.appSmall)
+                        .foregroundColor(AppTheme.textTertiary)
+                }
+            }
+        }
+    }
+
+    // MARK: - 计算
+    private func targetAmount(dimension: String, category: String) -> Double {
+        items.first { $0.timeDimension == dimension && $0.category == category }?.amount ?? 0
+    }
+
+    /// 当前周期（本周/本月）某类别的收支合计
+    func currentPeriodSum(dimension: String, category: String, records: [Record]) -> Double {
         let now = Date()
         let cal = Calendar.current
-        switch item.timeDimension {
+        let start: Date
+        switch dimension {
         case "每周":
-            return (cal.date(byAdding: .day, value: -7, to: now) ?? now, now)
+            var comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
+            comps.weekday = 2
+            start = cal.date(from: comps) ?? now
         case "每月":
             let comps = cal.dateComponents([.year, .month], from: now)
-            let start = cal.date(from: comps) ?? now
-            return (start, now)
-        case "每年":
-            let comps = cal.dateComponents([.year], from: now)
-            let start = cal.date(from: comps) ?? now
-            return (start, now)
-        case "日期区间":
-            guard let s = item.startDate, let e = item.endDate, e >= s else { return nil }
-            return (s, e)
+            start = cal.date(from: comps) ?? now
         default:
-            return nil
+            start = now
         }
+        let inRange = records.filter { $0.date >= start && $0.date <= now }
+        if category == "收入" {
+            return inRange.filter(\.isIncome).reduce(0) { $0 + $1.amount }
+        }
+        return inRange.filter(\.isExpense).reduce(0) { $0 + $1.amount }
+    }
+
+    /// 历史达成数量（过去 52 周 / 24 个月，对应目标达标次数）
+    func historicalAchievedCount(dimension: String) -> Int {
+        let records = supabaseService.allRecords
+        let cal = Calendar.current
+        let now = Date()
+        var count = 0
+
+        if dimension == "每周" {
+            let incomeTarget = targetAmount(dimension: "每周", category: "收入")
+            let expenseTarget = targetAmount(dimension: "每周", category: "支出")
+            guard incomeTarget > 0 || expenseTarget > 0 else { return 0 }
+            for i in 0..<52 {
+                let end = cal.date(byAdding: .day, value: -7 * i, to: now) ?? now
+                let start = cal.date(byAdding: .day, value: -7, to: end) ?? end
+                let recs = records.filter { $0.date >= start && $0.date < end }
+                let income = recs.filter(\.isIncome).reduce(0) { $0 + $1.amount }
+                let expense = recs.filter(\.isExpense).reduce(0) { $0 + $1.amount }
+                let incomeOK = incomeTarget == 0 || income >= incomeTarget
+                let expenseOK = expenseTarget == 0 || expense <= expenseTarget
+                if incomeOK && expenseOK { count += 1 }
+            }
+        } else if dimension == "每月" {
+            let incomeTarget = targetAmount(dimension: "每月", category: "收入")
+            let expenseTarget = targetAmount(dimension: "每月", category: "支出")
+            guard incomeTarget > 0 || expenseTarget > 0 else { return 0 }
+            for i in 0..<24 {
+                let end = cal.date(byAdding: .month, value: -i, to: now) ?? now
+                let start = cal.date(byAdding: .month, value: -1, to: end) ?? end
+                let recs = records.filter { $0.date >= start && $0.date < end }
+                let income = recs.filter(\.isIncome).reduce(0) { $0 + $1.amount }
+                let expense = recs.filter(\.isExpense).reduce(0) { $0 + $1.amount }
+                let incomeOK = incomeTarget == 0 || income >= incomeTarget
+                let expenseOK = expenseTarget == 0 || expense <= expenseTarget
+                if incomeOK && expenseOK { count += 1 }
+            }
+        }
+        return count
     }
 }
 
