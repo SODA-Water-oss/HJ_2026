@@ -96,7 +96,7 @@ struct BillItem: Identifiable, Codable {
         var targetMonth: Int
         
         if recurrence == .once {
-            return onceDate
+            return onceFullDate
         }
         
         switch recurrence {
@@ -167,9 +167,19 @@ struct BillItem: Identifiable, Codable {
         recurrence == .once && paidDate != nil
     }
 
-    /// 一次性账单：已过期（到期时间已过且未完成）
+    /// 一次性提醒的完整时间（日期 + 提醒时间）
+    var onceFullDate: Date? {
+        guard let onceDate else { return nil }
+        let cal = Calendar.current
+        let dayComp = cal.dateComponents([.year, .month, .day], from: onceDate)
+        let hour = reminderTime.map { cal.component(.hour, from: $0) } ?? 9
+        let minute = reminderTime.map { cal.component(.minute, from: $0) } ?? 0
+        return cal.date(from: DateComponents(year: dayComp.year, month: dayComp.month, day: dayComp.day, hour: hour, minute: minute))
+    }
+
+    /// 一次性账单：已过期（完整提醒时间已过且未完成）
     var isExpiredOnce: Bool {
-        recurrence == .once && paidDate == nil && onceDate != nil && onceDate! < Date()
+        recurrence == .once && paidDate == nil && onceFullDate != nil && onceFullDate! < Date()
     }
 
     var isOverdue: Bool {
@@ -184,13 +194,16 @@ struct BillItem: Identifiable, Codable {
     
     var dueDateDisplay: String {
         if recurrence == .once {
-            if let d = onceDate {
-                return "一次性 " + d.formatted(date: .abbreviated, time: .shortened)
+            if let full = onceFullDate {
+                let f = DateFormatter()
+                f.locale = Locale(identifier: "zh_CN")
+                f.dateFormat = "yyyy年M月d日 HH:mm"
+                return f.string(from: full)
             }
-            return "一次性"
+            return ""
         }
         switch recurrence {
-        case .once: return "一次性"
+        case .once: return ""
         case .monthly: return "每月" + String(dueDay) + "日"
         case .quarterly:
             let names = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"]
@@ -200,6 +213,11 @@ struct BillItem: Identifiable, Codable {
             let m = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"]
             return m[dueMonth-1] + String(dueDay) + "日"
         }
+    }
+
+    /// 提醒模式显示名
+    var recurrenceDisplay: String {
+        recurrence.rawValue
     }
 }
 
@@ -337,9 +355,14 @@ struct BillReminderView: View {
                         Text(bill.currency + String(format: "%.2f", bill.amount))
                             .font(.appBody)
                             .foregroundColor(AppTheme.brandStart)
+                        // 提醒模式一行
+                        Text(bill.recurrenceDisplay)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(AppTheme.textSecondary)
+                        // 年月日时分单独一行
                         Text(bill.dueDateDisplay)
                             .font(.appSmall)
-                            .foregroundColor(AppTheme.textSecondary)
+                            .foregroundColor(AppTheme.textTertiary)
                 }
                 
                 Spacer()
@@ -576,6 +599,7 @@ struct BillFormView: View {
         _dueMonth = State(initialValue: bill?.dueMonth ?? thisMonth)
         _recurrence = State(initialValue: bill?.recurrence ?? .monthly)
         _onceDate = State(initialValue: bill?.onceDate ?? Date().addingTimeInterval(24 * 60 * 60))
+        _reminderTime = State(initialValue: bill?.reminderTime ?? Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date())
     }
     
     var body: some View {
@@ -595,6 +619,7 @@ struct BillFormView: View {
                             TextField("如：房租、会员费", text: $name)
                                 .font(.system(size: 17))
                                 .foregroundColor(AppTheme.textPrimary)
+                                .tint(AppTheme.textPrimary)
                                 .padding(12)
                                 .background(AppTheme.background)
                                 .cornerRadius(AppTheme.elementRadius)
@@ -653,12 +678,16 @@ struct BillFormView: View {
                             Text("提醒日期").font(.system(size: 17)).foregroundColor(AppTheme.textSecondary)
                             DatePicker("日期", selection: $onceDate, displayedComponents: .date)
                                 .datePickerStyle(.compact)
+                                .environment(\.locale, Locale(identifier: "zh_CN"))
+                                .foregroundColor(AppTheme.textPrimary)
                                 .padding(12)
                                 .background(AppTheme.background)
                                 .cornerRadius(AppTheme.elementRadius)
                             Text("提醒时间").font(.system(size: 17)).foregroundColor(AppTheme.textSecondary)
                             DatePicker("时间", selection: $reminderTime, displayedComponents: .hourAndMinute)
                                 .datePickerStyle(.compact)
+                                .environment(\.locale, Locale(identifier: "zh_CN"))
+                                .foregroundColor(AppTheme.textPrimary)
                                 .padding(12)
                                 .background(AppTheme.background)
                                 .cornerRadius(AppTheme.elementRadius)
@@ -761,6 +790,8 @@ struct BillFormView: View {
                             Text("提醒时间").font(.system(size: 17)).foregroundColor(AppTheme.textSecondary)
                             DatePicker("时间", selection: $reminderTime, displayedComponents: .hourAndMinute)
                                 .datePickerStyle(.compact)
+                                .environment(\.locale, Locale(identifier: "zh_CN"))
+                                .foregroundColor(AppTheme.textPrimary)
                                 .padding(12)
                                 .background(AppTheme.background)
                                 .cornerRadius(AppTheme.elementRadius)
