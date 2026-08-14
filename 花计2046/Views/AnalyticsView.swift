@@ -212,18 +212,7 @@ struct AnalyticsView: View {
                     GoalsModuleCard()
                         .environmentObject(supabaseService)
 
-                    // 4. 资金总览：12个月收支双折线
-                    sectionHeader("资金总览", icon: "chart.bar.xaxis") {
-                        if availableCurrencies.count > 1 {
-                            AnalyticsCurrencyPicker(
-                                currencies: availableCurrencies,
-                                selection: Binding(
-                                    get: { effectiveAnalyticsCurrency },
-                                    set: { analyticsCurrency = $0 }
-                                )
-                            )
-                        }
-                    }
+                    // 4. 资金总览：12个月收支双折线（标题在卡片内）
                     totalCard
                     if !monthlyTrendPoints.isEmpty {
                         trend12Card
@@ -697,6 +686,17 @@ extension AnalyticsView {
         let expense = analyticsRecords.filter(\.isExpense).reduce(0) { $0 + $1.amount }
         let net = income - expense
         return VStack(alignment: .leading, spacing: 16) {
+            AnalyticsModuleHeader(icon: "chart.bar.xaxis", title: "资金总览") {
+                if availableCurrencies.count > 1 {
+                    AnalyticsCurrencyPicker(
+                        currencies: availableCurrencies,
+                        selection: Binding(
+                            get: { effectiveAnalyticsCurrency },
+                            set: { analyticsCurrency = $0 }
+                        )
+                    )
+                }
+            }
             if analyticsRecords.isEmpty {
                 Text("该币种暂无记录")
                     .font(.appBody)
