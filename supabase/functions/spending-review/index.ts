@@ -13,8 +13,8 @@ Deno.serve(async (request) => {
   try {
     const supabaseURL = requiredEnv("SUPABASE_URL");
     const serviceRoleKey = requiredEnv("SERVICE_ROLE_KEY");
-    const geminiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!geminiKey) throw new Error("Missing GEMINI_API_KEY.");
+    const deepSeekKey = Deno.env.get("DEEPSEEK_API_KEY");
+    if (!deepSeekKey) throw new Error("Missing DEEPSEEK_API_KEY.");
 
     // 1. 鉴权
     const authHeader = request.headers.get("Authorization") ?? "";
@@ -40,7 +40,7 @@ Deno.serve(async (request) => {
     const summary = buildSummary(records ?? []);
 
     // 4. 调 Gemini 生成点评
-    const review = await generateReview(geminiKey, summary);
+    const review = await generateReview(deepSeekKey, summary);
 
     return json({ review });
   } catch (error) {
@@ -106,26 +106,32 @@ async function generateReview(apiKey: string, summary: Record<string, unknown>):
     JSON.stringify(summary),
   ].join("\n");
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.9, maxOutputTokens: 300 },
-      }),
-    }
-  );
+  // 使用 DeepSeek（OpenAI 兼容接口），国内访问稳定
+  const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "deepseek-chat",
+      messages: [
+        { role: "system", content: "你是花计2046的轻松生活点评助手。" },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.9,
+      max_tokens: 300,
+    }),
+  });
 
   if (!response.ok) {
-    throw new Error(`Gemini request failed: ${response.status}`);
+    throw new Error(`DeepSeek request failed: ${response.status}`);
   }
 
   const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  const text = data?.choices?.[0]?.message?.content;
   if (typeof text !== "string" || text.trim().length === 0) {
-    throw new Error("Gemini returned no text.");
+    throw new Error("DeepSeek returned no text.");
   }
   return text.trim();
 }
