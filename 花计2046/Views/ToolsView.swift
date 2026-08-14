@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 
 struct ToolItem: Identifiable, Equatable {
@@ -12,7 +13,8 @@ struct ToolItem: Identifiable, Equatable {
 
 struct ToolsView: View {
     @AppStorage("tool_order") private var toolOrderRaw: String = ""
-    @State private var isEditing = false
+    @State private var tools: [ToolItem] = []
+    @State private var draggedItem: ToolItem?
     
     private let allTools: [ToolItem] = [
         ToolItem(icon: "dollarsign.circle", title: "利息计算器", desc: "计算贷款利息、存款利息、年化收益率", isActive: true, status: "使用"),
@@ -67,12 +69,14 @@ struct ToolsView: View {
                     Color.clear.frame(height: 4)
                     
                     // MARK: - 待开发工具列表
-                    // MARK: - 工具列表
-                    ForEach(Array(orderedTools.enumerated()), id: \.element.id) { index, tool in
-                        toolCardContent(tool: tool, index: index)
-
+                    // MARK: - 工具列表（拖拽排序）
+                    ForEach(tools) { tool in
+                        toolCardContent(tool: tool)
                     }
-                    .animation(.easeInOut(duration: 0.2), value: orderedTools)
+                    .animation(.easeInOut(duration: 0.2), value: tools)
+                    .onAppear {
+                        if tools.isEmpty { tools = orderedTools }
+                    }
                 }
             }
             .background(AppTheme.background.ignoresSafeArea())
@@ -95,15 +99,12 @@ struct ToolsView: View {
     
     
     @ViewBuilder
-    private func toolCardContent(tool: ToolItem, index: Int) -> some View {
-        let tools = orderedTools
+    private func toolCardContent(tool: ToolItem) -> some View {
         HStack(spacing: 0) {
-            toolCard(isEditing: isEditing, icon: tool.icon, title: tool.title, desc: tool.desc, status: tool.status, isActive: tool.isActive,
-                     onMoveUp: index > 0 ? { moveTool(from: index, direction: -1) } : nil,
-                     onMoveDown: index < tools.count - 1 ? { moveTool(from: index, direction: 1) } : nil)
+            toolCard(icon: tool.icon, title: tool.title, desc: tool.desc, status: tool.status, isActive: tool.isActive)
                 .overlay(
                     Group {
-                        if tool.isActive && !isEditing {
+                        if tool.isActive {
                             if tool.title == "利息计算器" {
                                 NavigationLink(destination: InterestCalculatorView()) { Color.clear }
                             } else if tool.title == "汇率换算" {
@@ -114,25 +115,24 @@ struct ToolsView: View {
                         }
                     }
                 )
-            
         }
-        .onLongPressGesture(minimumDuration: 0.5) { isEditing.toggle() }
-    }
-    
-
-    private func moveTool(from index: Int, direction: Int) {
-        var tools = orderedTools
-        let target = index + direction
-        guard target >= 0, target < tools.count else { return }
-        tools.swapAt(index, target)
-        saveOrder(tools)
+        .onDrag {
+            draggedItem = tool
+            return NSItemProvider(object: tool.id.uuidString as NSString)
+        }
+        .onDrop(of: [UTType.text], delegate: ToolDropDelegate(
+            item: tool,
+            items: $tools,
+            draggedItem: $draggedItem,
+            onReorder: { saveOrder($0) }
+        ))
     }
     
     private func saveOrder(_ tools: [ToolItem]) {
         toolOrderRaw = tools.map { $0.id.uuidString }.joined(separator: ",")
     }
     
-    private func toolCard(isEditing: Bool = false, icon: String, title: String, desc: String, status: String, isActive: Bool = false, onMoveUp: (() -> Void)? = nil, onMoveDown: (() -> Void)? = nil) -> some View {
+    private func toolCard(icon: String, title: String, desc: String, status: String, isActive: Bool = false) -> some View {
         HStack(spacing: 14) {
             Image(systemName: icon)
                 .font(.system(size: 24))
@@ -151,24 +151,12 @@ struct ToolsView: View {
             
             Spacer()
             
-            if isEditing {
-                VStack(spacing: 4) {
-                    Image(systemName: "chevron.up")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(AppTheme.brandGradient)
-                        .onTapGesture { onMoveUp?() }
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(AppTheme.brandGradient)
-                        .onTapGesture { onMoveDown?() }
-                }
-                .frame(width: 28)
-            } else if isActive {
+            if isActive {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(AppTheme.textTertiary)
                     .frame(width: 28)
-            } else if !isEditing {
+            } else {
                 Text(status)
                     .font(.system(size: 11))
                     .foregroundColor(AppTheme.textTertiary)
@@ -183,12 +171,34 @@ struct ToolsView: View {
         .background(Color.white)
         .cornerRadius(12)
         .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
-        .rotationEffect(.degrees(isEditing ? 0.6 : 0))
-        .animation(isEditing ?
-            Animation.easeInOut(duration: 0.12).repeatForever(autoreverses: true) :
-            .default,
-            value: isEditing
-        )
         .padding(.horizontal, 16)
+    }
+}
+
+/// 工具卡片拖拽排序的 DropDelegate
+struct ToolDropDelegate: DropDelegate {
+    let item: ToolItem
+    @Binding var items: [ToolItem]
+    @Binding var draggedItem: ToolItem?
+    var onReorder: ([ToolItem]) -> Void
+
+    func dropEntered(info: DropInfo) {
+        guard let draggedItem, draggedItem != item else { return }
+        if let from = items.firstIndex(of: draggedItem),
+           let to = items.firstIndex(of: item) {
+            withAnimation {
+                items.move(fromOffsets: IndexSet(integer: from), toOffset: to > from ? to + 1 : to)
+            }
+        }
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggedItem = nil
+        onReorder(items)
+        return true
     }
 }
