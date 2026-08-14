@@ -177,3 +177,74 @@ struct DailyScatterChartView: View {
         .frame(maxWidth: .infinity)
     }
 }
+
+// MARK: - 12个月收支双折线
+
+struct MonthlyTrendPoint: Identifiable {
+    let month: String
+    let monthDisplay: String
+    let income: Double
+    let expense: Double
+
+    var id: String { month }
+}
+
+struct MonthlyDualLineChartView: View {
+    let points: [MonthlyTrendPoint]
+
+    var body: some View {
+        Chart(points) { point in
+            LineMark(
+                x: .value("月份", point.monthDisplay),
+                y: .value("收入", point.income)
+            )
+            .foregroundStyle(.green)
+            .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
+            .interpolationMethod(.catmullRom)
+
+            PointMark(
+                x: .value("月份", point.monthDisplay),
+                y: .value("收入", point.income)
+            )
+            .foregroundStyle(.green)
+            .symbolSize(28)
+
+            LineMark(
+                x: .value("月份", point.monthDisplay),
+                y: .value("支出", point.expense)
+            )
+            .foregroundStyle(AppTheme.brandStart)
+            .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
+            .interpolationMethod(.catmullRom)
+
+            PointMark(
+                x: .value("月份", point.monthDisplay),
+                y: .value("支出", point.expense)
+            )
+            .foregroundStyle(AppTheme.brandStart)
+            .symbolSize(28)
+        }
+        .chartForegroundStyleScale([
+            "收入": Color.green,
+            "支出": AppTheme.brandStart
+        ])
+        .chartLegend(position: .bottom, alignment: .leading)
+        .chartXAxis {
+            AxisMarks(values: .automatic(desiredCount: 6)) { _ in
+                AxisGridLine().foregroundStyle(AppTheme.border.opacity(0.4))
+                AxisValueLabel()
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.textTertiary)
+            }
+        }
+        .chartYAxis {
+            AxisMarks(position: .leading) { _ in
+                AxisGridLine().foregroundStyle(AppTheme.border.opacity(0.4))
+                AxisValueLabel()
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppTheme.textTertiary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}

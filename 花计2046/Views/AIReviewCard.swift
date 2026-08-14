@@ -13,7 +13,7 @@ struct AIReviewCard: View {
                 Image(systemName: "sparkles")
                     .font(.system(size: 18))
                     .foregroundStyle(AppTheme.brandGradient)
-                Text("趣味点评")
+                Text("30天记录点评")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(AppTheme.textPrimary)
                 Spacer()
@@ -25,7 +25,7 @@ struct AIReviewCard: View {
                 .disabled(isLoading)
             }
 
-            Text("根据你最近的收支习惯，生成一段轻松点评，博你一笑")
+            Text("基于你最近 30 天的收支记录，生成一段轻松点评，博你一笑")
                 .font(.system(size: 12))
                 .foregroundColor(AppTheme.textTertiary)
 

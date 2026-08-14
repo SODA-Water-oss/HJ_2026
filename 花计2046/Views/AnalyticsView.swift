@@ -151,18 +151,25 @@ struct AnalyticsView: View {
         analyticsSnapshot?.health.monthExpenseChange
     }
     
-    private var savingsRate: Double? {
-        analyticsSnapshot?.health.savingsRate
+    private var monthExpenseChangeText: String {
+        guard let change = monthExpenseChange else { return "上月无支出" }
+        return String(format: "%@%.1f%%", change >= 0 ? "+" : "", change)
+    }
+    
+    private var monthExpenseChangeColor: Color {
+        guard let change = monthExpenseChange else { return AppTheme.textSecondary }
+        return change > 0 ? AppTheme.brandStart : .green
+    }
+    
+    private var dailyAverageExpenseText: String {
+        guard let value = dailyAverageExpense else { return "--" }
+        return String(format: "%@%.2f", effectiveAnalyticsCurrency, value)
     }
     
     private var dailyAverageExpense: Double? {
         analyticsSnapshot?.health.dailyAverageExpense
     }
 
-    private var largestExpenseRatio: Double? {
-        analyticsSnapshot?.health.largestExpenseRatio
-    }
-    
   var body: some View {
        NavigationView {
             ZStack(alignment: .bottomTrailing) {
@@ -194,20 +201,19 @@ struct AnalyticsView: View {
                } else {
                ScrollView {
                VStack(spacing: 16) {
-                    HStack {
-                        Text("成就总览")
-                            .font(.appTitle)
-                            .foregroundColor(AppTheme.textPrimary)
-                        Spacer()
-                    }
-                    AnalyticsAchievementView(manager: AchievementManager.shared)
+                    // 1. 月小结（当月/搜索月份）
+                    monthSummaryCard
 
-                    // AI 趣味点评
+                    // 2. 趣味点评（30天记录点评）
                     AIReviewCard()
                         .environmentObject(supabaseService)
 
-                    // 收支综合
-                    sectionHeader("收支综合", icon: "chart.bar.xaxis") {
+                    // 3. 收支目标（整体模块）
+                    GoalsModuleCard(manager: AchievementManager.shared)
+                        .environmentObject(supabaseService)
+
+                    // 4. 资金总览：12个月收支双折线
+                    sectionHeader("资金总览", icon: "chart.bar.xaxis") {
                         if availableCurrencies.count > 1 {
                             AnalyticsCurrencyPicker(
                                 currencies: availableCurrencies,
@@ -219,17 +225,8 @@ struct AnalyticsView: View {
                         }
                     }
                     totalCard
-                    if !monthlyBarPoints.isEmpty {
-                        monthlyBarCard
-                    }
-                    if !monthlyLinePoints.isEmpty {
-                        monthlyLineCard
-                    }
-                    if !dailyScatterPoints.isEmpty {
-                        dailyScatterCard
-                    }
-                    if analyticsSnapshot?.hasCurrentMonthRecords == true {
-                        healthCard
+                    if !monthlyTrendPoints.isEmpty {
+                        trend12Card
                     }
                     
                     // 支出
@@ -384,6 +381,7 @@ extension AnalyticsView {
         let analyticsRecords: [Record]
         let monthlyBarPoints: [AnalyticsBarPoint]
         let monthlyLinePoints: [AnalyticsLinePoint]
+        let monthlyTrendPoints: [MonthlyTrendPoint]
         let dailyScatterPoints: [AnalyticsDotPoint]
         let currentMonthRecords: [Record]
         let previousMonthRecords: [Record]
@@ -475,6 +473,16 @@ extension AnalyticsView {
             }
             .filter { $0.amount > 0 }
 
+            // 近 12 个月收支趋势（双折线）
+            let trendGrouped = Dictionary(grouping: currencyRecords, by: { $0.month })
+            let recentMonths = Array(trendGrouped.keys.sorted().suffix(12))
+            let monthlyTrendPoints = recentMonths.compactMap { month -> MonthlyTrendPoint? in
+                let recs = trendGrouped[month] ?? []
+                let income = recs.filter(\.isIncome).reduce(0) { $0 + $1.amount }
+                let expense = recs.filter(\.isExpense).reduce(0) { $0 + $1.amount }
+                return MonthlyTrendPoint(month: month, monthDisplay: shortMonth(month), income: income, expense: expense)
+            }
+
             let currentExpense = currentMonthRecords.filter(\.isExpense).reduce(0) { $0 + $1.amount }
             let previousExpense = previousMonthRecords.filter(\.isExpense).reduce(0) { $0 + $1.amount }
             let currentIncome = currentMonthRecords.filter(\.isIncome).reduce(0) { $0 + $1.amount }
@@ -498,6 +506,7 @@ extension AnalyticsView {
                 analyticsRecords: currencyRecords,
                 monthlyBarPoints: monthlyBarPoints,
                 monthlyLinePoints: monthlyLinePoints,
+                monthlyTrendPoints: monthlyTrendPoints,
                 dailyScatterPoints: dailyScatterPoints,
                 currentMonthRecords: currentMonthRecords,
                 previousMonthRecords: previousMonthRecords,
@@ -600,74 +609,120 @@ extension AnalyticsView {
         .padding(.top, 4)
     }
 
-    private var healthCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
+    private var monthlyTrendPoints: [MonthlyTrendPoint] {
+        analyticsSnapshot?.monthlyTrendPoints ?? []
+    }
+
+    private var currentMonthTitle: String {
+        currentMonthRecords.first?.monthDisplay ?? "本月"
+    }
+
+    /// 当月收支柱状图数据（收入/支出两个柱子）
+    private var currentMonthBarPoints: [AnalyticsBarPoint] {
+        let income = currentMonthRecords.filter(\.isIncome).reduce(0) { $0 + $1.amount }
+        let expense = currentMonthRecords.filter(\.isExpense).reduce(0) { $0 + $1.amount }
+        let label = currentMonthTitle
+        return [
+            AnalyticsBarPoint(month: label, type: "收入", amount: income),
+            AnalyticsBarPoint(month: label, type: "支出", amount: expense)
+        ]
+    }
+
+    // MARK: - 月小结卡片（当月/搜索月份）
+    private var monthSummaryCard: some View {
+        let income = currentMonthRecords.filter(\.isIncome).reduce(0) { $0 + $1.amount }
+        let expense = currentMonthRecords.filter(\.isExpense).reduce(0) { $0 + $1.amount }
+        let net = income - expense
+        return VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 6) {
-                Image(systemName: "heart.text.square.fill")
+                Image(systemName: "calendar")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(AppTheme.brandStart)
-                Text("本月健康")
+                Text("\(currentMonthTitle) 小结")
                     .font(.appTitle)
                     .foregroundColor(AppTheme.textPrimary)
                 Spacer()
             }
-            VStack(spacing: 12) {
-                healthRow(title: "支出环比", value: monthExpenseChangeText, icon: monthExpenseChangeIcon, valueColor: monthExpenseChangeColor)
-                healthRow(title: "储蓄率", value: savingsRateText, icon: "percent", valueColor: .green)
-                healthRow(title: "日均支出", value: dailyAverageExpenseText, icon: "calendar", valueColor: AppTheme.textPrimary)
-                healthRow(title: "大额支出占比", value: largestExpenseRatioText, icon: "creditcard", valueColor: AppTheme.textPrimary)
+            if currentMonthRecords.isEmpty {
+                Text("该月暂无记录")
+                    .font(.appBody)
+                    .foregroundColor(AppTheme.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 24)
+            } else {
+                HStack(spacing: 10) {
+                    summaryValue(title: "月收入", amount: income, prefix: "+", color: .green, currency: effectiveAnalyticsCurrency)
+                    summaryValue(title: "月支出", amount: expense, prefix: "-", color: AppTheme.textSecondary, currency: effectiveAnalyticsCurrency)
+                }
+                AppDivider()
+                HStack {
+                    Text("月结余")
+                        .font(.appBody)
+                        .foregroundColor(AppTheme.textSecondary)
+                    Spacer()
+                    Text(String(format: "%@%@%.2f", net >= 0 ? "+" : "", effectiveAnalyticsCurrency, net))
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundColor(AppTheme.brandStart)
+                }
+                HStack {
+                    Text("日均支出")
+                        .font(.appSmall)
+                        .foregroundColor(AppTheme.textSecondary)
+                    Spacer()
+                    Text(dailyAverageExpenseText)
+                        .font(.appSmall)
+                        .foregroundColor(AppTheme.textPrimary)
+                    Text("支出环比")
+                        .font(.appSmall)
+                        .foregroundColor(AppTheme.textSecondary)
+                    Spacer()
+                    Text(monthExpenseChangeText)
+                        .font(.appSmall)
+                        .foregroundColor(monthExpenseChangeColor)
+                }
+                if income > 0 || expense > 0 {
+                    MonthlyBarChartView(points: currentMonthBarPoints)
+                        .frame(height: 160)
+                }
             }
         }
         .cardStyle()
         .frame(maxWidth: .infinity)
     }
 
-    private func healthRow(title: String, value: String, icon: String, valueColor: Color) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(AppTheme.brandStart)
-                .frame(width: 22)
+    private func summaryValue(title: String, amount: Double, prefix: String, color: Color, currency: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.appBody)
-                .foregroundColor(AppTheme.textPrimary)
-            Spacer()
-            Text(value)
-                .font(.appBodyMedium)
-                .foregroundColor(valueColor)
+                .font(.appSmall)
+                .foregroundColor(AppTheme.textSecondary)
+            Text(String(format: "%@%@%.2f", prefix, currency, amount))
+                .font(.system(size: 26, weight: .semibold))
+                .foregroundColor(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var monthExpenseChangeText: String {
-        guard let change = monthExpenseChange else { return "上月无支出" }
-        return String(format: "%@%.1f%%", change >= 0 ? "+" : "", change)
+    // MARK: - 12个月收支双折线卡片
+    private var trend12Card: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 6) {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(AppTheme.brandStart)
+                Text("月度收支趋势")
+                    .font(.appTitle)
+                    .foregroundColor(AppTheme.textPrimary)
+                Spacer()
+            }
+            MonthlyDualLineChartView(points: monthlyTrendPoints)
+                .frame(height: 220)
+        }
+        .cardStyle()
+        .frame(maxWidth: .infinity)
     }
 
-    private var monthExpenseChangeIcon: String {
-        guard let change = monthExpenseChange else { return "minus" }
-        return change > 0 ? "arrow.up.right" : "arrow.down.right"
-    }
-
-    private var monthExpenseChangeColor: Color {
-        guard let change = monthExpenseChange else { return AppTheme.textSecondary }
-        return change > 0 ? AppTheme.brandStart : .green
-    }
-
-    private var savingsRateText: String {
-        guard let rate = savingsRate else { return "本月无收入" }
-        return String(format: "%.1f%%", rate)
-    }
-
-    private var dailyAverageExpenseText: String {
-        guard let value = dailyAverageExpense else { return "--" }
-        return String(format: "%@%.2f", effectiveAnalyticsCurrency, value)
-    }
-
-    private var largestExpenseRatioText: String {
-        guard let ratio = largestExpenseRatio else { return "本月无支出" }
-        return String(format: "%.1f%%", ratio)
-    }
-    
     private var totalCard: some View {
         let income = analyticsRecords.filter(\.isIncome).reduce(0) { $0 + $1.amount }
         let expense = analyticsRecords.filter(\.isExpense).reduce(0) { $0 + $1.amount }
@@ -731,60 +786,6 @@ extension AnalyticsView {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var monthlyBarCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 6) {
-                Image(systemName: "chart.bar.fill")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(AppTheme.brandStart)
-                Text("月度收支")
-                    .font(.appTitle)
-                    .foregroundColor(AppTheme.textPrimary)
-                Spacer()
-            }
-            MonthlyBarChartView(points: monthlyBarPoints)
-                .frame(height: 230)
-        }
-        .cardStyle()
-        .frame(maxWidth: .infinity)
-    }
-
-    private var monthlyLineCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 6) {
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(AppTheme.brandStart)
-                Text("净收入趋势")
-                    .font(.appTitle)
-                    .foregroundColor(AppTheme.textPrimary)
-                Spacer()
-            }
-            MonthlyNetLineChartView(points: monthlyLinePoints)
-                .frame(height: 220)
-        }
-        .cardStyle()
-        .frame(maxWidth: .infinity)
-    }
-
-    private var dailyScatterCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 6) {
-                Image(systemName: "circle.grid.2x2.fill")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(AppTheme.brandStart)
-                Text("每日收支分布")
-                    .font(.appTitle)
-                    .foregroundColor(AppTheme.textPrimary)
-                Spacer()
-            }
-            DailyScatterChartView(points: dailyScatterPoints)
-                .frame(height: 220)
-        }
-        .cardStyle()
-        .frame(maxWidth: .infinity)
-    }
-    
     private func pieCard(data: [CategoryAnalytics], title: String) -> some View {
         let count = data.count
         let isMany = count > 6
