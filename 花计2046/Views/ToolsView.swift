@@ -74,7 +74,9 @@ struct ToolsView: View {
                         toolCardContent(tool: tool)
                     }
                     .animation(.easeInOut(duration: 0.2), value: tools)
-                    .onAppear {
+                    .task {
+                        // 从云端拉取排序（跨设备）
+                        await UserSettingsManager.shared.loadFromCloud()
                         if tools.isEmpty { tools = orderedTools }
                     }
                 }
@@ -130,6 +132,8 @@ struct ToolsView: View {
     
     private func saveOrder(_ tools: [ToolItem]) {
         toolOrderRaw = tools.map { $0.id.uuidString }.joined(separator: ",")
+        // 云端同步（跨设备）
+        Task { await UserSettingsManager.shared.saveToCloud() }
     }
     
     private func toolCard(icon: String, title: String, desc: String, status: String, isActive: Bool = false) -> some View {

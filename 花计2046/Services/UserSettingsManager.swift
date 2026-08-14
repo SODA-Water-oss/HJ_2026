@@ -90,6 +90,8 @@ class UserSettingsManager: ObservableObject {
         for key in ["enabled_expense_cats", "enabled_income_cats", "custom_expense_cats", "custom_income_cats", "default_expense_cat", "default_income_cat"] {
             if let value = UserDefaults.standard.string(forKey: key) { settings[key] = value }
         }
+        // 工具排序
+        if let value = UserDefaults.standard.string(forKey: "tool_order") { settings["tool_order"] = value }
         let payload = SettingsPayload(userId: userId.uuidString, settings: settings, updatedAt: ISO8601DateFormatter().string(from: Date()))
         do {
             try await SupabaseService.shared.client.from("user_settings").upsert(payload, onConflict: "user_id").execute()
@@ -125,6 +127,7 @@ class UserSettingsManager: ObservableObject {
         for key in ["enabled_expense_cats", "enabled_income_cats", "custom_expense_cats", "custom_income_cats", "default_expense_cat", "default_income_cat"] {
             if let val = dict[key] { UserDefaults.standard.set(val, forKey: key) }
         }
+        if let val = dict["tool_order"] { UserDefaults.standard.set(val, forKey: "tool_order") }
     }
 }
 
