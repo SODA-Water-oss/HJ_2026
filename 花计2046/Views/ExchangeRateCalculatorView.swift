@@ -199,7 +199,6 @@ struct ExchangeRateCalculatorView: View {
             }
         }
         .scrollDismissesKeyboard(.immediately)
-        .task { await fetchRates() }
         .overlay {
             if isUpdating {
                 ProgressView()
