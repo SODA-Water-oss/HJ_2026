@@ -110,9 +110,8 @@ final class AchievementManager: ObservableObject {
             let monthlyBudget = AchievementEngine.effectiveMonthlyBudget(setting: budgetSetting, records: records, now: now, calendar: calendar)
             let weeklyBudget = AchievementEngine.weeklyBudget(monthly: monthlyBudget)
             let health = AchievementEngine.health(summaries: summaries, budget: budgetSetting, now: now, calendar: calendar)
-            let streak = AchievementEngine.currentStreak(summaries: summaries, weeklyBudget: weeklyBudget, now: now, calendar: calendar)
             let monthCount = AchievementEngine.qualifyingMonthCount(summaries: summaries, monthlyBudget: monthlyBudget, calendar: calendar)
-            let derived = AchievementEngine.derivedBadgeStates(weekStreak: streak, qualifyingMonthCount: monthCount)
+            let derived = AchievementEngine.derivedBadgeStates(qualifyingMonthCount: monthCount)
             let audit = AchievementEngine.auditBadges(previous: existing?.badgeStates ?? [], current: derived, now: now)
 
             let goals = existing?.goals ?? []
@@ -137,7 +136,7 @@ final class AchievementManager: ObservableObject {
                 goals: goals,
                 budget: budgetSetting,
                 periodSummaries: summaries,
-                weekStreak: streak,
+                weekStreak: 0,
                 badgeStates: audit.states,
                 badgeEvents: (existing?.badgeEvents ?? []) + audit.events,
                 health: health,

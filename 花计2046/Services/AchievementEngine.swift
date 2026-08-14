@@ -163,32 +163,6 @@ extension AchievementEngine {
         return self.monthKey(for: previous, calendar: calendar)
     }
 
-    static func currentStreak(
-        summaries: [String: PeriodSummary],
-        weeklyBudget: Double,
-        now: Date,
-        calendar: Calendar = .current
-    ) -> Int {
-        var weekCalendar = calendar
-        weekCalendar.firstWeekday = 2
-        weekCalendar.minimumDaysInFirstWeek = 4
-        guard var components = weekDateComponents(weekKey(for: now, calendar: calendar), calendar: weekCalendar),
-              var weekDate = weekCalendar.date(from: components) else { return 0 }
-        var streak = 0
-        var guardCount = 0
-        while guardCount < 520 {
-            let week = weekKey(for: weekDate, calendar: calendar)
-            guard let summary = summaries[week], summary.recordCount > 0, summary.expense <= weeklyBudget else { break }
-            streak += 1
-            guard let previous = weekCalendar.date(byAdding: .weekOfYear, value: -1, to: weekDate),
-                  let nextComponents = weekDateComponents(weekKey(for: previous, calendar: calendar), calendar: weekCalendar),
-                  let nextDate = weekCalendar.date(from: nextComponents) else { break }
-            weekDate = nextDate
-            guardCount += 1
-        }
-        return streak
-    }
-
     static func weeklySummary(
         summaries: [String: PeriodSummary],
         monthlyBudget: Double,
@@ -221,16 +195,11 @@ extension AchievementEngine {
             .count
     }
 
-    static func derivedBadgeStates(weekStreak: Int, qualifyingMonthCount: Int) -> [BadgeState] {
-        let weekThresholds: [(BadgeType, Int)] = [
-            (.week1, 1), (.week4, 4), (.week8, 8), (.week12, 12), (.week26, 26), (.week52, 52)
-        ]
+    static func derivedBadgeStates(qualifyingMonthCount: Int) -> [BadgeState] {
         let monthThresholds: [(BadgeType, Int)] = [
             (.monthIron, 3), (.monthCopper, 6), (.monthSilver, 12), (.monthGold, 24)
         ]
-        let weekStates = weekThresholds.map { BadgeState(badgeType: $0.0, isHeld: weekStreak >= $0.1, latestAwardedAt: nil, latestRevokedAt: nil) }
-        let monthStates = monthThresholds.map { BadgeState(badgeType: $0.0, isHeld: qualifyingMonthCount >= $0.1, latestAwardedAt: nil, latestRevokedAt: nil) }
-        return weekStates + monthStates
+        return monthThresholds.map { BadgeState(badgeType: $0.0, isHeld: qualifyingMonthCount >= $0.1, latestAwardedAt: nil, latestRevokedAt: nil) }
     }
 
     static func auditBadges(previous: [BadgeState], current: [BadgeState], now: Date) -> (states: [BadgeState], events: [BadgeAwardEvent]) {

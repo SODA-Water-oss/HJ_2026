@@ -111,82 +111,30 @@ struct AchievementHealthTests {
     }
 }
 
-struct AchievementStreakTests {
-    private let calendar = Calendar(identifier: .gregorian)
-    private func date(_ y: Int, _ m: Int, _ d: Int) -> Date {
-        calendar.date(from: DateComponents(year: y, month: m, day: d))!
-    }
-
-    @Test func streakCountsConsecutiveQualifyingWeeks() {
-        let summaries: [String: PeriodSummary] = [
-            "2026-W30": PeriodSummary(key: "2026-W30", periodType: .week, expense: 500, recordCount: 2),
-            "2026-W31": PeriodSummary(key: "2026-W31", periodType: .week, expense: 600, recordCount: 2),
-            "2026-W32": PeriodSummary(key: "2026-W32", periodType: .week, expense: 800, recordCount: 2)
-        ]
-        let streak = AchievementEngine.currentStreak(
-            summaries: summaries,
-            weeklyBudget: 1000,
-            now: date(2026, 8, 9),
-            calendar: calendar
-        )
-        #expect(streak == 3)
-    }
-
-    @Test func streakBreaksOnOverBudgetWeek() {
-        let summaries: [String: PeriodSummary] = [
-            "2026-W30": PeriodSummary(key: "2026-W30", periodType: .week, expense: 1200, recordCount: 2),
-            "2026-W31": PeriodSummary(key: "2026-W31", periodType: .week, expense: 600, recordCount: 2),
-            "2026-W32": PeriodSummary(key: "2026-W32", periodType: .week, expense: 800, recordCount: 2)
-        ]
-        let streak = AchievementEngine.currentStreak(
-            summaries: summaries,
-            weeklyBudget: 1000,
-            now: date(2026, 8, 9),
-            calendar: calendar
-        )
-        #expect(streak == 2)
-    }
-
-    @Test func emptyWeekDoesNotCount() {
-        let summaries: [String: PeriodSummary] = [
-            "2026-W32": PeriodSummary(key: "2026-W32", periodType: .week, expense: 0, recordCount: 0)
-        ]
-        let streak = AchievementEngine.currentStreak(
-            summaries: summaries,
-            weeklyBudget: 1000,
-            now: date(2026, 8, 9),
-            calendar: calendar
-        )
-        #expect(streak == 0)
-    }
-}
-
 struct AchievementBadgeTests {
     private let calendar = Calendar(identifier: .gregorian)
     private func date(_ y: Int, _ m: Int, _ d: Int) -> Date {
         calendar.date(from: DateComponents(year: y, month: m, day: d))!
     }
 
-    @Test func weekMilestonesDeriveFromStreak() {
-        let states = AchievementEngine.derivedBadgeStates(weekStreak: 12, qualifyingMonthCount: 3)
-        #expect(states.first(where: { $0.badgeType == .week1 })?.isHeld == true)
-        #expect(states.first(where: { $0.badgeType == .week12 })?.isHeld == true)
-        #expect(states.first(where: { $0.badgeType == .week52 })?.isHeld == false)
+    @Test func monthMilestonesDeriveFromQualifyingCount() {
+        let states = AchievementEngine.derivedBadgeStates(qualifyingMonthCount: 12)
         #expect(states.first(where: { $0.badgeType == .monthIron })?.isHeld == true)
+        #expect(states.first(where: { $0.badgeType == .monthSilver })?.isHeld == true)
         #expect(states.first(where: { $0.badgeType == .monthGold })?.isHeld == false)
     }
 
     @Test func auditAppendsAwardAndRevokeEvents() {
         let now = date(2026, 8, 3)
-        let before = AchievementEngine.derivedBadgeStates(weekStreak: 11, qualifyingMonthCount: 0)
-        let after = AchievementEngine.derivedBadgeStates(weekStreak: 12, qualifyingMonthCount: 0)
+        let before = AchievementEngine.derivedBadgeStates(qualifyingMonthCount: 2)
+        let after = AchievementEngine.derivedBadgeStates(qualifyingMonthCount: 3)
         let result = AchievementEngine.auditBadges(previous: before, current: after, now: now)
-        #expect(result.events.contains { $0.badgeType == .week12 && $0.event == .awarded })
-        #expect(!result.events.contains { $0.badgeType == .week12 && $0.event == .revoked })
+        #expect(result.events.contains { $0.badgeType == .monthIron && $0.event == .awarded })
+        #expect(!result.events.contains { $0.badgeType == .monthIron && $0.event == .revoked })
 
-        let dropped = AchievementEngine.derivedBadgeStates(weekStreak: 11, qualifyingMonthCount: 0)
+        let dropped = AchievementEngine.derivedBadgeStates(qualifyingMonthCount: 2)
         let revoked = AchievementEngine.auditBadges(previous: after, current: dropped, now: now)
-        #expect(revoked.events.contains { $0.badgeType == .week12 && $0.event == .revoked })
+        #expect(revoked.events.contains { $0.badgeType == .monthIron && $0.event == .revoked })
     }
 
     @Test func qualifyingMonthCount() {

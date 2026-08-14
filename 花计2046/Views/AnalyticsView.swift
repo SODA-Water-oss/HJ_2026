@@ -209,7 +209,7 @@ struct AnalyticsView: View {
                         .environmentObject(supabaseService)
 
                     // 3. 收支目标（整体模块）
-                    GoalsModuleCard(manager: AchievementManager.shared)
+                    GoalsModuleCard()
                         .environmentObject(supabaseService)
 
                     // 4. 资金总览：12个月收支双折线
