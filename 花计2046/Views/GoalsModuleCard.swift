@@ -162,7 +162,7 @@ struct GoalsModuleCard: View {
     private var achievementBadges: some View {
         // 只展示「上一周期开始时目标已存在」的目标；刚设置的目标不判定，避免误显示未达成
         let badgeItems = items.filter {
-            ($0.timeDimension == "每周" || $0.timeDimension == "每月" || $0.timeDimension == "每年") && badgeEligible($0)
+            ($0.timeDimension == "每周" || $0.timeDimension == "每月" || $0.timeDimension == "每年" || $0.timeDimension == "日期区间") && badgeEligible($0)
         }
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -203,6 +203,7 @@ struct GoalsModuleCard: View {
         case "每周": return "上周达成"
         case "每月": return "上月达成"
         case "每年": return "上年达成"
+        case "日期区间": return "上阶段达成"
         default: return "达成"
         }
     }
@@ -285,6 +286,11 @@ struct GoalsModuleCard: View {
 
     /// 目标是否可判定上一周期：目标创建时间不晚于上一周期开始才算（旧数据 createdAt 为 nil 视为可判定）
     private func badgeEligible(_ item: GoalTargetItem) -> Bool {
+        if item.timeDimension == "日期区间" {
+            // 固定起止日期的目标：区间已结束才判定达成
+            guard let end = item.endDate else { return false }
+            return end <= Date()
+        }
         guard let createdAt = item.createdAt, let range = previousPeriodRange(for: item) else { return true }
         return createdAt <= range.start
     }
@@ -292,6 +298,10 @@ struct GoalsModuleCard: View {
     /// 上一完整周期是否达成（上周/上月/上年），未达成不显示徽章
     private func achievedLastPeriod(for item: GoalTargetItem) -> Bool {
         let records = supabaseService.allRecords
+        if item.timeDimension == "日期区间" {
+            guard let s = item.startDate, let e = item.endDate, e >= s else { return false }
+            return achieved(records: records, start: s, end: e, item: item)
+        }
         guard let range = previousPeriodRange(for: item) else { return false }
         return achieved(records: records, start: range.start, end: range.end, item: item)
     }
