@@ -9,6 +9,7 @@ struct GoalTargetItem: Codable, Identifiable {
     var amount: Double
     var startDate: Date?
     var endDate: Date?
+    var createdAt: Date?    // 目标创建时间（判定上一周期是否可算，旧数据为 nil 视为可判定）
 
     /// 展示用名称（旧数据无名称时回退为「收入目标/支出目标」）
     var displayName: String {
@@ -142,7 +143,10 @@ struct GoalsModuleCard: View {
 
     // MARK: - 历史达成徽章（长期显示）
     private var achievementBadges: some View {
-        let badgeItems = items.filter { $0.timeDimension == "每周" || $0.timeDimension == "每月" || $0.timeDimension == "每年" }
+        // 只展示「上一周期开始时目标已存在」的目标；刚设置的目标不判定，避免误显示未达成
+        let badgeItems = items.filter {
+            ($0.timeDimension == "每周" || $0.timeDimension == "每月" || $0.timeDimension == "每年") && badgeEligible($0)
+        }
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Image(systemName: "medal.fill")
@@ -154,9 +158,15 @@ struct GoalsModuleCard: View {
                 Spacer()
             }
             if badgeItems.isEmpty {
-                Text("设置每周/每月/每年目标后，达成即可获得对应徽章")
-                    .font(.appTiny)
-                    .foregroundColor(AppTheme.textTertiary)
+                if items.isEmpty {
+                    Text("设置每周/每月/每年目标后，达成即可获得对应徽章")
+                        .font(.appTiny)
+                        .foregroundColor(AppTheme.textTertiary)
+                } else {
+                    Text("目标刚设置，从下一个完整周期起判定达成情况")
+                        .font(.appTiny)
+                        .foregroundColor(AppTheme.textTertiary)
+                }
             } else {
                 ForEach(badgeItems) { item in
                     badgeRow(
@@ -237,27 +247,39 @@ struct GoalsModuleCard: View {
     }
 
     /// 某个目标在历史周期中达成的次数（按目标名称一一匹配；周=52 周、月=24 个月、年=5 年、日期区间=1 次）
-    /// 上一完整周期是否达成（上周/上月/上年），未达成不显示徽章
-    private func achievedLastPeriod(for item: GoalTargetItem) -> Bool {
-        let records = supabaseService.allRecords
+    /// 上一完整周期范围（周/月/年）
+    private func previousPeriodRange(for item: GoalTargetItem) -> (start: Date, end: Date)? {
         let cal = Calendar.current
         let now = Date()
-        let range: (start: Date, end: Date)?
         switch item.timeDimension {
         case "每周":
             let thisWeekStart = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)) ?? now
-            range = (cal.date(byAdding: .day, value: -7, to: thisWeekStart) ?? thisWeekStart, thisWeekStart)
+            let start = cal.date(byAdding: .day, value: -7, to: thisWeekStart) ?? thisWeekStart
+            return (start, thisWeekStart)
         case "每月":
             let thisMonthStart = cal.date(from: cal.dateComponents([.year, .month], from: now)) ?? now
-            range = (cal.date(byAdding: .month, value: -1, to: thisMonthStart) ?? thisMonthStart, thisMonthStart)
+            let start = cal.date(byAdding: .month, value: -1, to: thisMonthStart) ?? thisMonthStart
+            return (start, thisMonthStart)
         case "每年":
             let thisYearStart = cal.date(from: cal.dateComponents([.year], from: now)) ?? now
-            range = (cal.date(byAdding: .year, value: -1, to: thisYearStart) ?? thisYearStart, thisYearStart)
+            let start = cal.date(byAdding: .year, value: -1, to: thisYearStart) ?? thisYearStart
+            return (start, thisYearStart)
         default:
-            range = nil
+            return nil
         }
-        guard let r = range else { return false }
-        return achieved(records: records, start: r.start, end: r.end, item: item)
+    }
+
+    /// 目标是否可判定上一周期：目标创建时间不晚于上一周期开始才算（旧数据 createdAt 为 nil 视为可判定）
+    private func badgeEligible(_ item: GoalTargetItem) -> Bool {
+        guard let createdAt = item.createdAt, let range = previousPeriodRange(for: item) else { return true }
+        return createdAt <= range.start
+    }
+
+    /// 上一完整周期是否达成（上周/上月/上年），未达成不显示徽章
+    private func achievedLastPeriod(for item: GoalTargetItem) -> Bool {
+        let records = supabaseService.allRecords
+        guard let range = previousPeriodRange(for: item) else { return false }
+        return achieved(records: records, start: range.start, end: range.end, item: item)
     }
 
     /// 历史累计达成次数（周=52、月=24、年=5），以文字保留成绩
@@ -600,7 +622,8 @@ struct GoalTargetAddSheet: View {
                             timeDimension: timeDimension,
                             amount: value,
                             startDate: timeDimension == "日期区间" ? startDate : nil,
-                            endDate: timeDimension == "日期区间" ? endDate : nil
+                            endDate: timeDimension == "日期区间" ? endDate : nil,
+                            createdAt: Date()
                         )
                         items.append(item)
                         GoalTargetItem.save(items)
