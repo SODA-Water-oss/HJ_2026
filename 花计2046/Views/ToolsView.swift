@@ -75,9 +75,11 @@ struct ToolsView: View {
                     }
                     .animation(.easeInOut(duration: 0.2), value: tools)
                     .task {
-                        // 从云端拉取排序（跨设备）
-                        await UserSettingsManager.shared.loadFromCloud()
+                        // 先显示本地排序，避免等待云端
                         if tools.isEmpty { tools = orderedTools }
+                        // 后台从云端拉取排序（跨设备），拉取后刷新
+                        await UserSettingsManager.shared.loadFromCloud()
+                        tools = orderedTools
                     }
                 }
             }
