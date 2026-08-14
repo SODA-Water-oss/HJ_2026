@@ -87,9 +87,15 @@ struct AnalyticsAchievementView: View {
                         .foregroundColor(AppTheme.textTertiary)
                         .padding(.vertical, 8)
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 64))], spacing: 10) {
+                    // 已获得的徽章：大尺寸醒目展示
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 104))], spacing: 16) {
                         ForEach(held) { state in
-                            Badge24View(badgeType: state.badgeType, isHeld: true, latestAwardedAt: state.latestAwardedAt)
+                            Badge24View(
+                                badgeType: state.badgeType,
+                                isHeld: true,
+                                latestAwardedAt: state.latestAwardedAt,
+                                size: 92
+                            )
                         }
                     }
                 }
@@ -179,23 +185,26 @@ struct Badge24View: View {
     let badgeType: BadgeType
     let isHeld: Bool
     let latestAwardedAt: Date?
+    var size: CGFloat = 58
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 6) {
             ZStack {
                 starShape.fill(color(for: .outer))
                 starShape.fill(color(for: .middle)).scaleEffect(0.78)
                 starShape.fill(color(for: .inner)).scaleEffect(0.64)
                 trophyIcon
             }
-            .frame(width: 58, height: 58)
+            .frame(width: size, height: size)
             .opacity(isHeld ? 1 : 0.35)
 
-            Text(badgeType.shortName).font(.system(size: 11, weight: .medium)).foregroundColor(AppTheme.textPrimary)
+            Text(badgeType.shortName)
+                .font(.system(size: max(11, size * 0.2), weight: .semibold))
+                .foregroundColor(AppTheme.textPrimary)
             if let date = latestAwardedAt, isHeld {
-                Text(date, format: .dateTime.month().day()).font(.system(size: 9)).foregroundColor(AppTheme.textTertiary)
-            } else if !isHeld {
-                Text("未持有").font(.system(size: 9)).foregroundColor(AppTheme.textTertiary)
+                Text(date, format: .dateTime.month().day())
+                    .font(.system(size: max(9, size * 0.16)))
+                    .foregroundColor(AppTheme.textTertiary)
             }
         }
     }
@@ -233,7 +242,7 @@ struct Badge24View: View {
 
     @ViewBuilder private var trophyIcon: some View {
         Image(systemName: trophyName)
-            .font(.system(size: 20, weight: .semibold))
+            .font(.system(size: max(14, size * 0.34), weight: .semibold))
             .foregroundColor(.white)
     }
 
