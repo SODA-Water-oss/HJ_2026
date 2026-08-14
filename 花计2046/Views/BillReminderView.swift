@@ -400,7 +400,7 @@ extension BillItem {
         self.dueMonth = codable.dueMonth
         self.isEnabled = codable.isEnabled
         self.currency = codable.currency
-        if let raw = codable.reminderTime, let t = parseTime(raw) {
+        if let raw = codable.reminderTime, let t = Self.parseTime(raw) {
             self.reminderTime = t
         }
         switch codable.recurrence {
@@ -416,12 +416,12 @@ extension BillItem {
         }
     }
     
-    private func formatTime(_ date: Date) -> String {
+    private static func formatTime(_ date: Date) -> String {
         let cal = Calendar.current
         return String(format: "%02d:%02d", cal.component(.hour, from: date), cal.component(.minute, from: date))
     }
     
-    private func parseTime(_ raw: String) -> Date? {
+    private static func parseTime(_ raw: String) -> Date? {
         let parts = raw.split(separator: ":").compactMap { Int($0) }
         guard parts.count == 2, let base = Calendar.current.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: Date()) else { return nil }
         return base
@@ -447,7 +447,7 @@ extension BillItem {
             isEnabled: isEnabled,
             currency: currency,
             onceDate: recurrence == .once ? onceDate.map { ISO8601DateFormatter().string(from: $0) } : nil,
-            reminderTime: reminderTime.map { formatTime($0) }
+            reminderTime: reminderTime.map { Self.formatTime($0) }
         )
     }
 }
