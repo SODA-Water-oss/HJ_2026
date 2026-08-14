@@ -3,11 +3,18 @@ import SwiftUI
 // MARK: - 目标条目数据模型
 struct GoalTargetItem: Codable, Identifiable {
     var id = UUID()
+    var name: String = ""       // 目标名称（目标设置时输入）
     var category: String        // "收入" / "支出"
     var timeDimension: String   // "每周" / "每月" / "每年" / "日期区间"
     var amount: Double
     var startDate: Date?
     var endDate: Date?
+
+    /// 展示用名称（旧数据无名称时回退为「收入目标/支出目标」）
+    var displayName: String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "\(category)目标" : trimmed
+    }
 
     static let timeDimensions = ["每周", "每月", "每年", "日期区间"]
 
@@ -135,8 +142,8 @@ struct GoalsModuleCard: View {
 
     // MARK: - 历史达成徽章（长期显示）
     private var achievementBadges: some View {
-        let weekAchieved = historicalAchievedCount(dimension: "每周")
-        let monthAchieved = historicalAchievedCount(dimension: "每月")
+        let weeklyItems = items.filter { $0.timeDimension == "每周" }
+        let monthlyItems = items.filter { $0.timeDimension == "每月" }
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Image(systemName: "medal.fill")
@@ -147,9 +154,17 @@ struct GoalsModuleCard: View {
                     .foregroundColor(AppTheme.textPrimary)
                 Spacer()
             }
-            HStack(spacing: 14) {
-                badgeGroup(title: "周达成", count: weekAchieved, icon: "crown.fill", color: AppTheme.brandEnd)
-                badgeGroup(title: "月达成", count: monthAchieved, icon: "crown.fill", color: Color(hex: "#EAB308"))
+            if weeklyItems.isEmpty && monthlyItems.isEmpty {
+                Text("设置每周或每月目标后，达成即可获得对应徽章")
+                    .font(.appTiny)
+                    .foregroundColor(AppTheme.textTertiary)
+            } else {
+                ForEach(weeklyItems) { item in
+                    badgeRow(name: item.displayName, title: "周达成", count: achievedCount(for: item), isWeekly: true)
+                }
+                ForEach(monthlyItems) { item in
+                    badgeRow(name: item.displayName, title: "月达成", count: achievedCount(for: item), isWeekly: false)
+                }
             }
             Text("达成 1 个周期目标获得 1 枚徽章")
                 .font(.appTiny)
@@ -157,26 +172,31 @@ struct GoalsModuleCard: View {
         }
     }
 
-    private func badgeGroup(title: String, count: Int, icon: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.appSmall).foregroundColor(AppTheme.textSecondary)
-            HStack(spacing: 8) {
+    /// 单条目标徽章行：目标名称（固定列宽保证对齐）+ 周/月达成 + 徽章
+    private func badgeRow(name: String, title: String, count: Int, isWeekly: Bool) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.appSmall)
+                    .foregroundColor(AppTheme.textPrimary)
+                    .lineLimit(1)
+                Text(title)
+                    .font(.appTiny)
+                    .foregroundColor(AppTheme.textSecondary)
+            }
+            .frame(width: 88, alignment: .leading)
+            Spacer(minLength: 8)
+            HStack(spacing: 6) {
                 ForEach(0..<min(max(count, 0), 8), id: \.self) { _ in
-                    if icon == "crown.fill" && color == AppTheme.brandEnd {
-                        WeeklyBadgeView()
-                    } else {
-                        MonthlyBadgeView()
-                    }
+                    if isWeekly { WeeklyBadgeView() } else { MonthlyBadgeView() }
+                }
+                if count == 0 {
+                    Text("--").font(.appSmall).foregroundColor(AppTheme.textTertiary)
                 }
                 if count > 8 {
                     Text("+\\(count - 8)")
                         .font(.appSmall)
                         .foregroundColor(AppTheme.textSecondary)
-                }
-                if count == 0 {
-                    Text("--")
-                        .font(.appSmall)
-                        .foregroundColor(AppTheme.textTertiary)
                 }
             }
         }
@@ -210,43 +230,52 @@ struct GoalsModuleCard: View {
         return inRange.filter(\.isExpense).reduce(0) { $0 + $1.amount }
     }
 
-    /// 历史达成数量（过去 52 周 / 24 个月，对应目标达标次数）
-    func historicalAchievedCount(dimension: String) -> Int {
+    /// 某个目标在历史周期中达成的次数（按目标名称一一匹配；周=52 周、月=24 个月、年=5 年、日期区间=1 次）
+    private func achievedCount(for item: GoalTargetItem) -> Int {
         let records = supabaseService.allRecords
         let cal = Calendar.current
         let now = Date()
         var count = 0
-
-        if dimension == "每周" {
-            let incomeTarget = targetAmount(dimension: "每周", category: "收入")
-            let expenseTarget = targetAmount(dimension: "每周", category: "支出")
-            guard incomeTarget > 0 || expenseTarget > 0 else { return 0 }
+        switch item.timeDimension {
+        case "每周":
             for i in 0..<52 {
                 let end = cal.date(byAdding: .day, value: -7 * i, to: now) ?? now
                 let start = cal.date(byAdding: .day, value: -7, to: end) ?? end
-                let recs = records.filter { $0.date >= start && $0.date < end }
-                let income = recs.filter(\.isIncome).reduce(0) { $0 + $1.amount }
-                let expense = recs.filter(\.isExpense).reduce(0) { $0 + $1.amount }
-                let incomeOK = incomeTarget == 0 || income >= incomeTarget
-                let expenseOK = expenseTarget == 0 || expense <= expenseTarget
-                if incomeOK && expenseOK { count += 1 }
+                if achieved(records: records, start: start, end: end, item: item) { count += 1 }
             }
-        } else if dimension == "每月" {
-            let incomeTarget = targetAmount(dimension: "每月", category: "收入")
-            let expenseTarget = targetAmount(dimension: "每月", category: "支出")
-            guard incomeTarget > 0 || expenseTarget > 0 else { return 0 }
+        case "每月":
             for i in 0..<24 {
                 let end = cal.date(byAdding: .month, value: -i, to: now) ?? now
                 let start = cal.date(byAdding: .month, value: -1, to: end) ?? end
-                let recs = records.filter { $0.date >= start && $0.date < end }
-                let income = recs.filter(\.isIncome).reduce(0) { $0 + $1.amount }
-                let expense = recs.filter(\.isExpense).reduce(0) { $0 + $1.amount }
-                let incomeOK = incomeTarget == 0 || income >= incomeTarget
-                let expenseOK = expenseTarget == 0 || expense <= expenseTarget
-                if incomeOK && expenseOK { count += 1 }
+                if achieved(records: records, start: start, end: end, item: item) { count += 1 }
             }
+        case "每年":
+            for i in 0..<5 {
+                let end = cal.date(byAdding: .year, value: -i, to: now) ?? now
+                let start = cal.date(byAdding: .year, value: -1, to: end) ?? end
+                if achieved(records: records, start: start, end: end, item: item) { count += 1 }
+            }
+        case "日期区间":
+            if let s = item.startDate, let e = item.endDate, e >= s,
+               achieved(records: records, start: s, end: e, item: item) {
+                count = 1
+            }
+        default:
+            break
         }
         return count
+    }
+
+    private func achieved(records: [Record], start: Date, end: Date, item: GoalTargetItem) -> Bool {
+        guard item.amount > 0 else { return false }
+        let recs = records.filter { $0.date >= start && $0.date < end }
+        let actual: Double
+        if item.category == "收入" {
+            actual = recs.filter(\.isIncome).reduce(0) { $0 + $1.amount }
+        } else {
+            actual = recs.filter(\.isExpense).reduce(0) { $0 + $1.amount }
+        }
+        return actual >= item.amount
     }
 }
 
@@ -262,7 +291,7 @@ struct GoalTargetCard: View {
                 Image(systemName: item.category == "收入" ? "arrow.up.circle" : "arrow.down.circle")
                     .font(.system(size: 15))
                     .foregroundColor(item.category == "收入" ? .green : AppTheme.textSecondary)
-                Text("\(item.category)目标 · \(item.timeDimension)")
+                Text("\(item.displayName) · \(item.timeDimension)")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(AppTheme.textPrimary)
                 Spacer()
@@ -367,7 +396,7 @@ struct GoalTargetSettingSheet: View {
                         ForEach(items) { item in
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("\(item.category)目标 · \(item.timeDimension)")
+                                    Text("\(item.displayName) · \(item.timeDimension)")
                                         .font(.appBody)
                                         .foregroundColor(AppTheme.textPrimary)
                                     Text(String(format: "¥%.0f", item.amount))
@@ -433,7 +462,7 @@ struct GoalTargetSettingSheet: View {
                 }
             } message: {
                 if let target = pendingDelete {
-                    Text("确定删除「\(target.category)目标 · \(target.timeDimension)」吗？删除后不可恢复。")
+                    Text("确定删除「\(target.displayName)」吗？删除后不可恢复。")
                 } else {
                     Text("确定删除该目标吗？")
                 }
@@ -447,15 +476,21 @@ struct GoalTargetSettingSheet: View {
 struct GoalTargetAddSheet: View {
     @Binding var items: [GoalTargetItem]
     @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
     @State private var category = "支出"
     @State private var timeDimension = "每月"
     @State private var amount = ""
     @State private var startDate = Date()
     @State private var endDate = Date().addingTimeInterval(30 * 24 * 60 * 60)
+    @State private var showValidationAlert = false
+    @State private var validationMessage = ""
 
     var body: some View {
         NavigationStack {
             Form {
+                Section("目标名称") {
+                    TextField("如：每月存5000", text: $name)
+                }
                 Section("目标类型") {
                     Picker("类型", selection: $category) {
                         Text("支出目标").tag("支出")
@@ -485,9 +520,20 @@ struct GoalTargetAddSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
-                        guard let value = Double(amount), value > 0 else { return }
+                        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !trimmedName.isEmpty else {
+                            validationMessage = "请填写目标名称"
+                            showValidationAlert = true
+                            return
+                        }
+                        guard let value = Double(amount), value > 0 else {
+                            validationMessage = "请填写有效的目标金额"
+                            showValidationAlert = true
+                            return
+                        }
                         let item = GoalTargetItem(
                             id: UUID(),
+                            name: trimmedName,
                             category: category,
                             timeDimension: timeDimension,
                             amount: value,
@@ -516,11 +562,16 @@ struct GoalTargetAddSheet: View {
                 }
             }
         }
+        .alert("提示", isPresented: $showValidationAlert) {
+            Button("确定", role: .cancel) { }
+        } message: {
+            Text(validationMessage)
+        }
         .preferredColorScheme(.light)
     }
 }
 
-/// 周达成徽章（华丽）：渐变圆底 + 紫色皇冠 + 四角星点缀 + 光晕
+/// 周达成徽章（华丽，缩小版）：渐变圆底 + 紫色皇冠 + 四角星点缀 + 光晕
 struct WeeklyBadgeView: View {
     private var color: Color { AppTheme.brandEnd }
 
@@ -529,7 +580,7 @@ struct WeeklyBadgeView: View {
             // 外圈光晕
             Circle()
                 .fill(color.opacity(0.16))
-                .frame(width: 54, height: 54)
+                .frame(width: 38, height: 38)
 
             // 渐变圆底
             Circle()
@@ -540,7 +591,7 @@ struct WeeklyBadgeView: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .frame(width: 46, height: 46)
+                .frame(width: 32, height: 32)
 
             // 渐变圆环
             Circle()
@@ -552,23 +603,23 @@ struct WeeklyBadgeView: View {
                     ),
                     lineWidth: 2
                 )
-                .frame(width: 46, height: 46)
+                .frame(width: 32, height: 32)
 
             // 皇冠
             Image(systemName: "crown.fill")
-                .font(.system(size: 22, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(
                     LinearGradient(colors: [color, Color(hex: "#A855F7").opacity(0.7)], startPoint: .top, endPoint: .bottom)
                 )
-                .shadow(color: color.opacity(0.6), radius: 3, x: 0, y: 1)
+                .shadow(color: color.opacity(0.6), radius: 2, x: 0, y: 1)
 
             // 四角星点缀
-            sparkle(offset: CGSize(width: -20, height: -20), size: 5)
-            sparkle(offset: CGSize(width: 20, height: -18), size: 4)
-            sparkle(offset: CGSize(width: -22, height: 18), size: 4)
-            sparkle(offset: CGSize(width: 22, height: 20), size: 5)
+            sparkle(offset: CGSize(width: -15, height: -15), size: 4)
+            sparkle(offset: CGSize(width: 15, height: -13), size: 3)
+            sparkle(offset: CGSize(width: -16, height: 13), size: 3)
+            sparkle(offset: CGSize(width: 16, height: 15), size: 4)
         }
-        .frame(width: 54, height: 54)
+        .frame(width: 38, height: 38)
     }
 
     private func sparkle(offset: CGSize, size: CGFloat) -> some View {
@@ -588,11 +639,11 @@ struct MonthlyBadgeView: View {
             // 大光晕
             Circle()
                 .fill(color.opacity(0.18))
-                .frame(width: 66, height: 66)
+                .frame(width: 44, height: 44)
 
             // 放射光线（8 条）
             ForEach(0..<8, id: \.self) { i in
-                RoundedRectangle(cornerRadius: 1.5)
+                RoundedRectangle(cornerRadius: 1.2)
                     .fill(
                         LinearGradient(
                             colors: [color.opacity(0.9), color.opacity(0.0)],
@@ -600,8 +651,8 @@ struct MonthlyBadgeView: View {
                             endPoint: .top
                         )
                     )
-                    .frame(width: 3.5, height: 26)
-                    .offset(y: -26)
+                    .frame(width: 2.6, height: 17)
+                    .offset(y: -17)
                     .rotationEffect(.degrees(Double(i) * 45))
             }
 
@@ -614,7 +665,7 @@ struct MonthlyBadgeView: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .frame(width: 54, height: 54)
+                .frame(width: 36, height: 36)
 
             // 双圆环
             Circle()
@@ -624,16 +675,16 @@ struct MonthlyBadgeView: View {
                         startPoint: .top,
                         endPoint: .bottom
                     ),
-                    lineWidth: 2.2
+                    lineWidth: 1.8
                 )
-                .frame(width: 54, height: 54)
+                .frame(width: 36, height: 36)
             Circle()
                 .stroke(color.opacity(0.45), lineWidth: 1)
-                .frame(width: 44, height: 44)
+                .frame(width: 28, height: 28)
 
             // 金色皇冠
             Image(systemName: "crown.fill")
-                .font(.system(size: 26, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [Color(hex: "#FBBF24"), Color(hex: "#B45309")],
@@ -641,17 +692,17 @@ struct MonthlyBadgeView: View {
                         endPoint: .bottom
                     )
                 )
-                .shadow(color: color.opacity(0.7), radius: 4, x: 0, y: 2)
+                .shadow(color: color.opacity(0.7), radius: 3, x: 0, y: 2)
 
             // 多点 sparkle 点缀
-            sparkle(offset: CGSize(width: -26, height: -26), size: 6)
-            sparkle(offset: CGSize(width: 26, height: -24), size: 5)
-            sparkle(offset: CGSize(width: -28, height: 24), size: 5)
-            sparkle(offset: CGSize(width: 28, height: 26), size: 6)
-            sparkle(offset: CGSize(width: 0, height: -32), size: 4)
-            sparkle(offset: CGSize(width: 0, height: 32), size: 4)
+            sparkle(offset: CGSize(width: -18, height: -18), size: 4)
+            sparkle(offset: CGSize(width: 18, height: -16), size: 4)
+            sparkle(offset: CGSize(width: -19, height: 16), size: 4)
+            sparkle(offset: CGSize(width: 19, height: 18), size: 4)
+            sparkle(offset: CGSize(width: 0, height: -22), size: 3)
+            sparkle(offset: CGSize(width: 0, height: 22), size: 3)
         }
-        .frame(width: 66, height: 66)
+        .frame(width: 44, height: 44)
     }
 
     private func sparkle(offset: CGSize, size: CGFloat) -> some View {
