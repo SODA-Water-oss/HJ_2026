@@ -92,7 +92,7 @@ struct AuthView: View {
                                     .font(.system(size: 17))
                                     .foregroundColor(focusedField == .name ? AppTheme.brandStart : AppTheme.textTertiary)
                                     .frame(width: 20)
-                                TextField("昵称（选填，用于点评称呼）", text: $name)
+                                TextField("昵称", text: $name)
                                     .font(.appBody)
                                     .foregroundColor(AppTheme.textPrimary)
                                     .focused($focusedField, equals: .name)

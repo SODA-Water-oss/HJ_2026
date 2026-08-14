@@ -91,6 +91,7 @@ struct MainTabView: View {
             }
             .task {
                 try? await UNUserNotificationCenter.current().setBadgeCount(0)
+                await supabaseService.fetchProfile()
                 try? await supabaseService.preloadAllRecords()
                 await userSettings.loadFromCloud()
                 ledgerLockEnabled = userSettings.ledgerLockEnabled
@@ -210,6 +211,8 @@ struct ProfileView: View {
     @State private var pendingCurrencyName = ""
     @State private var showCurrencyConfirm = false
     @State private var showFeedbackSheet = false
+    @State private var showNameEdit = false
+    @State private var nameInput = ""
     @State private var currencyPickerStep = 0
     @State private var selectedCurrency: (name: String, symbol: String)? = nil
     @State private var showLogoutAlert = false
@@ -217,6 +220,11 @@ struct ProfileView: View {
     @State private var showDeleteAccountConfirmAlert = false
     @State private var isDeletingAccount = false
     private let currencyOptions: [(name: String, symbol: String)] = [("人民币", "¥"), ("美元", "$"), ("欧元", "€"), ("英镑", "£")]
+    
+    private var nicknameDisplay: String {
+        if let n = supabaseService.userProfile?.name, !n.isEmpty { return n }
+        return "设置昵称"
+    }
     
     @ViewBuilder
     private var currencyLabel: some View {
@@ -260,6 +268,28 @@ struct ProfileView: View {
                         Text(supabaseService.currentUser?.email ?? "未知用户")
                             .font(.appTitle)
                             .foregroundColor(AppTheme.textPrimary)
+                        
+                        // 昵称（点击编辑，用于最近收支评价等个性化称呼）
+                        Button(action: {
+                            nameInput = supabaseService.userProfile?.name ?? ""
+                            showNameEdit = true
+                        }) {
+                            HStack(spacing: 8) {
+                                Text("昵称")
+                                    .font(.appBody)
+                                    .foregroundColor(AppTheme.textSecondary)
+                                Text(nicknameDisplay)
+                                    .font(.appBody)
+                                    .foregroundColor(AppTheme.brandStart)
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(AppTheme.textTertiary)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(AppTheme.background)
+                            .cornerRadius(8)
+                        }
                         
                     }
                     .padding(.vertical, 16)
@@ -693,6 +723,19 @@ struct ProfileView: View {
         }) {
             CurrencyEditPicker(selection: $pendingCurrencyName, options: currencyOptions)
                 .presentationDetents([.height(260)])
+        }
+        .alert("修改昵称", isPresented: $showNameEdit) {
+            TextField("昵称", text: $nameInput)
+            Button("取消", role: .cancel) { }
+            Button("保存") {
+                let trimmed = nameInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { return }
+                Task {
+                    try? await supabaseService.updateProfileName(trimmed)
+                }
+            }
+        } message: {
+            Text("昵称将用于最近收支评价等个性化称呼")
         }
         .alert("确认切换货币", isPresented: $showCurrencyConfirm) {
             Button("取消", role: .cancel) {

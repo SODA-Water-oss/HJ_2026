@@ -102,6 +102,35 @@ class SupabaseService: ObservableObject {
         self.userProfile = profile
         self.isAuthenticated = true
         Log.info("云端登录成功 userId=\(uid)")
+        await fetchProfile()
+    }
+
+    /// 从云端 profiles 拉取当前用户资料（含昵称）
+    func fetchProfile() async {
+        guard !AppConfig.useMockServices, let userId = currentUser?.id else { return }
+        do {
+            let row: UserProfile = try await client.from("profiles").select()
+                .eq("id", value: userId)
+                .single()
+                .execute().value
+            self.userProfile = row
+        } catch {
+            Log.error("拉取用户资料失败: \(error.localizedDescription)")
+        }
+    }
+
+    /// 更新用户昵称（写入 profiles.name，并同步到 auth user_metadata）
+    func updateProfileName(_ name: String) async throws {
+        guard !AppConfig.useMockServices, let userId = currentUser?.id else { return }
+        try await client.from("profiles")
+            .update(["name": name])
+            .eq("id", value: userId)
+            .execute()
+        try? await client.auth.update(user: UserAttributes(data: ["name": AnyJSON.string(name)]))
+        if var profile = self.userProfile {
+            profile.name = name
+            self.userProfile = profile
+        }
     }
 
     func signUp(email: String, password: String) async throws {
