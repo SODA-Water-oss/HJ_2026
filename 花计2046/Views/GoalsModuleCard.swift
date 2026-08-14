@@ -293,6 +293,7 @@ struct GoalTargetSettingSheet: View {
                 GoalTargetAddSheet(items: $items)
             }
         }
+        .preferredColorScheme(.light)
     }
 }
 
@@ -369,5 +370,6 @@ struct GoalTargetAddSheet: View {
                 }
             }
         }
+        .preferredColorScheme(.light)
     }
 }
