@@ -40,3 +40,7 @@ Build-Device/
 # Supabase CLI 临时文件
 supabase/.temp/
 BuildRelease/
+
+# Python
+__pycache__/
+*.pyc
