@@ -286,10 +286,20 @@ struct AnalyticsModuleHeader<Trailing: View>: View {
 
 // MARK: - 分析页二级模块标题（层级低于 AnalyticsModuleHeader）
 struct AnalyticsSubHeader: View {
+    let icon: String
     let title: String
+
+    init(icon: String, title: String) {
+        self.icon = icon
+        self.title = title
+    }
 
     var body: some View {
         HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(AppTheme.brandStart)
+                .frame(width: 20)
             Text(title)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(AppTheme.textSecondary)

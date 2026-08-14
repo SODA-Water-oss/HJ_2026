@@ -684,7 +684,7 @@ extension AnalyticsView {
     // MARK: - 12个月收支双折线卡片
     private var trend12Card: some View {
         VStack(alignment: .leading, spacing: 14) {
-            AnalyticsSubHeader(title: "月度收支趋势")
+            AnalyticsSubHeader(icon: "chart.line.uptrend.xyaxis", title: "月度收支趋势")
             MonthlyDualLineChartView(points: monthlyTrendPoints)
                 .frame(height: 220)
         }
@@ -750,7 +750,7 @@ extension AnalyticsView {
         let count = data.count
         let isMany = count > 6
         return VStack(alignment: .leading, spacing: 16) {
-            AnalyticsSubHeader(title: title)
+            AnalyticsSubHeader(icon: "chart.pie.fill", title: title)
             
             HStack(alignment: .top, spacing: isMany ? 12 : 24) {
                 PieChartView(data: data)
@@ -804,7 +804,7 @@ extension AnalyticsView {
 
     private func categoryCard(data: [CategoryAnalytics], title: String) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            AnalyticsSubHeader(title: title)
+            AnalyticsSubHeader(icon: "chart.bar.fill", title: title)
             
             if data.isEmpty {
                 Text("暂无数据")
