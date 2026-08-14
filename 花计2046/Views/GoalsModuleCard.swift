@@ -343,13 +343,31 @@ struct GoalTargetAddSheet: View {
                         GoalTargetItem.save(items)
                         dismiss()
                     }
-                    .foregroundColor(AppTheme.brandStart)
+                    .buttonStyle(WhiteBlackButtonStyle())
                 }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
-                        .foregroundColor(AppTheme.textSecondary)
+                        .buttonStyle(WhiteBlackButtonStyle())
                 }
             }
         }
+    }
+}
+
+/// 白色背景 + 黑色文字按钮样式
+struct WhiteBlackButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 15, weight: .medium))
+            .foregroundColor(.black)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .background(Color.white)
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+            )
+            .opacity(configuration.isPressed ? 0.7 : 1)
     }
 }
