@@ -208,7 +208,7 @@ struct AnalyticsView: View {
                     // 1. 月小结（当月/搜索月份）
                     monthSummaryCard
 
-                    // 2. 趣味点评（30天记录点评）
+                    // 2. 趣味点评（最近收支评价）
                     AIReviewCard()
                         .environmentObject(supabaseService)
 

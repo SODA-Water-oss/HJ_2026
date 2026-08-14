@@ -26,7 +26,7 @@ Deno.serve(async (request) => {
     if (userError || !userData.user) throw new Error("Invalid user session.");
     const userId = userData.user.id;
 
-    // 2. 查询近 30 天收支
+    // 2. 查询最近收支（窗口近30天，但对外统一称“最近”，不暴露具体天数）
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const { data: records, error: recordsError } = await supabase
       .from("records")
@@ -76,7 +76,6 @@ function buildSummary(records: Array<{ type: string; amount: number; category: s
   const avgExpense = count > 0 ? Math.round(expense / count) : 0;
 
   return {
-    days: 30,
     expense: Math.round(expense),
     income: Math.round(income),
     recordCount: count,
@@ -90,7 +89,7 @@ function buildSummary(records: Array<{ type: string; amount: number; category: s
 
 async function generateReview(apiKey: string, summary: Record<string, unknown>): Promise<string> {
   const prompt = [
-    "你是一个爱写手帐、说话俏皮的记账达人，正在给用户写一段 30 天收支手帐点评。",
+    "你是一个爱写手帐、说话俏皮的记账达人，正在给用户写一段最近收支手帐点评。",
     "根据下面的数据，写一段 30-45 字的中文点评（比之前更精简，只保留最有趣的一句精华）。",
     "要求：",
     "1. 像手帐排版一样，用大量不同的 emoji 代替文字，至少 7-10 个，种类尽量丰富多样",
