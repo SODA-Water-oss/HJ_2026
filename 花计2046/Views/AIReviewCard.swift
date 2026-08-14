@@ -39,9 +39,10 @@ struct AIReviewCard: View {
                 }
             } else {
                 Text(review)
-                    .font(.system(size: 15))
+                    // 手写体：使用系统楷体 STKaiti（iOS 内置，接近手写风格）；字体不存在时自动回退默认
+                    .font(.custom("STKaiti", size: 16))
                     .foregroundColor(AppTheme.brandStart)
-                    .lineSpacing(5)
+                    .lineSpacing(7)
                     .padding(.top, 2)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
