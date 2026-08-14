@@ -12,7 +12,7 @@ struct AIReviewCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            AnalyticsModuleHeader(icon: "sparkles", title: "最近收支评价", titleFont: .custom("STKaiti", size: 17)) {
+            AnalyticsModuleHeader(icon: "sparkles", title: "最近收支评价") {
                 Button(action: { load() }) {
                     Image(systemName: "cpu")
                         .font(.system(size: 16, weight: .medium))
