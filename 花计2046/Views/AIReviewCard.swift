@@ -46,7 +46,6 @@ struct AIReviewCard: View {
         .cardStyle()
         .task {
             // 进入页面自动加载一版
-            if fullText.isEmpty && !isLoading && !loadFailed && !AppConfig.useMockServices {
                 load()
             }
         }
