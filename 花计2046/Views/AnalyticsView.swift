@@ -952,7 +952,7 @@ let categoryColorDict: [String: Color] = [
     "工资": Color(hex: "#34D399").opacity(0.88),
     "奖金": Color(hex: "#10B981").opacity(0.88),
     "兼职": Color(hex: "#6EE7B7").opacity(0.88),
-    "投资收益": Color(hex: "#22C55E").opacity(0.88),
+    "投资": Color(hex: "#22C55E").opacity(0.88),
     "理财": Color(hex: "#86EFAC").opacity(0.88),
     "礼金": Color(hex: "#A7F3D0").opacity(0.88),
     "退款": Color(hex: "#4ADE80").opacity(0.88),

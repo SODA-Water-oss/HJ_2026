@@ -6,7 +6,7 @@ import SwiftUI
 struct CategoryManager {
     // MARK: - 预设分类
     static let defaultExpenseCats = ["餐饮","交通","购物","娱乐","住房","日用","服饰","通讯","医疗","教育","其他"]
-    static let defaultIncomeCats  = ["工资","奖金","兼职","投资收益","理财","礼金","退款","其他"]
+    static let defaultIncomeCats  = ["工资","奖金","兼职","投资","理财","礼金","退款","其他"]
     
     // MARK: - @AppStorage 键
     @AppStorage("enabled_expense_cats") static var enabledExpenseCats: String = ""

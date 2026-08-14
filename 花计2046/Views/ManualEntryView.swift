@@ -133,7 +133,7 @@ struct ManualEntryView: View {
                             for i in rows.indices { var h = typeHistory[rows[i].id, default: [:]]; h[rows[i].type] = rows[i].category; typeHistory[rows[i].id] = h }
                             for i in rows.indices {
                                 rows[i].type = .income
-                                let incCats = ["工资","奖金","兼职","投资收益","理财","礼金","退款","其他"]
+                                let incCats = ["工资","奖金","兼职","投资","理财","礼金","退款","其他"]
                                 let saved = typeHistory[rows[i].id]?[.income]
                                 if let s = saved, incCats.contains(s) { rows[i].category = s }
                                 else if !incCats.contains(rows[i].category) { rows[i].category = "工资" }

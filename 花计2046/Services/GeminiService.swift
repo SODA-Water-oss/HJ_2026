@@ -67,7 +67,7 @@ class GeminiService: ObservableObject {
             "规则：type=expense（支出）或income（收入），根据语义判断。" +
             "merchant=名称(不含金额/单位/标点)。" +
             "amount=金额数字。支出category从[餐饮,交通,购物,娱乐,住房,日用,服饰,通讯,医疗,教育,其他]中选择。" +
-            "收入category从[工资,奖金,兼职,投资收益,理财,礼金,退款,其他]中选择。" +
+            "收入category从[工资,奖金,兼职,投资,理财,礼金,退款,其他]中选择。" +
             "注意：多笔每笔输出一项。名称通常是金额前面的词。不要输出备注。" +
             "用户输入：" + input + "。" +
             "请以JSON格式输出：{\"items\":[{\"type\":\"expense\",\"merchant\":\"名称\",\"amount\":金额数字,\"category\":\"类别\"}]}"
