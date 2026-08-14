@@ -13,28 +13,32 @@ struct AnalyticsView: View {
     @State private var analyticsSnapshot: AnalyticsSnapshot?
     @State private var analyticsReady = false
     @State private var activeRebuildID = UUID()
+    @State private var categoriesCache: [String] = []
+    @State private var yearOptionsCache: [String] = []
 
-    var categories: [String] {
+    var categories: [String] { categoriesCache }
+    var monthOptions: [String] { ["全部"] + (1...12).map { String(format: "%02d月", $0) } }
+    var yearOptions: [String] { yearOptionsCache }
+
+    /// 重建类别/年份选项（仅在数据或筛选变化时执行，避免每次渲染全量遍历）
+    private func rebuildFilterOptions() {
         let allExpenseCats = Set(supabaseService.allRecords.filter(\.isExpense).map(\.category))
         let allIncomeCats = Set(supabaseService.allRecords.filter(\.isIncome).map(\.category))
         let matchedExpense = CategoryManager.expenseCats.filter { allExpenseCats.contains($0) }
         let matchedIncome = CategoryManager.incomeCats.filter { allIncomeCats.contains($0) }
         let hasData = !allExpenseCats.isEmpty || !allIncomeCats.isEmpty
-        
+
         switch searchState.type {
         case "支出":
-            if hasData { return ["全部"] + matchedExpense }
-            return ["全部"] + CategoryManager.expenseCats
+            categoriesCache = hasData ? ["全部"] + matchedExpense : ["全部"] + CategoryManager.expenseCats
         case "收入":
-            if hasData { return ["全部"] + matchedIncome }
-            return ["全部"] + CategoryManager.incomeCats
+            categoriesCache = hasData ? ["全部"] + matchedIncome : ["全部"] + CategoryManager.incomeCats
         default:
-            if hasData { return ["全部"] + matchedExpense + matchedIncome }
-            return ["全部"] + CategoryManager.expenseCats + CategoryManager.incomeCats
+            categoriesCache = hasData ? ["全部"] + matchedExpense + matchedIncome : ["全部"] + CategoryManager.expenseCats + CategoryManager.incomeCats
         }
+
+        yearOptionsCache = ["全部"] + Set(supabaseService.expenses.map { String($0.month.prefix(4)) + "年" }).sorted(by: >)
     }
-    var monthOptions: [String] { ["全部"] + (1...12).map { String(format: "%02d月", $0) } }
-    var yearOptions: [String] { let years = Set(supabaseService.expenses.map { String($0.month.prefix(4)) + "年" }).sorted(by: >); return ["全部"] + years }
     var hasActiveFilters: Bool { !searchState.text.isEmpty || !searchState.note.isEmpty || !searchState.category.isEmpty || !searchState.year.isEmpty || !searchState.month.isEmpty || searchState.type != "全部" }
     var filterSummaryText: String {
         var parts: [String] = []
@@ -532,6 +536,7 @@ extension AnalyticsView {
     }
 
     private func rebuildSnapshot() {
+        rebuildFilterOptions()
         let requestID = UUID()
         activeRebuildID = requestID
 

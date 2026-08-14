@@ -234,3 +234,16 @@ struct DateWheelPicker: View {
         .onAppear { tempDate = selection }
     }
 }
+
+/// 白色圆角卡片容器（内容 20pt 内边距 + 水平 20pt 外边距）
+struct WhiteCardContainer: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(20)
+            .background(Color.white)
+            .cornerRadius(16)
+            .shadow(color: AppTheme.cardShadow, radius: 10, x: 0, y: 4)
+            .padding(.horizontal, 20)
+    }
+}
+extension View { func whiteCardContainer() -> some View { modifier(WhiteCardContainer()) } }

@@ -207,11 +207,7 @@ struct InterestCalculatorView: View {
                         }
                     }
                 }
-                .padding(20)
-                .background(Color.white)
-                .cornerRadius(16)
-                .shadow(color: AppTheme.cardShadow, radius: 10, x: 0, y: 4)
-                .padding(.horizontal, 20)
+                .whiteCardContainer()
                 
                 // Result Card
                 if principalValue > 0, rateValue > 0, totalMonths > 0 {
@@ -236,11 +232,7 @@ struct InterestCalculatorView: View {
                             }
                         }
                     }
-                    .padding(20)
-                    .background(Color.white)
-                    .cornerRadius(16)
-                    .shadow(color: AppTheme.cardShadow, radius: 10, x: 0, y: 4)
-                    .padding(.horizontal, 20)
+                    .whiteCardContainer()
                 }
                 
                 Spacer(minLength: 24)

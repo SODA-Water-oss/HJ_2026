@@ -104,11 +104,7 @@ struct ExchangeRateCalculatorView: View {
                         currencyPicker(selection: $toCurrency, exclude: fromCurrency)
                     }
                 }
-                .padding(20)
-                .background(Color.white)
-                .cornerRadius(16)
-                .shadow(color: AppTheme.cardShadow, radius: 10, x: 0, y: 4)
-                .padding(.horizontal, 20)
+                .whiteCardContainer()
                 
                 // Result Card
                 if amountValue > 0 {
@@ -198,11 +194,7 @@ struct ExchangeRateCalculatorView: View {
                         .buttonStyle(AppSecondaryButtonStyle())
                         .disabled(isUpdating)
                     }
-                    .padding(20)
-                    .background(Color.white)
-                    .cornerRadius(16)
-                    .shadow(color: AppTheme.cardShadow, radius: 10, x: 0, y: 4)
-                    .padding(.horizontal, 20)
+                    .whiteCardContainer()
                 }
                 
                 Spacer(minLength: 24)

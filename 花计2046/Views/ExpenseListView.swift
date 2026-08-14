@@ -35,6 +35,8 @@ struct ExpenseListView: View {
     @State private var exportURL: URL?
     @State private var groupedCache: [MonthExpenseGroup] = []
     @State private var groupedReady = false
+    @State private var filteredIdsCache: Set<UUID> = []
+    @State private var filteredRecordsCache: [Expense] = []
     @State private var categoriesCache: [String] = []
     @State private var yearOptionsCache: [String] = []
     
@@ -43,11 +45,11 @@ struct ExpenseListView: View {
     
     var yearOptions: [String] { yearOptionsCache }
 
-   var allFilteredIds: Set<UUID> { Set(searchGrouped.flatMap { $0.expenses.map { $0.id } }) }
+   var allFilteredIds: Set<UUID> { filteredIdsCache }
    var isAllSelected: Bool { !allFilteredIds.isEmpty && selectedExpenseIds.isSuperset(of: allFilteredIds) }
    var allSelected: [Expense] {
         let ids = selectedExpenseIds
-        return searchGrouped.flatMap { $0.expenses }.filter { ids.contains($0.id) }
+        return filteredRecordsCache.filter { ids.contains($0.id) }
    }
    
    var hasActiveFilters: Bool {
@@ -109,6 +111,9 @@ struct ExpenseListView: View {
 
     private func rebuildGrouped() {
         groupedCache = computeSearchGrouped()
+        filteredRecordsCache = groupedCache.flatMap { $0.expenses }
+        filteredIdsCache = Set(filteredRecordsCache.map { $0.id })
+        rowFrames = [:]
         rebuildDerivedData()
         groupedReady = true
     }
@@ -418,6 +423,34 @@ struct ExpenseListView: View {
         else { selectedExpenseIds.insert(id) }
     }
     
+    private var loadErrorState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 40))
+                .foregroundColor(AppTheme.textTertiary)
+            Text("账目加载失败")
+                .font(.appTitle)
+                .foregroundColor(AppTheme.textPrimary)
+            Text("请检查网络后重试")
+                .font(.appBody)
+                .foregroundColor(AppTheme.textSecondary)
+            Button(action: {
+                Task { await supabaseService.refreshAllRecords(force: true) }
+            }) {
+                Text("重新加载")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(AppPrimaryButtonStyle())
+            .padding(.horizontal, 40)
+        }
+        .padding(40)
+        .frame(maxWidth: .infinity)
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: AppTheme.cardShadow, radius: 10, x: 0, y: 4)
+        .padding(.horizontal, 20)
+    }
+    
     @ViewBuilder private var emptyState: some View {
         VStack(spacing: 20) {
             Spacer(minLength: 132)
@@ -441,12 +474,12 @@ struct ExpenseListView: View {
     @ViewBuilder private var expenseList: some View {
         ScrollViewReader { proxy in
             ScrollView {
-            VStack(spacing: 12) {
+            LazyVStack(spacing: 12) {
                 Color.clear.frame(height: 0)
                     .background(ScrollViewAccessor { sweepDriver.attach(to: $0) })
                 ForEach(searchGrouped) { group in
                     MonthSectionCard(group: group)
-                    VStack(spacing: 8) {
+                    LazyVStack(spacing: 8) {
                         ForEach(group.expenses) { expense in
                             ExpenseRowView(expense: expense, isSelectionMode: showSearch, isSelected: selectedExpenseIds.contains(expense.id), onToggle: { toggleExpense(expense.id) }, onLongPress: {
                                 if !showSearch { showSearch = true }

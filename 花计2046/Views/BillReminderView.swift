@@ -883,11 +883,7 @@ struct BillFormView: View {
                         }
                     }
                     }
-                    .padding(20)
-                    .background(Color.white)
-                    .cornerRadius(16)
-                    .shadow(color: AppTheme.cardShadow, radius: 10, x: 0, y: 4)
-                    .padding(.horizontal, 20)
+                    .whiteCardContainer()
                     
                     VStack(spacing: 12) {
                         Button(action: save) {
