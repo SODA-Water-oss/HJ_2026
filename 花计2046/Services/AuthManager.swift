@@ -93,7 +93,7 @@ class AuthManager: ObservableObject {
    }
     
     // MARK: - 注册
-    func signUp(email: String, password: String, confirmPassword: String) async throws {
+    func signUp(email: String, password: String, confirmPassword: String, name: String = "") async throws {
         Log.info("AuthManager 注册 \(email)")
         
         // 1. 参数验证
@@ -103,11 +103,17 @@ class AuthManager: ObservableObject {
             throw AuthError.passwordMismatch
         }
         
-        // 2. 调用后端注册
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // 2. 调用后端注册（昵称写入 user_metadata，触发器同步到 profiles.name）
         if AppConfig.useMockServices {
             try await mockAuthenticate(email: email, password: password, isNewUser: true)
         } else {
-            let response = try await SupabaseService.shared.client.auth.signUp(email: email, password: password)
+            let response = try await SupabaseService.shared.client.auth.signUp(
+                email: email,
+                password: password,
+                data: trimmedName.isEmpty ? nil : ["name": AnyJSON.string(trimmedName)]
+            )
             let userId = response.user.id
             
             // 关键：检查会话是否有效。
@@ -119,7 +125,7 @@ class AuthManager: ObservableObject {
                 throw AuthError.serverError("注册成功！确认邮件已发送，请到邮箱完成确认后再登录")
             }
             
-            let profile = UserProfile(id: userId, email: email, createdAt: Date())
+            let profile = UserProfile(id: userId, email: email, name: trimmedName.isEmpty ? nil : trimmedName, createdAt: Date())
             let authSession = AuthSession(userId: userId, email: email, token: accessToken, createdAt: profile.createdAt)
             KeychainHelper.saveCodable(authSession, forKey: sessionKey)
             await MainActor.run { completeAuthentication(profile: profile) }

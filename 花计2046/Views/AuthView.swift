@@ -3,6 +3,7 @@ import SwiftUI
 struct AuthView: View {
     @EnvironmentObject var authManager: AuthManager
     @EnvironmentObject var supabaseService: SupabaseService
+    @State private var name = ""
     @State private var email = ""
     @State private var password = ""
     @State private var confirmPassword = ""
@@ -19,7 +20,7 @@ struct AuthView: View {
     @State private var isResetting = false
     @FocusState private var focusedField: Field?
     
-    enum Field { case email, password, confirmPassword }
+    enum Field { case name, email, password, confirmPassword }
     
     var body: some View {
         ZStack {
@@ -83,6 +84,28 @@ struct AuthView: View {
                         .background(AppTheme.background)
                         .cornerRadius(10)
                         .padding(.bottom, 4)
+                        
+                        // 昵称输入框（仅注册模式）
+                        if !isLogin {
+                            HStack(spacing: 10) {
+                                Image(systemName: "person.fill")
+                                    .font(.system(size: 17))
+                                    .foregroundColor(focusedField == .name ? AppTheme.brandStart : AppTheme.textTertiary)
+                                    .frame(width: 20)
+                                TextField("昵称（选填，用于点评称呼）", text: $name)
+                                    .font(.appBody)
+                                    .foregroundColor(AppTheme.textPrimary)
+                                    .focused($focusedField, equals: .name)
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 13)
+                            .background(Color.white)
+                            .cornerRadius(10)
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(
+                                focusedField == .name ? AppTheme.brandStart : AppTheme.border,
+                                lineWidth: focusedField == .name ? 1.5 : 1
+                            ))
+                        }
                         
                         // 邮箱输入框
                         HStack(spacing: 10) {
@@ -268,6 +291,7 @@ struct AuthView: View {
         .onChange(of: isLogin) { _ in
             errorMessage = ""
             confirmPassword = ""
+            name = ""
             focusedField = nil
         }
         .toolbar {
@@ -331,7 +355,7 @@ struct AuthView: View {
                 if isLogin {
                     try await authManager.signIn(email: email, password: password)
                 } else {
-                    try await authManager.signUp(email: email, password: password, confirmPassword: confirmPassword)
+                    try await authManager.signUp(email: email, password: password, confirmPassword: confirmPassword, name: name)
                 }
                 await MainActor.run { isLoading = false }
             } catch let error as AuthError {

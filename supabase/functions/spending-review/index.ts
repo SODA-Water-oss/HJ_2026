@@ -26,10 +26,16 @@ Deno.serve(async (request) => {
     if (userError || !userData.user) throw new Error("Invalid user session.");
     const userId = userData.user.id;
 
-    // 2. 尝试获取/推测用户称呼（昵称元数据 > 邮箱前缀），让点评更亲近
+    // 2. 尝试获取/推测用户称呼（profiles.name > 昵称元数据 > 邮箱前缀），让点评更亲近
     const email = (userData.user.email ?? "").trim();
     const metaName = String(userData.user.user_metadata?.name ?? userData.user.user_metadata?.nickname ?? "").trim();
-    const userName = metaName || guessNameFromEmail(email);
+    const { data: profileRow } = await supabase
+      .from("profiles")
+      .select("name")
+      .eq("id", userId)
+      .maybeSingle();
+    const profileName = String(profileRow?.name ?? "").trim();
+    const userName = profileName || metaName || guessNameFromEmail(email);
 
     // 3. 查询最近收支（窗口近30天，但对外统一称“最近”，不暴露具体天数）
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
