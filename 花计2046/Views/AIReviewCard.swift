@@ -19,10 +19,6 @@ struct AIReviewCard: View {
                 .disabled(isLoading)
             }
 
-            Text("基于你最近 30 天的收支记录，生成一段轻松点评，博你一笑")
-                .font(.system(size: 12))
-                .foregroundColor(AppTheme.textTertiary)
-
             if isLoading {
                 HStack {
                     Spacer()
