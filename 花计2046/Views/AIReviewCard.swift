@@ -1,12 +1,14 @@
 import SwiftUI
 
-/// AI 趣味点评卡片：根据用户近期收支，由后端 AI 生成一段幽默点评
+/// 最近收支评价卡片：AI 生成评价，打字机逐字显示 + 闪烁光标
 struct AIReviewCard: View {
     @EnvironmentObject var supabaseService: SupabaseService
-    @State private var review = ""
+    @State private var fullText = ""
+    @State private var displayedText = ""
     @State private var isLoading = false
+    @State private var isTyping = false
     @State private var loadFailed = false
-    @State private var shakeTrigger = 0
+    @State private var cursorBlink = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -16,18 +18,17 @@ struct AIReviewCard: View {
                         .font(.system(size: 16, weight: .medium))
                         .foregroundColor(AppTheme.brandEnd)
                 }
-                .disabled(isLoading)
+                .disabled(isLoading || isTyping)
             }
 
+            // 内容区
             if isLoading {
-                HStack {
-                    Spacer()
-                    ProgressView()
-                        .scaleEffect(0.8)
-                    Spacer()
+                // 等待 AI 生成：闪烁光标（无文字）
+                HStack(spacing: 2) {
+                    cursorView
                 }
-                .padding(.vertical, 16)
-            } else if loadFailed || review.isEmpty {
+                .padding(.vertical, 18)
+            } else if loadFailed || (fullText.isEmpty && !isTyping) {
                 Button(action: { load() }) {
                     Text("生成失败，点此重试")
                         .font(.system(size: 14))
@@ -35,13 +36,19 @@ struct AIReviewCard: View {
                         .padding(.vertical, 16)
                 }
             } else {
-                Text(review)
-                    // 手写体：使用系统楷体 STKaiti（iOS 内置，接近手写风格）；字体不存在时自动回退默认
-                    .font(.custom("STKaiti", size: 16))
-                    .foregroundColor(AppTheme.brandStart)
-                    .lineSpacing(7)
-                    .padding(.top, 2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                // 打字机显示 + 打字中光标闪烁
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    Text(displayedText)
+                        // 手写体：系统楷体 STKaiti
+                        .font(.custom("STKaiti", size: 16))
+                        .foregroundColor(AppTheme.brandStart)
+                        .lineSpacing(7)
+                    if isTyping {
+                        cursorView
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 2)
             }
         }
         .padding(16)
@@ -55,26 +62,25 @@ struct AIReviewCard: View {
         )
         .cornerRadius(16)
         .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 4)
-        // 点击更新时卡片左右抖动，形成动态交互效果
-        .keyframeAnimator(initialValue: ShakeValue(), trigger: shakeTrigger) { content, value in
-            content
-                .rotationEffect(.degrees(value.rotation))
-        } keyframes: { _ in
-            KeyframeTrack(\.rotation) {
-                CubicKeyframe(-3, duration: 0.08)
-                CubicKeyframe(3, duration: 0.12)
-                CubicKeyframe(-3, duration: 0.12)
-                CubicKeyframe(3, duration: 0.12)
-                CubicKeyframe(-2, duration: 0.12)
-                CubicKeyframe(0, duration: 0.1)
-            }
-        }
         .task {
-            // 进入页面自动加载一版点评；后续点机器人按钮每次重新生成（每次内容不同）
-            if review.isEmpty && !isLoading && !loadFailed && !AppConfig.useMockServices {
+            // 进入页面自动加载一版
+            if fullText.isEmpty && !isLoading && !loadFailed && !AppConfig.useMockServices {
                 load()
             }
         }
+    }
+
+    /// 闪烁光标（标准紫色）
+    private var cursorView: some View {
+        Text("▍")
+            .font(.custom("STKaiti", size: 16))
+            .foregroundColor(AppTheme.brandEnd)
+            .opacity(cursorBlink ? 1 : 0.15)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 0.45).repeatForever(autoreverses: true)) {
+                    cursorBlink.toggle()
+                }
+            }
     }
 
     private func load() {
@@ -88,17 +94,42 @@ struct AIReviewCard: View {
                     body: ReviewRequest()
                 )
                 await MainActor.run {
-                    review = result.review
+                    fullText = result.review
+                    displayedText = ""
                     isLoading = false
-                    shakeTrigger += 1
+                    startTyping()
                 }
             } catch {
-                Log.error("AI 趣味点评生成失败: \(error.localizedDescription)")
+                Log.error("最近收支评价生成失败: \(error.localizedDescription)")
                 await MainActor.run {
                     isLoading = false
                     loadFailed = true
                 }
             }
+        }
+    }
+
+    /// 打字机逐字显示：普通字快，标点稍停，模拟人类输入节奏
+    private func startTyping() {
+        isTyping = true
+        Task {
+            var current = ""
+            for ch in fullText {
+                current.append(ch)
+                let snapshot = current
+                await MainActor.run { displayedText = snapshot }
+
+                let delay: UInt64
+                if "。！？!?.".contains(ch) {
+                    delay = 180_000_000      // 句末停顿
+                } else if "，,、；;：:".contains(ch) {
+                    delay = 110_000_000      // 逗号停顿
+                } else {
+                    delay = 35_000_000       // 普通字
+                }
+                try? await Task.sleep(nanoseconds: delay)
+            }
+            await MainActor.run { isTyping = false }
         }
     }
 }
@@ -107,9 +138,4 @@ private struct ReviewRequest: Encodable {}
 
 private struct ReviewResponse: Decodable {
     let review: String
-}
-
-/// 点评卡片抖动动画的插值状态
-private struct ShakeValue {
-    var rotation: Double = 0
 }
