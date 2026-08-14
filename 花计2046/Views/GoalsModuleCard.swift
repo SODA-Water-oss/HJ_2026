@@ -159,7 +159,7 @@ struct GoalsModuleCard: View {
             }
             if badgeItems.isEmpty {
                 if items.isEmpty {
-                    Text("设置每周/每月/每年目标后，达成即可获得对应徽章")
+                    Text("设置目标并达成即可获得对应徽章")
                         .font(.appTiny)
                         .foregroundColor(AppTheme.textTertiary)
                 } else {
@@ -178,9 +178,6 @@ struct GoalsModuleCard: View {
                     )
                 }
             }
-            Text("只显示上一周期达成（上周/上月/上年），未达成不显示徽章")
-                .font(.appTiny)
-                .foregroundColor(AppTheme.textTertiary)
         }
     }
 
