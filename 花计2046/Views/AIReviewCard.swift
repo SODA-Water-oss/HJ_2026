@@ -6,6 +6,7 @@ struct AIReviewCard: View {
     @State private var review = ""
     @State private var isLoading = false
     @State private var loadFailed = false
+    @State private var shakeTrigger = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -58,6 +59,20 @@ struct AIReviewCard: View {
         )
         .cornerRadius(16)
         .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 4)
+        // 点击更新时卡片左右抖动，形成动态交互效果
+        .keyframeAnimator(initialValue: ShakeValue(), trigger: shakeTrigger) { content, value in
+            content
+                .rotationEffect(.degrees(value.rotation))
+        } keyframes: { _ in
+            KeyframeTrack(\.rotation) {
+                CubicKeyframe(-3, duration: 0.08)
+                CubicKeyframe(3, duration: 0.12)
+                CubicKeyframe(-3, duration: 0.12)
+                CubicKeyframe(3, duration: 0.12)
+                CubicKeyframe(-2, duration: 0.12)
+                CubicKeyframe(0, duration: 0.1)
+            }
+        }
         .task {
             // 进入页面自动加载一版点评；后续点机器人按钮每次重新生成（每次内容不同）
             if review.isEmpty && !isLoading && !loadFailed && !AppConfig.useMockServices {
@@ -79,6 +94,7 @@ struct AIReviewCard: View {
                 await MainActor.run {
                     review = result.review
                     isLoading = false
+                    shakeTrigger += 1
                 }
             } catch {
                 Log.error("AI 趣味点评生成失败: \(error.localizedDescription)")
@@ -95,4 +111,9 @@ private struct ReviewRequest: Encodable {}
 
 private struct ReviewResponse: Decodable {
     let review: String
+}
+
+/// 点评卡片抖动动画的插值状态
+private struct ShakeValue {
+    var rotation: Double = 0
 }
