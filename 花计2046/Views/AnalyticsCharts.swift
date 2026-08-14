@@ -254,17 +254,20 @@ struct MonthlyDualLineChartView: View {
 struct AnalyticsModuleHeader<Trailing: View>: View {
     let icon: String
     let title: String
+    var titleFont: Font = .system(size: 17, weight: .semibold)
     @ViewBuilder var trailing: () -> Trailing
 
-    init(icon: String, title: String, @ViewBuilder trailing: @escaping () -> Trailing) {
+    init(icon: String, title: String, titleFont: Font = .system(size: 17, weight: .semibold), @ViewBuilder trailing: @escaping () -> Trailing) {
         self.icon = icon
         self.title = title
+        self.titleFont = titleFont
         self.trailing = trailing
     }
 
-    init(icon: String, title: String) where Trailing == EmptyView {
+    init(icon: String, title: String, titleFont: Font = .system(size: 17, weight: .semibold)) where Trailing == EmptyView {
         self.icon = icon
         self.title = title
+        self.titleFont = titleFont
         self.trailing = { EmptyView() }
     }
 
@@ -275,7 +278,7 @@ struct AnalyticsModuleHeader<Trailing: View>: View {
                 .foregroundStyle(AppTheme.brandGradient)
                 .frame(width: 24)
             Text(title)
-                .font(.system(size: 17, weight: .semibold))
+                .font(titleFont)
                 .foregroundColor(AppTheme.textPrimary)
                 .lineLimit(1)
             Spacer()
