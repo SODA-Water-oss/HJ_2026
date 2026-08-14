@@ -51,17 +51,8 @@ struct AIReviewCard: View {
                 .padding(.top, 2)
             }
         }
-        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(
-                colors: [Color.white, AppTheme.background],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
-        .cornerRadius(16)
-        .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 4)
+        .cardStyle()
         .task {
             // 进入页面自动加载一版
             if fullText.isEmpty && !isLoading && !loadFailed && !AppConfig.useMockServices {
