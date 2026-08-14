@@ -79,8 +79,9 @@ struct BillItem: Identifiable, Codable {
     var paidDate: Date?         // 一次性账单：完成时间
     
     enum Recurrence: String, Codable, CaseIterable {
+        case weekly = "每周"
         case monthly = "每月"
-        case quarterly = "每季度"
+        case quarterly = "每季度"  // 兼容旧数据：不再提供新建入口
         case yearly = "每年"
         case once = "一次性"
     }
@@ -102,6 +103,16 @@ struct BillItem: Identifiable, Codable {
         switch recurrence {
         case .once:
             return onceDate
+        case .weekly:
+            // 每周：dueDay 表示星期几（1=周一 ... 7=周日），返回本周/下周对应日期
+            let targetWeekday = (dueDay % 7) + 1  // 转 Calendar weekday（1=周日 ... 7=周六）
+            var comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear, .weekday], from: now)
+            comps.weekday = targetWeekday
+            guard let candidate = cal.date(from: comps) else { return nil }
+            if candidate < cal.startOfDay(for: now) {
+                return cal.date(byAdding: .day, value: 7, to: candidate)
+            }
+            return candidate
         case .monthly:
             targetYear = year
             targetMonth = month
@@ -142,6 +153,9 @@ struct BillItem: Identifiable, Codable {
         let cal = Calendar.current
         let now = Date()
         switch recurrence {
+        case .weekly:
+            let comp = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
+            return String(format: "%04d-W%02d", comp.yearForWeekOfYear ?? 0, comp.weekOfYear ?? 0)
         case .monthly:
             let comp = cal.dateComponents([.year, .month], from: now)
             return String(format: "%04d-%02d", comp.year ?? 0, comp.month ?? 0)
@@ -204,6 +218,9 @@ struct BillItem: Identifiable, Codable {
         }
         switch recurrence {
         case .once: return ""
+        case .weekly:
+            let names = ["周一","周二","周三","周四","周五","周六","周日"]
+            return "每周" + names[max(0, min(6, dueDay - 1))]
         case .monthly: return "每月" + String(dueDay) + "日"
         case .quarterly:
             let names = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"]
@@ -480,6 +497,7 @@ struct BillReminderView: View {
         if let data = UserDefaults.standard.data(forKey: "bill_reminders_cache"),
            let cached = try? JSONDecoder().decode([BillItem].self, from: data) {
             bills = cached
+            scheduleNotifications()
         }
         // Background sync from database
         Task {
@@ -489,6 +507,7 @@ struct BillReminderView: View {
             if let data = try? JSONEncoder().encode(bills) {
                 UserDefaults.standard.set(data, forKey: "bill_reminders_cache")
             }
+            scheduleNotifications()
         }
     }
 }
@@ -511,6 +530,7 @@ extension BillItem {
             self.reminderTime = t
         }
         switch codable.recurrence {
+        case "weekly": self.recurrence = .weekly
         case "monthly": self.recurrence = .monthly
         case "quarterly": self.recurrence = .quarterly
         case "yearly": self.recurrence = .yearly
@@ -537,6 +557,7 @@ extension BillItem {
     func toCodable(userId: UUID) -> BillReminderCodable {
         let dbRec: String = {
             switch recurrence {
+            case .weekly: return "weekly"
             case .monthly: return "monthly"
             case .quarterly: return "quarterly"
             case .yearly: return "yearly"
@@ -549,7 +570,7 @@ extension BillItem {
             name: name,
             amount: amount,
             dueDay: dueDay,
-            dueMonth: recurrence == .monthly ? 0 : dueMonth,
+            dueMonth: (recurrence == .monthly || recurrence == .weekly) ? 0 : dueMonth,
             recurrence: dbRec,
             isEnabled: isEnabled,
             currency: currency,
@@ -578,9 +599,12 @@ struct BillFormView: View {
     @State private var showValidationAlert = false
    @State private var validationMessage = ""
     @State private var showDeleteConfirm = false
+    @State private var activePicker: BillFormPicker?
     
    private var currentMaxDay: Int {
         switch recurrence {
+        case .weekly:
+            return 7
         case .monthly, .once:
             return 31
         case .quarterly:
@@ -592,6 +616,47 @@ struct BillFormView: View {
             let date = Calendar.current.date(from: DateComponents(year: 2024, month: m))!
             return Calendar.current.range(of: .day, in: .month, for: date)?.count ?? 30
         }
+    }
+    
+    /// 可选周期：去掉「每季度」（旧数据仍保留该选项以便继续编辑）
+    private var recurrenceOptions: [BillItem.Recurrence] {
+        var options: [BillItem.Recurrence] = [.weekly, .monthly, .yearly, .once]
+        if recurrence == .quarterly { options.insert(.quarterly, at: 0) }
+        return options
+    }
+    
+    /// 一次性提醒：只允许选择今天及以后的日期
+    private var onceDateRange: ClosedRange<Date> {
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: Date())
+        let end = cal.date(byAdding: .year, value: 10, to: start) ?? start
+        return start...end
+    }
+    
+    /// 一次性提醒：日期为今天时只允许未来的时间，未来日期则任意时间
+    private var onceTimeRange: ClosedRange<Date> {
+        let cal = Calendar.current
+        let dayStart = cal.startOfDay(for: onceDate)
+        let dayEnd = dayStart.addingTimeInterval(24 * 3600 - 1)
+        let now = Date()
+        if cal.isDateInToday(onceDate) {
+            return (now > dayStart ? now : dayStart)...dayEnd
+        }
+        return dayStart...dayEnd
+    }
+    
+    private var onceDateText: String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.dateFormat = "yyyy年M月d日"
+        return f.string(from: onceDate)
+    }
+    
+    private var timeText: String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.dateFormat = "HH:mm"
+        return f.string(from: reminderTime)
     }
     
     init(bill: BillItem? = nil, onSave: @escaping (BillItem) -> Void, onDelete: (() -> Void)? = nil) {
@@ -660,7 +725,7 @@ struct BillFormView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("周期").font(.system(size: 17)).foregroundColor(AppTheme.textSecondary)
                             HStack(spacing: 0) {
-                                ForEach(BillItem.Recurrence.allCases, id: \.self) { freq in
+                                ForEach(recurrenceOptions, id: \.self) { freq in
                                     Button(action: {
                                         recurrence = freq
                                         if freq != .monthly && dueMonth == 0 { dueMonth = 1 }
@@ -679,25 +744,17 @@ struct BillFormView: View {
                             .cornerRadius(8)
                     }
                     
-                    // 一次性：指定日期 + 时间
+                    // 一次性：指定日期 + 时间（只允许未来）
                     if recurrence == .once {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("提醒日期").font(.system(size: 17)).foregroundColor(AppTheme.textSecondary)
-                            DatePicker("日期", selection: $onceDate, displayedComponents: .date)
-                                .datePickerStyle(.compact)
-                                .environment(\.locale, Locale(identifier: "zh_CN"))
-                                .foregroundColor(AppTheme.textPrimary)
-                                .padding(12)
-                                .background(AppTheme.background)
-                                .cornerRadius(AppTheme.elementRadius)
+                            PickerDisplayButton(icon: "calendar", text: onceDateText) {
+                                activePicker = .onceDate
+                            }
                             Text("提醒时间").font(.system(size: 17)).foregroundColor(AppTheme.textSecondary)
-                            DatePicker("时间", selection: $reminderTime, displayedComponents: .hourAndMinute)
-                                .datePickerStyle(.compact)
-                                .environment(\.locale, Locale(identifier: "zh_CN"))
-                                .foregroundColor(AppTheme.textPrimary)
-                                .padding(12)
-                                .background(AppTheme.background)
-                                .cornerRadius(AppTheme.elementRadius)
+                            PickerDisplayButton(icon: "clock", text: timeText) {
+                                activePicker = .onceTime
+                            }
                             Text("到指定日期时间提醒一次")
                                 .font(.appSmall)
                                 .foregroundColor(AppTheme.textTertiary)
@@ -728,8 +785,30 @@ struct BillFormView: View {
                         }
                     }
                     
-                    // Due day（周期模式）
-                    if recurrence != .once {
+                    // 每周：选择星期几（周一~周日）
+                    if recurrence == .weekly {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("每周提醒日").font(.system(size: 17)).foregroundColor(AppTheme.textSecondary)
+                            HStack(spacing: 8) {
+                                ForEach(1...7, id: \.self) { wd in
+                                    Button(action: { dueDay = wd }) {
+                                        Text(["一","二","三","四","五","六","日"][wd-1])
+                                            .font(.system(size: 15, weight: .semibold))
+                                            .foregroundColor(dueDay == wd ? .white : AppTheme.brandStart)
+                                            .frame(width: 38, height: 38)
+                                            .background(dueDay == wd ? AnyShapeStyle(AppTheme.brandGradient) : AnyShapeStyle(AppTheme.background))
+                                            .clipShape(Circle())
+                                    }
+                                }
+                            }
+                            Text("每周" + ["周一","周二","周三","周四","周五","周六","周日"][max(0, min(6, dueDay - 1))])
+                                .font(.system(size: 13))
+                                .foregroundColor(AppTheme.textSecondary)
+                        }
+                    }
+                    
+                    // Due day（每月/每年周期模式）
+                    if recurrence != .once && recurrence != .weekly {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("到期日").font(.system(size: 17)).foregroundColor(AppTheme.textSecondary)
                         
@@ -748,6 +827,7 @@ struct BillFormView: View {
                                 let dayLabel: String = {
                                     switch recurrence {
                                     case .once: return "一次性"
+                                    case .weekly: return "每周" + String(dueDay) + "日"
                                     case .monthly: return "每月" + String(dueDay) + "日"
                                     case .quarterly:
                                         let names = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"]
@@ -782,8 +862,10 @@ struct BillFormView: View {
                         }
                     }
                     .onChange(of: recurrence) { _, newVal in
-                        if newVal != .monthly && dueMonth == 0 { dueMonth = 1 }
-                        if newVal == .quarterly {
+                        if newVal != .monthly && newVal != .weekly && dueMonth == 0 { dueMonth = 1 }
+                        if newVal == .weekly {
+                            if dueDay < 1 || dueDay > 7 { dueDay = 1 }
+                        } else if newVal == .quarterly {
                             if dueDay > currentMaxDay { dueDay = currentMaxDay }
                         } else if newVal == .yearly {
                             if dueDay > currentMaxDay { dueDay = currentMaxDay }
@@ -795,13 +877,9 @@ struct BillFormView: View {
                     if recurrence != .once {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("提醒时间").font(.system(size: 17)).foregroundColor(AppTheme.textSecondary)
-                            DatePicker("时间", selection: $reminderTime, displayedComponents: .hourAndMinute)
-                                .datePickerStyle(.compact)
-                                .environment(\.locale, Locale(identifier: "zh_CN"))
-                                .foregroundColor(AppTheme.textPrimary)
-                                .padding(12)
-                                .background(AppTheme.background)
-                                .cornerRadius(AppTheme.elementRadius)
+                            PickerDisplayButton(icon: "clock", text: timeText) {
+                                activePicker = .reminderTime
+                            }
                         }
                     }
                     }
@@ -861,6 +939,16 @@ struct BillFormView: View {
                 }
             }
         }
+        .sheet(item: $activePicker) { picker in
+            switch picker {
+            case .onceDate:
+                DatePickerSheet(selection: $onceDate, range: onceDateRange, title: "选择提醒日期")
+            case .onceTime:
+                TimePickerSheet(selection: $reminderTime, range: onceTimeRange, title: "选择提醒时间")
+            case .reminderTime:
+                TimePickerSheet(selection: $reminderTime, range: nil, title: "选择提醒时间")
+            }
+        }
         .alert("提示", isPresented: $showValidationAlert) {
             Button("确定", role: .cancel) { }
         } message: {
@@ -885,7 +973,7 @@ struct BillFormView: View {
             name: nameTrimmed,
             amount: amountVal,
             dueDay: dueDay,
-            dueMonth: recurrence == .monthly ? 0 : dueMonth,
+            dueMonth: (recurrence == .monthly || recurrence == .weekly) ? 0 : dueMonth,
             recurrence: recurrence,
             isEnabled: bill?.isEnabled ?? true,
             lastNotified: bill?.lastNotified,
@@ -893,7 +981,109 @@ struct BillFormView: View {
             onceDate: recurrence == .once ? onceDate : nil,
             reminderTime: reminderTime
         )
+        // 一次性提醒：禁止设置过去的时间
+        if recurrence == .once, let full = newBill.onceFullDate, full <= Date() {
+            validationMessage = "请选择未来的日期和时间"
+            showValidationAlert = true
+            return
+        }
         onSave(newBill)
         dismiss()
+    }
+}
+
+// MARK: - 表单选择器组件
+
+enum BillFormPicker: Identifiable {
+    case onceDate
+    case onceTime
+    case reminderTime
+    var id: Int {
+        switch self {
+        case .onceDate: return 0
+        case .onceTime: return 1
+        case .reminderTime: return 2
+        }
+    }
+}
+
+/// 紫色渐变底 + 白字的选择按钮，点击弹出选择器
+struct PickerDisplayButton: View {
+    let icon: String
+    let text: String
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .semibold))
+                Text(text)
+                    .font(.system(size: 17, weight: .medium))
+                Spacer()
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundColor(.white)
+            .padding(12)
+            .background(AppTheme.brandGradient)
+            .cornerRadius(AppTheme.elementRadius)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// 日期选择弹层
+struct DatePickerSheet: View {
+    @Environment(\.dismiss) var dismiss
+    @Binding var selection: Date
+    let range: ClosedRange<Date>
+    let title: String
+    var body: some View {
+        NavigationView {
+            DatePicker("日期", selection: $selection, in: range, displayedComponents: .date)
+                .datePickerStyle(.graphical)
+                .environment(\.locale, Locale(identifier: "zh_CN"))
+                .padding()
+                .navigationTitle(title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("完成") { dismiss() }
+                    }
+                }
+        }
+    }
+}
+
+/// 时间选择弹层（range 为 nil 时不限制）
+struct TimePickerSheet: View {
+    @Environment(\.dismiss) var dismiss
+    @Binding var selection: Date
+    let range: ClosedRange<Date>?
+    let title: String
+    var body: some View {
+        NavigationView {
+            VStack {
+                Group {
+                    if let range {
+                        DatePicker("时间", selection: $selection, in: range, displayedComponents: .hourAndMinute)
+                    } else {
+                        DatePicker("时间", selection: $selection, displayedComponents: .hourAndMinute)
+                    }
+                }
+                .datePickerStyle(.wheel)
+                .environment(\.locale, Locale(identifier: "zh_CN"))
+                .labelsHidden()
+                Spacer()
+            }
+            .padding(.top, 30)
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") { dismiss() }
+                }
+            }
+        }
     }
 }

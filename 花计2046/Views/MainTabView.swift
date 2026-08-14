@@ -1,4 +1,5 @@
 import SwiftUI
+import MessageUI
 import Supabase
 import StoreKit
 
@@ -38,10 +39,17 @@ struct MainTabView: View {
         let appearance = UITabBarAppearance()
         appearance.configureWithDefaultBackground()
         appearance.backgroundColor = UIColor.white
-        appearance.stackedLayoutAppearance.normal.badgeBackgroundColor = UIColor(AppTheme.brandEnd)
-        appearance.stackedLayoutAppearance.normal.badgeTextAttributes = [.foregroundColor: UIColor.white]
+        let purple = UIColor(AppTheme.brandEnd)
+        // 三种布局 x 两种状态都设为标准紫色角标（避免部分布局回退系统红色）
+        for layout in [appearance.stackedLayoutAppearance, appearance.inlineLayoutAppearance, appearance.compactInlineLayoutAppearance] {
+            layout.normal.badgeBackgroundColor = purple
+            layout.normal.badgeTextAttributes = [.foregroundColor: UIColor.white]
+            layout.selected.badgeBackgroundColor = purple
+            layout.selected.badgeTextAttributes = [.foregroundColor: UIColor.white]
+        }
         UITabBar.appearance().standardAppearance = appearance
         UITabBar.appearance().scrollEdgeAppearance = appearance
+        UITabBarItem.appearance().badgeColor = purple
     }
     
     var body: some View {
@@ -78,6 +86,7 @@ struct MainTabView: View {
             .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
                 ledgerLockEnabled = userSettings.ledgerLockEnabled
                 analyticsLockEnabled = userSettings.analyticsLockEnabled
+                updateDueBillCount()
             }
             .task {
                 try? await UNUserNotificationCenter.current().setBadgeCount(0)
@@ -85,6 +94,7 @@ struct MainTabView: View {
                 await userSettings.loadFromCloud()
                 ledgerLockEnabled = userSettings.ledgerLockEnabled
                 analyticsLockEnabled = userSettings.analyticsLockEnabled
+                updateDueBillCount()
             }
 
             .onChange(of: scenePhase) { _, phase in
@@ -136,14 +146,15 @@ struct MainTabView: View {
     
     
     private func updateDueBillCount() {
-        guard let data = UserDefaults.standard.data(forKey: "bill_reminders"),
+        guard let data = UserDefaults.standard.data(forKey: "bill_reminders_cache"),
               let bills = try? JSONDecoder().decode([BillItem].self, from: data) else {
             dueBillCount = 0
             return
         }
         let now = Date()
         dueBillCount = bills.filter { bill in
-            guard bill.isEnabled, let due = bill.nextDueDate else { return false }
+            guard bill.isEnabled, !bill.isPaidThisPeriod, !bill.isCompleted, !bill.isExpiredOnce,
+                  let due = bill.nextDueDate else { return false }
             let daysLeft = Calendar.current.dateComponents([.day], from: now, to: due).day ?? 999
             return daysLeft >= 0 && daysLeft <= 3
         }.count
@@ -188,6 +199,7 @@ struct ProfileView: View {
     @State private var showCurrencyPicker = false
     @State private var pendingCurrencyName = ""
     @State private var showCurrencyConfirm = false
+    @State private var showFeedbackSheet = false
     @State private var currencyPickerStep = 0
     @State private var selectedCurrency: (name: String, symbol: String)? = nil
     @State private var showLogoutAlert = false
@@ -464,9 +476,7 @@ struct ProfileView: View {
                         
                         // 意见反馈
                         Button(action: {
-                            if let url = URL(string: "mailto:poundszero@126.com?subject=花计2046意见反馈") {
-                                UIApplication.shared.open(url)
-                            }
+                            showFeedbackSheet = true
                         }) {
                             HStack {
                                 Image(systemName: "envelope")
@@ -662,6 +672,9 @@ struct ProfileView: View {
                     }
                 )
             }
+        }
+        .sheet(isPresented: $showFeedbackSheet) {
+            FeedbackSheet()
         }
         .sheet(isPresented: $showCurrencyPicker, onDismiss: {
             if !pendingCurrencyName.isEmpty, pendingCurrencyName != currencySymbol {
@@ -979,5 +992,158 @@ extension ProfileView {
         }
         .transition(.opacity)
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showUnlockMethodSheet)
+    }
+}
+
+// MARK: - 意见反馈表单
+
+struct FeedbackSheet: View {
+    @Environment(\.dismiss) var dismiss
+    @EnvironmentObject var supabaseService: SupabaseService
+    @State private var content = ""
+    @State private var contact = ""
+    @State private var isSubmitting = false
+    @State private var showMailCompose = false
+    @State private var showMailAlert = false
+    @State private var mailSubject = ""
+    @State private var mailBody = ""
+    
+    private var trimmedContent: String {
+        content.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    private var trimmedContact: String {
+        contact.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    var body: some View {
+        NavigationView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("反馈内容")
+                    .font(.system(size: 17))
+                    .foregroundColor(AppTheme.textSecondary)
+                TextEditor(text: $content)
+                    .frame(minHeight: 140)
+                    .padding(8)
+                    .background(AppTheme.background)
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(AppTheme.border, lineWidth: 1)
+                    )
+                    .overlay(alignment: .topLeading) {
+                        if content.isEmpty {
+                            Text("请描述你的问题或建议…")
+                                .font(.appBody)
+                                .foregroundColor(AppTheme.textTertiary)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 16)
+                                .allowsHitTesting(false)
+                        }
+                    }
+                
+                Text("联系方式（选填）")
+                    .font(.system(size: 17))
+                    .foregroundColor(AppTheme.textSecondary)
+                TextField("邮箱 / 微信 / QQ，方便我们回复你", text: $contact)
+                    .font(.system(size: 17))
+                    .foregroundColor(AppTheme.textPrimary)
+                    .padding(12)
+                    .background(AppTheme.background)
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(AppTheme.border, lineWidth: 1)
+                    )
+                
+                Text("提交后会保存到云端，并尝试用系统邮件发送给我们")
+                    .font(.appSmall)
+                    .foregroundColor(AppTheme.textTertiary)
+                
+                Button(action: submit) {
+                    Text(isSubmitting ? "提交中…" : "提交反馈")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(AppPrimaryButtonStyle())
+                .disabled(isSubmitting || trimmedContent.isEmpty)
+                
+                Spacer()
+            }
+            .padding(20)
+            .navigationTitle("意见反馈")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+            }
+        }
+        .sheet(isPresented: $showMailCompose) {
+            MailComposeView(
+                to: "poundszero@126.com",
+                subject: mailSubject,
+                body: mailBody,
+                isPresented: $showMailCompose,
+                onFinished: { dismiss() }
+            )
+        }
+        .alert("无法打开邮件", isPresented: $showMailAlert) {
+            Button("确定") { dismiss() }
+        } message: {
+            Text("请在默认邮件App中设置邮箱账号后再试，或手动发送邮件至 poundszero@126.com（你的反馈已保存到云端，不会丢失）。")
+        }
+    }
+    
+    private func submit() {
+        guard !trimmedContent.isEmpty else { return }
+        isSubmitting = true
+        let subject = "花计2046意见反馈"
+        let body = trimmedContent + (trimmedContact.isEmpty ? "" : "\n\n联系方式：\(trimmedContact)")
+        Task {
+            try? await supabaseService.submitFeedback(content: trimmedContent, contact: trimmedContact.isEmpty ? nil : trimmedContact)
+            await MainActor.run {
+                isSubmitting = false
+                mailSubject = subject
+                mailBody = body
+                if MFMailComposeViewController.canSendMail() {
+                    showMailCompose = true
+                } else {
+                    showMailAlert = true
+                }
+            }
+        }
+    }
+}
+
+/// 系统邮件发送封装（可检测设备是否配置了邮箱账号）
+struct MailComposeView: UIViewControllerRepresentable {
+    let to: String
+    let subject: String
+    let body: String
+    @Binding var isPresented: Bool
+    var onFinished: (() -> Void)? = nil
+    
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+    
+    func makeUIViewController(context: Context) -> MFMailComposeViewController {
+        let vc = MFMailComposeViewController()
+        vc.mailComposeDelegate = context.coordinator
+        vc.setToRecipients([to])
+        vc.setSubject(subject)
+        vc.setMessageBody(body, isHTML: false)
+        return vc
+    }
+    
+    func updateUIViewController(_ uiViewController: MFMailComposeViewController, context: Context) {}
+    
+    class Coordinator: NSObject, MFMailComposeViewControllerDelegate {
+        let parent: MailComposeView
+        init(_ parent: MailComposeView) { self.parent = parent }
+        func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
+            let owner = parent
+            owner.isPresented = false
+            controller.dismiss(animated: true) {
+                owner.onFinished?()
+            }
+        }
     }
 }

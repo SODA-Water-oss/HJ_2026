@@ -637,6 +637,28 @@ extension SupabaseService {
     }
 }
 
+// MARK: - 意见反馈
+extension SupabaseService {
+    /// 保存用户反馈到云端 feedbacks 表
+    func submitFeedback(content: String, contact: String?) async throws {
+        guard !AppConfig.useMockServices else { return }
+        guard let userId = currentUser?.id else { return }
+        struct FeedbackPayload: Encodable {
+            let userId: UUID
+            let content: String
+            let contact: String?
+            enum CodingKeys: String, CodingKey {
+                case userId = "user_id"
+                case content
+                case contact
+            }
+        }
+        try await client.from("feedbacks")
+            .insert(FeedbackPayload(userId: userId, content: content, contact: contact))
+            .execute()
+    }
+}
+
 
 // MARK: - 订阅状态同步
 extension SupabaseService {

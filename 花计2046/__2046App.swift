@@ -27,9 +27,16 @@ struct __2046App: App {
         tabAppearance.configureWithDefaultBackground()
         tabAppearance.backgroundColor = UIColor.white
         tabAppearance.shadowColor = UIColor(AppTheme.divider)
+        let purple = UIColor(AppTheme.brandEnd)
+        for layout in [tabAppearance.stackedLayoutAppearance, tabAppearance.inlineLayoutAppearance, tabAppearance.compactInlineLayoutAppearance] {
+            layout.normal.badgeBackgroundColor = purple
+            layout.normal.badgeTextAttributes = [.foregroundColor: UIColor.white]
+            layout.selected.badgeBackgroundColor = purple
+            layout.selected.badgeTextAttributes = [.foregroundColor: UIColor.white]
+        }
         UITabBar.appearance().standardAppearance = tabAppearance
         UITabBar.appearance().scrollEdgeAppearance = tabAppearance
-        UITabBarItem.appearance().badgeColor = UIColor(AppTheme.brandEnd)
+        UITabBarItem.appearance().badgeColor = purple
     }
     
     var body: some Scene {
