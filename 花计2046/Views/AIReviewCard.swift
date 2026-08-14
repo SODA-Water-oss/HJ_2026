@@ -57,8 +57,9 @@ struct AIReviewCard: View {
         )
         .cornerRadius(16)
         .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 4)
-        .onAppear {
-            if review.isEmpty && !isLoading && !AppConfig.useMockServices {
+        .task {
+            // 进入页面自动加载一版点评；后续点机器人按钮每次重新生成（每次内容不同）
+            if review.isEmpty && !isLoading && !loadFailed && !AppConfig.useMockServices {
                 load()
             }
         }
