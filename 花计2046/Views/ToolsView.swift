@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 
 
 struct ToolItem: Identifiable, Equatable {
-    let id = UUID()
+    let id: String  // 稳定 ID，不随视图重建变化（避免排序丢失）
     let icon: String
     let title: String
     let desc: String
@@ -15,49 +15,29 @@ struct ToolsView: View {
     @AppStorage("tool_order") private var toolOrderRaw: String = ""
     @State private var tools: [ToolItem] = []
     @State private var draggedItem: ToolItem?
+    /// 用户本地刚改过的排序（防止云端旧数据回写覆盖）
+    @State private var lastLocalOrder: String = ""
     
     private let allTools: [ToolItem] = [
-        ToolItem(icon: "dollarsign.circle", title: "利息计算器", desc: "计算贷款利息、存款利息、年化收益率", isActive: true, status: "使用"),
-        ToolItem(icon: "calendar.badge.clock", title: "定期账单提醒", desc: "房租、会员费、月供到期提醒，不再忘缴", isActive: true, status: "使用"),
-        ToolItem(icon: "arrow.left.arrow.right", title: "汇率换算", desc: "多币种实时汇率换算，出差旅行好帮手", isActive: true, status: "使用"),
-        ToolItem(icon: "person.2", title: "AA分账", desc: "聚餐、旅行多人均摊，自动算出每人应付", isActive: false, status: "即将上线"),
-        ToolItem(icon: "chart.pie", title: "支出占比分析", desc: "按类别查看各月支出分布与趋势", isActive: false, status: "即将上线"),
-        ToolItem(icon: "percent", title: "折扣计算器", desc: "输入原价和折扣，自动算出折后价和节省金额", isActive: false, status: "即将上线"),
+        ToolItem(id: "interest_calculator", icon: "dollarsign.circle", title: "利息计算器", desc: "计算贷款利息、存款利息、年化收益率", isActive: true, status: "使用"),
+        ToolItem(id: "bill_reminder", icon: "calendar.badge.clock", title: "定期账单提醒", desc: "房租、会员费、月供到期提醒，不再忘缴", isActive: true, status: "使用"),
+        ToolItem(id: "exchange_rate", icon: "arrow.left.arrow.right", title: "汇率换算", desc: "多币种实时汇率换算，出差旅行好帮手", isActive: true, status: "使用"),
+        ToolItem(id: "aa_split", icon: "person.2", title: "AA分账", desc: "聚餐、旅行多人均摊，自动算出每人应付", isActive: false, status: "即将上线"),
+        ToolItem(id: "expense_analysis", icon: "chart.pie", title: "支出占比分析", desc: "按类别查看各月支出分布与趋势", isActive: false, status: "即将上线"),
+        ToolItem(id: "discount_calculator", icon: "percent", title: "折扣计算器", desc: "输入原价和折扣，自动算出折后价和节省金额", isActive: false, status: "即将上线"),
     ]
-    
-    private var orderedToolsBinding: Binding<[ToolItem]> {
-        Binding(
-            get: { self.orderedTools },
-            set: { newTools in
-                var current = allTools
-                // Reorder allTools to match newTools order
-                let orderedIds = newTools.map { $0.id }
-                let remaining = current.filter { !orderedIds.contains($0.id) }
-                var result: [ToolItem] = []
-                for id in orderedIds {
-                    if let t = current.first(where: { $0.id == id }) {
-                        result.append(t)
-                    }
-                }
-                result.append(contentsOf: remaining)
-                saveOrder(result)
-            }
-        )
-    }
     
     private var orderedTools: [ToolItem] {
         if toolOrderRaw.isEmpty { return allTools }
         let ids = toolOrderRaw.components(separatedBy: ",")
         var result: [ToolItem] = []
         for idStr in ids {
-            if let uuid = UUID(uuidString: idStr), let tool = allTools.first(where: { $0.id == uuid }) {
+            if let tool = allTools.first(where: { $0.id == idStr }) {
                 result.append(tool)
             }
         }
-        for tool in allTools {
-            if !result.contains(where: { $0.id == tool.id }) {
-                result.append(tool)
-            }
+        for tool in allTools where !result.contains(where: { $0.id == tool.id }) {
+            result.append(tool)
         }
         return result
     }
@@ -80,6 +60,10 @@ struct ToolsView: View {
                     if tools.isEmpty { tools = orderedTools }
                     // 后台从云端拉取排序（跨设备），拉取后刷新
                     await UserSettingsManager.shared.loadFromCloud()
+                    // 拉取期间用户已改过排序 → 保持本地新顺序，不被云端旧数据覆盖
+                    if !lastLocalOrder.isEmpty {
+                        UserDefaults.standard.set(lastLocalOrder, forKey: "tool_order")
+                    }
                     tools = orderedTools
                 }
             }
@@ -122,7 +106,7 @@ struct ToolsView: View {
         }
         .onDrag {
             draggedItem = tool
-            return NSItemProvider(object: tool.id.uuidString as NSString)
+            return NSItemProvider(object: tool.id as NSString)
         }
         .onDrop(of: [UTType.text], delegate: ToolDropDelegate(
             item: tool,
@@ -133,7 +117,9 @@ struct ToolsView: View {
     }
     
     private func saveOrder(_ tools: [ToolItem]) {
-        toolOrderRaw = tools.map { $0.id.uuidString }.joined(separator: ",")
+        let order = tools.map { $0.id }.joined(separator: ",")
+        toolOrderRaw = order
+        lastLocalOrder = order
         // 云端同步（跨设备）
         Task { await UserSettingsManager.shared.saveToCloud() }
     }
