@@ -40,7 +40,7 @@ struct AIReviewCard: View {
             } else {
                 Text(review)
                     .font(.system(size: 15))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .foregroundColor(AppTheme.brandStart)
                     .lineSpacing(5)
                     .padding(.top, 2)
                     .frame(maxWidth: .infinity, alignment: .leading)
