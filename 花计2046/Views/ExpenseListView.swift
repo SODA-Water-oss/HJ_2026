@@ -158,43 +158,54 @@ struct ExpenseListView: View {
             batchNoteText: $batchNoteText,
             batchNoteMode: $batchNoteMode,
             onNoteConfirm: {
-                let count = allSelected.count
+                // 确认时立即捕获选中记录，避免 Task 执行时选择集已被清空
+                let selected = allSelected
+                let count = selected.count
                 Task {
-                    try? await supabaseService.batchUpdateNote(expenses: allSelected, note: batchNoteText, mode: batchNoteMode)
+                    try? await supabaseService.batchUpdateNote(expenses: selected, note: batchNoteText, mode: batchNoteMode)
                     await UserLogManager.log(action: "批量修改", detail: "批量修改备注(\(count))", supabaseService: supabaseService)
                     selectedExpenseIds = []
+                    rebuildGrouped()
                 }
             },
             onDeleteConfirm: {
-                let count = selectedExpenseIds.count
+                let ids = Array(selectedExpenseIds)
+                let count = ids.count
                 Task {
-                    try? await supabaseService.batchDeleteExpenses(ids: Array(selectedExpenseIds))
+                    try? await supabaseService.batchDeleteExpenses(ids: ids)
                     await UserLogManager.log(action: "批量删除", detail: "批量删除(\(count))", supabaseService: supabaseService)
                     selectedExpenseIds = []
+                    rebuildGrouped()
                 }
             },
             onDateConfirm: { date in
-                let count = allSelected.count
+                let selected = allSelected
+                let count = selected.count
                 Task {
-                    try? await supabaseService.batchUpdateTime(expenses: allSelected, date: date)
+                    try? await supabaseService.batchUpdateTime(expenses: selected, date: date)
                     await UserLogManager.log(action: "批量修改", detail: "批量修改时间(\(count))", supabaseService: supabaseService)
                     selectedExpenseIds = []
+                    rebuildGrouped()
                 }
             },
             onCategoryConfirm: { cat in
-                let count = allSelected.count
+                let selected = allSelected
+                let count = selected.count
                 Task {
-                    try? await supabaseService.batchUpdateCategory(expenses: allSelected, category: cat)
+                    try? await supabaseService.batchUpdateCategory(expenses: selected, category: cat)
                     await UserLogManager.log(action: "批量修改", detail: "批量修改类别(\(count))", supabaseService: supabaseService)
                     selectedExpenseIds = []
+                    rebuildGrouped()
                 }
             },
             onCurrencyConfirm: { sym in
-                let count = allSelected.count
+                let selected = allSelected
+                let count = selected.count
                 Task {
-                    try? await supabaseService.batchUpdateCurrency(expenses: allSelected, currencySymbol: sym)
+                    try? await supabaseService.batchUpdateCurrency(expenses: selected, currencySymbol: sym)
                     await UserLogManager.log(action: "批量修改", detail: "批量修改货币(\(count))", supabaseService: supabaseService)
                     selectedExpenseIds = []
+                    rebuildGrouped()
                 }
             },
             onCancel: { showBatchNoteSheet = false }
