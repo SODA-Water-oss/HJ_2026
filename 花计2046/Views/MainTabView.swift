@@ -87,6 +87,7 @@ struct MainTabView: View {
                 ledgerLockEnabled = userSettings.ledgerLockEnabled
                 analyticsLockEnabled = userSettings.analyticsLockEnabled
                 updateDueBillCount()
+                clearAppIconBadge()
             }
             .task {
                 try? await UNUserNotificationCenter.current().setBadgeCount(0)
@@ -105,6 +106,7 @@ struct MainTabView: View {
                 }
                 if phase == .active {
                     updateDueBillCount()
+                    clearAppIconBadge()
                 }
             }
             
@@ -147,6 +149,11 @@ struct MainTabView: View {
         }
 
     
+    
+    /// 清除 App 图标数字角标（通知角标是"未读提醒"语义，进入/操作后即清零）
+    private func clearAppIconBadge() {
+        Task { try? await UNUserNotificationCenter.current().setBadgeCount(0) }
+    }
     
     private func updateDueBillCount() {
         guard let data = UserDefaults.standard.data(forKey: "bill_reminders_cache"),
