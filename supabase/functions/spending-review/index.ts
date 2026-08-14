@@ -26,7 +26,12 @@ Deno.serve(async (request) => {
     if (userError || !userData.user) throw new Error("Invalid user session.");
     const userId = userData.user.id;
 
-    // 2. 查询最近收支（窗口近30天，但对外统一称“最近”，不暴露具体天数）
+    // 2. 尝试获取/推测用户称呼（昵称元数据 > 邮箱前缀），让点评更亲近
+    const email = (userData.user.email ?? "").trim();
+    const metaName = String(userData.user.user_metadata?.name ?? userData.user.user_metadata?.nickname ?? "").trim();
+    const userName = metaName || guessNameFromEmail(email);
+
+    // 3. 查询最近收支（窗口近30天，但对外统一称“最近”，不暴露具体天数）
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const { data: records, error: recordsError } = await supabase
       .from("records")
@@ -40,7 +45,7 @@ Deno.serve(async (request) => {
     const summary = buildSummary(records ?? []);
 
     // 4. 调 Gemini 生成点评
-    const review = await generateReview(deepSeekKey, summary);
+    const review = await generateReview(deepSeekKey, summary, userName);
 
     return json({ review });
   } catch (error) {
@@ -87,9 +92,25 @@ function buildSummary(records: Array<{ type: string; amount: number; category: s
   };
 }
 
-async function generateReview(apiKey: string, summary: Record<string, unknown>): Promise<string> {
+// 从邮箱前缀推测一个自然称呼（拉丁字母首字母大写；纯数字/乱码则返回空）
+function guessNameFromEmail(email: string): string {
+  const prefix = (email.split("@")[0] ?? "").trim();
+  if (!prefix) return "";
+  const cleaned = prefix.replace(/[._\-]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!cleaned || /^[\d\s]+$/.test(cleaned)) return "";
+  return cleaned
+    .split(" ")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+async function generateReview(apiKey: string, summary: Record<string, unknown>, userName: string): Promise<string> {
   const prompt = [
     "你是一个爱写手帐、说话俏皮的记账达人，正在给用户写一段最近收支手帐点评。",
+    userName
+      ? `用户的称呼：${userName}（这是从邮箱/昵称推测的，未必是真名；如果合适就自然带进点评让语气更亲近，如果显得生硬就不要硬叫，直接用「你」）。`
+      : "",
+    "如果上面有用户称呼，点评中可自然地带上一两次（例如开头轻轻带一句），让语气更亲近；没有称呼则直接用「你」。",
     "根据下面的数据，写一段 30-45 字的中文点评（比之前更精简，只保留最有趣的一句精华）。",
     "要求：",
     "1. 像手帐排版一样，用大量不同的 emoji 代替文字，至少 7-10 个，种类尽量丰富多样",
