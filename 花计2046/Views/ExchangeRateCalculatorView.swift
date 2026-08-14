@@ -143,7 +143,7 @@ struct ExchangeRateCalculatorView: View {
                             }
                             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         } else if liveRates.isEmpty {
-                            Text("尚未获取最新汇率，请先点击「刷新汇率」再换算")
+                            Text("点击【刷新汇率】获取最新汇率换算")
                                 .font(.system(size: 15))
                                 .foregroundColor(AppTheme.textTertiary)
                                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
