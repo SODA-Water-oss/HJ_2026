@@ -552,6 +552,7 @@ struct BillReminderCodable: Codable, Identifiable {
     var isEnabled: Bool
     var currency: String
     var onceDate: String?
+    var reminderTime: String?
     var createdAt: String?
     var updatedAt: String?
     
@@ -566,6 +567,7 @@ struct BillReminderCodable: Codable, Identifiable {
         case isEnabled = "is_enabled"
         case currency
         case onceDate = "once_date"
+        case reminderTime = "reminder_time"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }

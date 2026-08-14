@@ -21,29 +21,35 @@ struct NotificationManager {
         content.badge = 1
         content.userInfo = ["bill_id": bill.id.uuidString]
         
-        // 一次性提醒：按指定日期时间触发一次
+        // 提醒时间（时:分），默认 9:00
+        let hour = Calendar.current.component(.hour, from: bill.reminderTime ?? Date())
+        let minute = Calendar.current.component(.minute, from: bill.reminderTime ?? Date())
+        
+        // 一次性提醒：按指定日期 + 提醒时间触发一次
         if bill.recurrence == .once {
-            let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: dueDate)
+            var components = Calendar.current.dateComponents([.year, .month, .day], from: dueDate)
+            components.hour = hour
+            components.minute = minute
             let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
             let request = UNNotificationRequest(identifier: bill.id.uuidString, content: content, trigger: trigger)
             UNUserNotificationCenter.current().add(request)
             return
         }
         
-        // Schedule for due date at 9:00 AM
+        // 周期提醒：到期日 + 提醒时间
         var dateComponents = Calendar.current.dateComponents([.year, .month, .day], from: dueDate)
-        dateComponents.hour = 9
-        dateComponents.minute = 0
+        dateComponents.hour = hour
+        dateComponents.minute = minute
         
         let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
         let request = UNNotificationRequest(identifier: bill.id.uuidString, content: content, trigger: trigger)
         UNUserNotificationCenter.current().add(request)
         
-        // Also schedule 1 day before at 9:00 AM
+        // Also schedule 1 day before at same reminder time
         if let dayBefore = Calendar.current.date(byAdding: .day, value: -1, to: dueDate) {
             var earlyComponents = Calendar.current.dateComponents([.year, .month, .day], from: dayBefore)
-            earlyComponents.hour = 9
-            earlyComponents.minute = 0
+            earlyComponents.hour = hour
+            earlyComponents.minute = minute
             let earlyTrigger = UNCalendarNotificationTrigger(dateMatching: earlyComponents, repeats: false)
             let earlyRequest = UNNotificationRequest(identifier: bill.id.uuidString + "_early", content: content, trigger: earlyTrigger)
             UNUserNotificationCenter.current().add(earlyRequest)
@@ -67,7 +73,8 @@ struct BillItem: Identifiable, Codable {
     var isEnabled: Bool = true
     var lastNotified: Date?
     var currency: String = "¥"
-    var onceDate: Date?  // 一次性提醒的日期时间
+    var onceDate: Date?  // 一次性提醒的日期
+    var reminderTime: Date?  // 提醒时间（时:分，周期/一次性通用）
     
     enum Recurrence: String, Codable, CaseIterable {
         case monthly = "每月"
@@ -91,6 +98,8 @@ struct BillItem: Identifiable, Codable {
         }
         
         switch recurrence {
+        case .once:
+            return onceDate
         case .monthly:
             targetYear = year
             targetMonth = month
@@ -144,6 +153,7 @@ struct BillItem: Identifiable, Codable {
             return "一次性"
         }
         switch recurrence {
+        case .once: return "一次性"
         case .monthly: return "每月" + String(dueDay) + "日"
         case .quarterly:
             let names = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"]
@@ -390,6 +400,9 @@ extension BillItem {
         self.dueMonth = codable.dueMonth
         self.isEnabled = codable.isEnabled
         self.currency = codable.currency
+        if let raw = codable.reminderTime, let t = parseTime(raw) {
+            self.reminderTime = t
+        }
         switch codable.recurrence {
         case "monthly": self.recurrence = .monthly
         case "quarterly": self.recurrence = .quarterly
@@ -401,6 +414,17 @@ extension BillItem {
             }
         default: self.recurrence = .monthly
         }
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let cal = Calendar.current
+        return String(format: "%02d:%02d", cal.component(.hour, from: date), cal.component(.minute, from: date))
+    }
+    
+    private func parseTime(_ raw: String) -> Date? {
+        let parts = raw.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2, let base = Calendar.current.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: Date()) else { return nil }
+        return base
     }
     
     func toCodable(userId: UUID) -> BillReminderCodable {
@@ -422,7 +446,8 @@ extension BillItem {
             recurrence: dbRec,
             isEnabled: isEnabled,
             currency: currency,
-            onceDate: recurrence == .once ? onceDate.map { ISO8601DateFormatter().string(from: $0) } : nil
+            onceDate: recurrence == .once ? onceDate.map { ISO8601DateFormatter().string(from: $0) } : nil,
+            reminderTime: reminderTime.map { formatTime($0) }
         )
     }
 }
@@ -439,6 +464,8 @@ struct BillFormView: View {
     @State private var dueDay: Int = 1
     @State private var dueMonth: Int = 1
    @State private var recurrence: BillItem.Recurrence = .monthly
+    @State private var onceDate: Date = Date().addingTimeInterval(24 * 60 * 60)
+    @State private var reminderTime: Date = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
     @State private var showValidationAlert = false
    @State private var validationMessage = ""
     
@@ -540,16 +567,22 @@ struct BillFormView: View {
                             .cornerRadius(8)
                     }
                     
-                    // 一次性：指定日期和时间
+                    // 一次性：指定日期 + 时间
                     if recurrence == .once {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("提醒时间").font(.system(size: 17)).foregroundColor(AppTheme.textSecondary)
-                            DatePicker("日期时间", selection: $onceDate, displayedComponents: [.date, .hourAndMinute])
+                            Text("提醒日期").font(.system(size: 17)).foregroundColor(AppTheme.textSecondary)
+                            DatePicker("日期", selection: $onceDate, displayedComponents: .date)
                                 .datePickerStyle(.compact)
                                 .padding(12)
                                 .background(AppTheme.background)
                                 .cornerRadius(AppTheme.elementRadius)
-                            Text("到指定时间提醒一次")
+                            Text("提醒时间").font(.system(size: 17)).foregroundColor(AppTheme.textSecondary)
+                            DatePicker("时间", selection: $reminderTime, displayedComponents: .hourAndMinute)
+                                .datePickerStyle(.compact)
+                                .padding(12)
+                                .background(AppTheme.background)
+                                .cornerRadius(AppTheme.elementRadius)
+                            Text("到指定日期时间提醒一次")
                                 .font(.appSmall)
                                 .foregroundColor(AppTheme.textTertiary)
                         }
@@ -641,6 +674,18 @@ struct BillFormView: View {
                         }
                     }
                     }
+
+                    // 周期模式：提醒时间（时:分）
+                    if recurrence != .once {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("提醒时间").font(.system(size: 17)).foregroundColor(AppTheme.textSecondary)
+                            DatePicker("时间", selection: $reminderTime, displayedComponents: .hourAndMinute)
+                                .datePickerStyle(.compact)
+                                .padding(12)
+                                .background(AppTheme.background)
+                                .cornerRadius(AppTheme.elementRadius)
+                        }
+                    }
                     }
                     .padding(20)
                     .background(Color.white)
@@ -721,7 +766,8 @@ struct BillFormView: View {
             isEnabled: bill?.isEnabled ?? true,
             lastNotified: bill?.lastNotified,
             currency: UserDefaults.standard.string(forKey: "currency_symbol") ?? "¥",
-            onceDate: recurrence == .once ? onceDate : nil
+            onceDate: recurrence == .once ? onceDate : nil,
+            reminderTime: reminderTime
         )
         onSave(newBill)
         dismiss()

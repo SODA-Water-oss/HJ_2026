@@ -1,10 +1,14 @@
 -- ============================================================
--- 008: 账单提醒支持一次性（指定日期时间）模式
+-- 008: 账单提醒支持一次性模式 + 自定义提醒时间
 -- ============================================================
 
--- 一次性提醒的日期时间（recurrence = 'once' 时使用）
+-- 一次性提醒的日期（recurrence = 'once' 时使用）
 alter table if exists public.bill_reminders
     add column if not exists once_date timestamptz;
+
+-- 自定义提醒时间（时:分，"HH:mm"，周期/一次性通用）
+alter table if exists public.bill_reminders
+    add column if not exists reminder_time text;
 
 -- recurrence 增加 once 允许值
 alter table if exists public.bill_reminders
