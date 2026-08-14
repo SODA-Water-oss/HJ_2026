@@ -553,6 +553,8 @@ struct BillReminderCodable: Codable, Identifiable {
     var currency: String
     var onceDate: String?
     var reminderTime: String?
+    var paidPeriodKey: String?
+    var paidDate: String?
     var createdAt: String?
     var updatedAt: String?
     
@@ -568,6 +570,8 @@ struct BillReminderCodable: Codable, Identifiable {
         case currency
         case onceDate = "once_date"
         case reminderTime = "reminder_time"
+        case paidPeriodKey = "paid_period_key"
+        case paidDate = "paid_date"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }

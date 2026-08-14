@@ -75,6 +75,8 @@ struct BillItem: Identifiable, Codable {
     var currency: String = "¥"
     var onceDate: Date?  // 一次性提醒的日期
     var reminderTime: Date?  // 提醒时间（时:分，周期/一次性通用）
+    var paidPeriodKey: String?  // 周期账单：已付的周期标识
+    var paidDate: Date?         // 一次性账单：完成时间
     
     enum Recurrence: String, Codable, CaseIterable {
         case monthly = "每月"
@@ -135,6 +137,41 @@ struct BillItem: Identifiable, Codable {
         return daysLeft >= 0 && daysLeft <= 3
     }
     
+    /// 当前周期标识（周期账单用于判断"本期是否已付"）
+    var currentPeriodKey: String {
+        let cal = Calendar.current
+        let now = Date()
+        switch recurrence {
+        case .monthly:
+            let comp = cal.dateComponents([.year, .month], from: now)
+            return String(format: "%04d-%02d", comp.year ?? 0, comp.month ?? 0)
+        case .quarterly:
+            let comp = cal.dateComponents([.year, .month], from: now)
+            let m = comp.month ?? 1
+            let quarterStart = ((m - 1) / 3) * 3 + 1
+            return String(format: "%04d-%02d", comp.year ?? 0, quarterStart)
+        case .yearly:
+            return String(cal.component(.year, from: now))
+        case .once:
+            return ""
+        }
+    }
+
+    /// 周期账单：本期已标记已付
+    var isPaidThisPeriod: Bool {
+        recurrence != .once && paidPeriodKey == currentPeriodKey
+    }
+
+    /// 一次性账单：已完成
+    var isCompleted: Bool {
+        recurrence == .once && paidDate != nil
+    }
+
+    /// 一次性账单：已过期（到期时间已过且未完成）
+    var isExpiredOnce: Bool {
+        recurrence == .once && paidDate == nil && onceDate != nil && onceDate! < Date()
+    }
+
     var isOverdue: Bool {
         guard let due = nextDueDate else { return false }
         return Calendar.current.compare(Date(), to: due, toGranularity: .day) == .orderedDescending
@@ -268,17 +305,28 @@ struct BillReminderView: View {
         .padding(.horizontal, 20)
     }
     
+    private func markPaid(_ bill: BillItem) {
+        if let idx = bills.firstIndex(where: { $0.id == bill.id }) {
+            if bill.recurrence == .once {
+                bills[idx].paidDate = Date()
+            } else {
+                bills[idx].paidPeriodKey = bill.currentPeriodKey
+            }
+            saveBills()
+        }
+    }
+    
     private func billCard(bill: BillItem) -> some View {
         return VStack(spacing: 0) {
             HStack(spacing: 14) {
                 // Status icon
                 ZStack {
                     Circle()
-                        .fill(bill.isOverdue ? Color.red.opacity(0.15) : bill.isDueSoon ? Color.orange.opacity(0.15) : AppTheme.brandStart.opacity(0.1))
+                        .fill(bill.isPaidThisPeriod || bill.isCompleted ? Color.green.opacity(0.15) : bill.isExpiredOnce || bill.isOverdue ? Color.red.opacity(0.15) : bill.isDueSoon ? Color.orange.opacity(0.15) : AppTheme.brandStart.opacity(0.1))
                         .frame(width: 40, height: 40)
-                    Image(systemName: bill.isOverdue ? "exclamationmark" : bill.isDueSoon ? "bell.fill" : "calendar")
+                    Image(systemName: bill.isPaidThisPeriod || bill.isCompleted ? "checkmark" : bill.isExpiredOnce || bill.isOverdue ? "exclamationmark" : bill.isDueSoon ? "bell.fill" : "calendar")
                         .font(.system(size: 16))
-                        .foregroundColor(bill.isOverdue ? .red : bill.isDueSoon ? .orange : AppTheme.brandStart)
+                        .foregroundColor(bill.isPaidThisPeriod || bill.isCompleted ? .green : bill.isExpiredOnce || bill.isOverdue ? .red : bill.isDueSoon ? .orange : AppTheme.brandStart)
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
@@ -296,9 +344,21 @@ struct BillReminderView: View {
                 
                 Spacer()
                 
-                // Days until due
-                if bill.isEnabled {
-                    VStack(alignment: .trailing, spacing: 2) {
+                // 状态 + 标记已付/完成
+                VStack(alignment: .trailing, spacing: 6) {
+                    if bill.isPaidThisPeriod {
+                        Text("✓ 本期已付")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.green)
+                    } else if bill.isCompleted {
+                        Text("✓ 已完成")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.green)
+                    } else if bill.isExpiredOnce {
+                        Text("已过期")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.red)
+                    } else if bill.isEnabled {
                         if bill.isOverdue {
                             Text("本月已过" + String(abs(bill.daysUntilDue)) + "天")
                                 .font(.system(size: 12, weight: .semibold))
@@ -313,8 +373,22 @@ struct BillReminderView: View {
                                 .foregroundColor(AppTheme.textTertiary)
                         }
                     }
-                    .frame(minWidth: 44)
+                    
+                    // 标记已付/完成按钮
+                    if !bill.isPaidThisPeriod && !bill.isCompleted {
+                        Button(action: { markPaid(bill) }) {
+                            Text(bill.recurrence == .once ? "标记完成" : "标记已付")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(AppTheme.brandStart)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(AppTheme.brandStart.opacity(0.1))
+                                .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
+                .frame(minWidth: 44)
             }
             .padding(16)
             .contentShape(Rectangle())
@@ -367,7 +441,7 @@ struct BillReminderView: View {
         // Remove all pending notifications for bills
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         
-        for bill in bills where bill.isEnabled {
+        for bill in bills where bill.isEnabled && !bill.isPaidThisPeriod && !bill.isCompleted && !bill.isExpiredOnce {
             NotificationManager.scheduleBillNotification(bill: bill)
         }
     }
@@ -400,6 +474,10 @@ extension BillItem {
         self.dueMonth = codable.dueMonth
         self.isEnabled = codable.isEnabled
         self.currency = codable.currency
+        self.paidPeriodKey = codable.paidPeriodKey
+        if let raw = codable.paidDate {
+            self.paidDate = ISO8601DateFormatter().date(from: raw)
+        }
         if let raw = codable.reminderTime, let t = Self.parseTime(raw) {
             self.reminderTime = t
         }
@@ -447,7 +525,9 @@ extension BillItem {
             isEnabled: isEnabled,
             currency: currency,
             onceDate: recurrence == .once ? onceDate.map { ISO8601DateFormatter().string(from: $0) } : nil,
-            reminderTime: reminderTime.map { Self.formatTime($0) }
+            reminderTime: reminderTime.map { Self.formatTime($0) },
+            paidPeriodKey: paidPeriodKey,
+            paidDate: paidDate.map { ISO8601DateFormatter().string(from: $0) }
         )
     }
 }

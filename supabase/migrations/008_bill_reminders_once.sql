@@ -17,3 +17,9 @@ alter table if exists public.bill_reminders
 alter table if exists public.bill_reminders
     add constraint bill_reminders_recurrence_check
     check (recurrence in ('monthly', 'quarterly', 'yearly', 'once'));
+
+-- 闭环：已付/完成状态
+alter table if exists public.bill_reminders
+    add column if not exists paid_period_key text;
+alter table if exists public.bill_reminders
+    add column if not exists paid_date timestamptz;
