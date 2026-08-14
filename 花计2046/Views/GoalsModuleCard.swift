@@ -148,8 +148,8 @@ struct GoalsModuleCard: View {
                 Spacer()
             }
             HStack(spacing: 14) {
-                badgeGroup(title: "周达成", count: weekAchieved, icon: "star.fill", color: AppTheme.brandEnd)
-                badgeGroup(title: "月达成", count: monthAchieved, icon: "trophy.fill", color: Color(hex: "#EAB308"))
+                badgeGroup(title: "周达成", count: weekAchieved, icon: "crown.fill", color: AppTheme.brandEnd)
+                badgeGroup(title: "月达成", count: monthAchieved, icon: "crown.fill", color: Color(hex: "#EAB308"))
             }
             Text("达成 1 个周期目标获得 1 枚徽章")
                 .font(.appTiny)
