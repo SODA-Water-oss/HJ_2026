@@ -684,7 +684,7 @@ extension AnalyticsView {
     // MARK: - 12个月收支双折线卡片
     private var trend12Card: some View {
         VStack(alignment: .leading, spacing: 14) {
-            AnalyticsModuleHeader(icon: "chart.line.uptrend.xyaxis", title: "月度收支趋势")
+            AnalyticsSubHeader(title: "月度收支趋势")
             MonthlyDualLineChartView(points: monthlyTrendPoints)
                 .frame(height: 220)
         }
@@ -697,7 +697,6 @@ extension AnalyticsView {
         let expense = analyticsRecords.filter(\.isExpense).reduce(0) { $0 + $1.amount }
         let net = income - expense
         return VStack(alignment: .leading, spacing: 16) {
-            AnalyticsModuleHeader(icon: "chart.bar.xaxis", title: "资金总览")
             if analyticsRecords.isEmpty {
                 Text("该币种暂无记录")
                     .font(.appBody)
@@ -751,14 +750,7 @@ extension AnalyticsView {
         let count = data.count
         let isMany = count > 6
         return VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 6) {
-                Image(systemName: "chart.pie.fill")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(AppTheme.brandStart)
-                Text(title)
-                    .font(.appTitle)
-                    .foregroundColor(AppTheme.textPrimary)
-            }
+            AnalyticsSubHeader(title: title)
             
             HStack(alignment: .top, spacing: isMany ? 12 : 24) {
                 PieChartView(data: data)
@@ -812,14 +804,7 @@ extension AnalyticsView {
 
     private func categoryCard(data: [CategoryAnalytics], title: String) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 6) {
-                Image(systemName: "chart.bar.fill")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(AppTheme.brandStart)
-                Text(title)
-                    .font(.appTitle)
-                    .foregroundColor(AppTheme.textPrimary)
-            }
+            AnalyticsSubHeader(title: title)
             
             if data.isEmpty {
                 Text("暂无数据")

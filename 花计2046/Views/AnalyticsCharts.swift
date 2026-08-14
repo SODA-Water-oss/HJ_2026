@@ -283,3 +283,17 @@ struct AnalyticsModuleHeader<Trailing: View>: View {
         }
     }
 }
+
+// MARK: - 分析页二级模块标题（层级低于 AnalyticsModuleHeader）
+struct AnalyticsSubHeader: View {
+    let title: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(AppTheme.textSecondary)
+            Spacer()
+        }
+    }
+}
