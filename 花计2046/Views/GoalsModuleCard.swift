@@ -176,9 +176,9 @@ struct GoalsModuleCard: View {
 
     private func badgeTitle(for item: GoalTargetItem) -> String {
         switch item.timeDimension {
-        case "每周": return "周达成"
-        case "每月": return "月达成"
-        case "每年": return "年达成"
+        case "每周": return "上周达成"
+        case "每月": return "上月达成"
+        case "每年": return "上年达成"
         default: return "达成"
         }
     }
