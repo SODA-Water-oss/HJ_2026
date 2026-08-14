@@ -659,6 +659,104 @@ extension SupabaseService {
     }
 }
 
+// MARK: - 收支目标（云端长期存储，跨设备同步）
+struct GoalTargetCodable: Codable, Identifiable {
+    var id: UUID
+    var userId: UUID
+    var name: String
+    var category: String
+    var timeDimension: String
+    var amount: Double
+    var startDate: String?
+    var endDate: String?
+    var createdAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId = "user_id"
+        case name
+        case category
+        case timeDimension = "time_dimension"
+        case amount
+        case startDate = "start_date"
+        case endDate = "end_date"
+        case createdAt = "created_at"
+    }
+}
+
+extension SupabaseService {
+    func fetchGoalTargets() async throws -> [GoalTargetCodable] {
+        if AppConfig.useMockServices {
+            guard let user = currentUser else { return [] }
+            let key = "goal_targets_\(user.id.uuidString)"
+            guard let data = UserDefaults.standard.data(forKey: key),
+                  let items = try? JSONDecoder().decode([GoalTargetCodable].self, from: data) else {
+                return []
+            }
+            return items
+        }
+        guard let userId = currentUser?.id else { return [] }
+        return try await client.from("goal_targets").select()
+            .eq("user_id", value: userId)
+            .order("created_at", ascending: true)
+            .execute().value
+    }
+
+    func addGoalTarget(_ item: GoalTargetCodable) async throws {
+        if AppConfig.useMockServices {
+            var items = try await fetchGoalTargets()
+            items.append(item)
+            let key = "goal_targets_\(currentUser!.id.uuidString)"
+            if let data = try? JSONEncoder().encode(items) {
+                UserDefaults.standard.set(data, forKey: key)
+            }
+            return
+        }
+        try await client.from("goal_targets").insert(item).execute()
+    }
+
+    func deleteGoalTarget(id: UUID) async throws {
+        if AppConfig.useMockServices {
+            var items = try await fetchGoalTargets()
+            items.removeAll { $0.id == id }
+            let key = "goal_targets_\(currentUser!.id.uuidString)"
+            if let data = try? JSONEncoder().encode(items) {
+                UserDefaults.standard.set(data, forKey: key)
+            }
+            return
+        }
+        try await client.from("goal_targets").delete().eq("id", value: id).execute()
+    }
+}
+
+// MARK: - GoalTargetItem <-> GoalTargetCodable
+extension GoalTargetItem {
+    init(from codable: GoalTargetCodable) {
+        self.id = codable.id
+        self.name = codable.name
+        self.category = codable.category
+        self.timeDimension = codable.timeDimension
+        self.amount = codable.amount
+        if let raw = codable.startDate { self.startDate = ISO8601DateFormatter().date(from: raw) }
+        if let raw = codable.endDate { self.endDate = ISO8601DateFormatter().date(from: raw) }
+        if let raw = codable.createdAt { self.createdAt = ISO8601DateFormatter().date(from: raw) }
+    }
+
+    func toCodable(userId: UUID) -> GoalTargetCodable {
+        GoalTargetCodable(
+            id: id,
+            userId: userId,
+            name: name,
+            category: category,
+            timeDimension: timeDimension,
+            amount: amount,
+            startDate: startDate.map { ISO8601DateFormatter().string(from: $0) },
+            endDate: endDate.map { ISO8601DateFormatter().string(from: $0) },
+            createdAt: nil  // 让数据库默认 now()
+        )
+    }
+}
+
 
 // MARK: - 订阅状态同步
 extension SupabaseService {

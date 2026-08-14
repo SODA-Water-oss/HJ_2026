@@ -81,8 +81,25 @@ struct GoalsModuleCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardStyle()
+        .task { await syncGoalTargets() }
         .sheet(isPresented: $showTargetSetting) {
             GoalTargetSettingSheet(items: $items)
+        }
+    }
+
+    /// 云端同步：先显示本地缓存，再拉取云端（换设备可恢复）；首次升级时把本地旧目标上传云端
+    private func syncGoalTargets() async {
+        if items.isEmpty { items = GoalTargetItem.load() }
+        guard let userId = supabaseService.currentUser?.id else { return }
+        guard let loaded = try? await supabaseService.fetchGoalTargets() else { return }
+        let cloudItems = loaded.map { GoalTargetItem(from: $0) }
+        if cloudItems.isEmpty && !items.isEmpty {
+            for item in items {
+                try? await supabaseService.addGoalTarget(item.toCodable(userId: userId))
+            }
+        } else if !cloudItems.isEmpty {
+            items = cloudItems
+            GoalTargetItem.save(cloudItems)
         }
     }
 
@@ -450,6 +467,7 @@ struct GoalTargetCard: View {
 // MARK: - 目标设置（空页面 + 增加条目；只可删除不可修改）
 struct GoalTargetSettingSheet: View {
     @Binding var items: [GoalTargetItem]
+    @EnvironmentObject var supabaseService: SupabaseService
     @Environment(\.dismiss) private var dismiss
     @State private var showAddForm = false
     @State private var pendingDelete: GoalTargetItem?
@@ -538,6 +556,8 @@ struct GoalTargetSettingSheet: View {
                     if let target = pendingDelete {
                         items.removeAll { $0.id == target.id }
                         GoalTargetItem.save(items)
+                        // 同步删除云端目标
+                        Task { try? await supabaseService.deleteGoalTarget(id: target.id) }
                     }
                     pendingDelete = nil
                 }
@@ -556,6 +576,7 @@ struct GoalTargetSettingSheet: View {
 // MARK: - 新增目标表单
 struct GoalTargetAddSheet: View {
     @Binding var items: [GoalTargetItem]
+    @EnvironmentObject var supabaseService: SupabaseService
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var category = "支出"
@@ -624,6 +645,10 @@ struct GoalTargetAddSheet: View {
                         )
                         items.append(item)
                         GoalTargetItem.save(items)
+                        // 同步到云端（跨设备）
+                        if let userId = supabaseService.currentUser?.id {
+                            Task { try? await supabaseService.addGoalTarget(item.toCodable(userId: userId)) }
+                        }
                         dismiss()
                     }
                     .font(.system(size: 15, weight: .medium))
