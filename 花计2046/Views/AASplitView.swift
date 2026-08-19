@@ -1,5 +1,36 @@
 import SwiftUI
 
+struct AAToolbarButtonLabel: View {
+    let title: String
+    var color: Color = AppTheme.brandStart
+
+    var body: some View {
+        Text(title)
+            .font(.system(size: 15, weight: .medium))
+            .foregroundColor(color)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.white)
+            .cornerRadius(6)
+            .shadow(color: Color.black.opacity(0.08), radius: 2, x: 0, y: 1)
+    }
+}
+
+struct AAToolbarIconButtonLabel: View {
+    let icon: String
+    var color: Color = AppTheme.brandStart
+
+    var body: some View {
+        Image(systemName: icon)
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundColor(color)
+            .frame(width: 30, height: 30)
+            .background(Color.white)
+            .cornerRadius(6)
+            .shadow(color: Color.black.opacity(0.08), radius: 2, x: 0, y: 1)
+    }
+}
+
 // MARK: - AA 分账账单列表
 struct AASplitView: View {
     @EnvironmentObject var supabaseService: SupabaseService
@@ -75,9 +106,7 @@ struct AASplitView: View {
                     Button {
                         showCreate = true
                     } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(AppTheme.brandStart)
+                        AAToolbarIconButtonLabel(icon: "plus")
                     }
                 }
             }
@@ -127,17 +156,19 @@ struct AACreateBillSheet: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                        .foregroundColor(AppTheme.brandStart)
+                    Button { dismiss() } label: {
+                        AAToolbarButtonLabel(title: "取消")
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("创建") {
+                    Button {
                         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !trimmed.isEmpty else { return }
                         onCreate(trimmed)
                         dismiss()
+                    } label: {
+                        AAToolbarButtonLabel(title: "创建")
                     }
-                    .foregroundColor(AppTheme.brandStart)
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
@@ -512,14 +543,16 @@ struct AAMemberAddSheet: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                        .foregroundColor(AppTheme.brandStart)
+                    Button { dismiss() } label: {
+                        AAToolbarButtonLabel(title: "取消")
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(isSaving ? "添加中..." : "添加") {
+                    Button {
                         save()
+                    } label: {
+                        AAToolbarButtonLabel(title: isSaving ? "添加中..." : "添加")
                     }
-                    .foregroundColor(AppTheme.brandStart)
                     .disabled(isSaving || emailsText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
@@ -592,12 +625,14 @@ struct AAItemAddSheet: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                        .foregroundColor(AppTheme.brandStart)
+                    Button { dismiss() } label: {
+                        AAToolbarButtonLabel(title: "取消")
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") { save() }
-                        .foregroundColor(AppTheme.brandStart)
+                    Button { save() } label: {
+                        AAToolbarButtonLabel(title: "保存")
+                    }
                 }
             }
             .onAppear {
@@ -691,12 +726,14 @@ struct AARecordPickerSheet: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                        .foregroundColor(AppTheme.brandStart)
+                    Button { dismiss() } label: {
+                        AAToolbarButtonLabel(title: "取消")
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("添加 \(selectedIds.count) 笔") { addSelected() }
-                        .foregroundColor(AppTheme.brandStart)
+                    Button { addSelected() } label: {
+                        AAToolbarButtonLabel(title: "添加 \(selectedIds.count) 笔")
+                    }
                         .disabled(selectedIds.isEmpty)
                 }
             }
