@@ -22,7 +22,7 @@ struct ToolsView: View {
         ToolItem(id: "interest_calculator", icon: "dollarsign.circle", title: "利息计算器", desc: "计算贷款利息、存款利息、年化收益率", isActive: true, status: "使用"),
         ToolItem(id: "bill_reminder", icon: "calendar.badge.clock", title: "定期账单提醒", desc: "房租、会员费、月供到期提醒，不再忘缴", isActive: true, status: "使用"),
         ToolItem(id: "exchange_rate", icon: "arrow.left.arrow.right", title: "汇率换算", desc: "多币种实时汇率换算，出差旅行好帮手", isActive: true, status: "使用"),
-        ToolItem(id: "aa_split", icon: "person.2", title: "AA分账", desc: "聚餐、旅行多人均摊，自动算出每人应付", isActive: false, status: "即将上线"),
+        ToolItem(id: "aa_split", icon: "person.2", title: "AA分账", desc: "平均或自定义分摊，自动计算每人应付与差额", isActive: true, status: "使用"),
         ToolItem(id: "expense_analysis", icon: "chart.pie", title: "支出占比分析", desc: "按类别查看各月支出分布与趋势", isActive: false, status: "即将上线"),
         ToolItem(id: "discount_calculator", icon: "percent", title: "折扣计算器", desc: "输入原价和折扣，自动算出折后价和节省金额", isActive: false, status: "即将上线"),
     ]
@@ -99,6 +99,8 @@ struct ToolsView: View {
                                 NavigationLink(destination: ExchangeRateCalculatorView()) { Color.clear }
                             } else if tool.title == "定期账单提醒" {
                                 NavigationLink(destination: BillReminderView()) { Color.clear }
+                            } else if tool.title == "AA分账" {
+                                NavigationLink(destination: AASplitView()) { Color.clear }
                             }
                         }
                     }
