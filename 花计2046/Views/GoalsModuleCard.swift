@@ -402,6 +402,7 @@ struct GoalTargetSettingSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showAddForm = false
     @State private var pendingDelete: GoalTargetItem?
+    @State private var editingItem: GoalTargetItem?
 
     var body: some View {
         NavigationStack {
@@ -438,6 +439,10 @@ struct GoalTargetSettingSheet: View {
                                             .foregroundColor(AppTheme.textTertiary)
                                     }
                                 }
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    editingItem = item
+                                }
                                 Spacer()
                                 Button(role: .destructive) {
                                     pendingDelete = item
@@ -451,7 +456,7 @@ struct GoalTargetSettingSheet: View {
                     .scrollContentBackground(.hidden)
                 }
 
-                Text("目标设定后不可修改，只能删除后重新添加")
+                Text("点击目标条目可编辑，删除后不可恢复")
                     .font(.system(size: 12))
                     .foregroundColor(.gray)
                     .padding(.vertical, 8)
@@ -477,6 +482,9 @@ struct GoalTargetSettingSheet: View {
             }
             .sheet(isPresented: $showAddForm) {
                 GoalTargetAddSheet(items: $items)
+            }
+            .sheet(item: $editingItem) { item in
+                GoalTargetAddSheet(items: $items, editingItem: item)
             }
             .alert("确认删除", isPresented: Binding(
                 get: { pendingDelete != nil },
@@ -507,6 +515,7 @@ struct GoalTargetSettingSheet: View {
 // MARK: - 新增目标表单
 struct GoalTargetAddSheet: View {
     @Binding var items: [GoalTargetItem]
+    var editingItem: GoalTargetItem? = nil
     @EnvironmentObject var supabaseService: SupabaseService
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
@@ -518,6 +527,7 @@ struct GoalTargetAddSheet: View {
     @State private var endDate = Date().addingTimeInterval(30 * 24 * 60 * 60)
     @State private var showValidationAlert = false
     @State private var validationMessage = ""
+    @State private var initialized = false
 
     var body: some View {
         NavigationStack {
@@ -553,7 +563,7 @@ struct GoalTargetAddSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .navigationTitle("增加目标")
+            .navigationTitle(editingItem == nil ? "增加目标" : "编辑目标")
             .navigationBarTitleDisplayMode(.inline)
             .background(Color.white)
             .toolbarBackground(Color.white, for: .navigationBar)
@@ -572,23 +582,37 @@ struct GoalTargetAddSheet: View {
                             showValidationAlert = true
                             return
                         }
-                        let item = GoalTargetItem(
-                            id: UUID(),
-                            name: trimmedName,
-                            category: category,
-                            timeDimension: timeDimension,
-                            amount: value,
-                            comparison: comparison,
-                            startDate: timeDimension == "日期区间" ? startDate : nil,
-                            endDate: timeDimension == "日期区间" ? endDate : nil,
-                            createdAt: Date()
-                        )
-                        items.append(item)
-                        GoalTargetItem.save(items)
-                        // 同步到云端（跨设备）
-                        if let userId = supabaseService.currentUser?.id {
-                            Task { try? await supabaseService.addGoalTarget(item.toCodable(userId: userId)) }
+                        if let editingItem, let index = items.firstIndex(where: { $0.id == editingItem.id }) {
+                            var updated = items[index]
+                            updated.name = trimmedName
+                            updated.category = category
+                            updated.timeDimension = timeDimension
+                            updated.amount = value
+                            updated.comparison = comparison
+                            updated.startDate = timeDimension == "日期区间" ? startDate : nil
+                            updated.endDate = timeDimension == "日期区间" ? endDate : nil
+                            items[index] = updated
+                            if let userId = supabaseService.currentUser?.id {
+                                Task { try? await supabaseService.updateGoalTarget(updated.toCodable(userId: userId)) }
+                            }
+                        } else {
+                            let item = GoalTargetItem(
+                                id: UUID(),
+                                name: trimmedName,
+                                category: category,
+                                timeDimension: timeDimension,
+                                amount: value,
+                                comparison: comparison,
+                                startDate: timeDimension == "日期区间" ? startDate : nil,
+                                endDate: timeDimension == "日期区间" ? endDate : nil,
+                                createdAt: Date()
+                            )
+                            items.append(item)
+                            if let userId = supabaseService.currentUser?.id {
+                                Task { try? await supabaseService.addGoalTarget(item.toCodable(userId: userId)) }
+                            }
                         }
+                        GoalTargetItem.save(items)
                         dismiss()
                     }
                     .font(.system(size: 15, weight: .medium))
@@ -608,6 +632,17 @@ struct GoalTargetAddSheet: View {
                         .cornerRadius(6)
                 }
             }
+        }
+        .onAppear {
+            guard let editingItem, !initialized else { return }
+            name = editingItem.name
+            category = editingItem.category
+            timeDimension = editingItem.timeDimension
+            comparison = editingItem.comparisonDisplay
+            amount = String(format: "%.2f", editingItem.amount)
+            startDate = editingItem.startDate ?? Date()
+            endDate = editingItem.endDate ?? Date().addingTimeInterval(30 * 24 * 60 * 60)
+            initialized = true
         }
         .alert("提示", isPresented: $showValidationAlert) {
             Button("确定", role: .cancel) { }

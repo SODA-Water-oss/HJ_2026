@@ -724,6 +724,21 @@ extension SupabaseService {
         try await client.from("goal_targets").insert(item).execute()
     }
 
+    func updateGoalTarget(_ item: GoalTargetCodable) async throws {
+        if AppConfig.useMockServices {
+            var items = try await fetchGoalTargets()
+            if let index = items.firstIndex(where: { $0.id == item.id }) {
+                items[index] = item
+                let key = "goal_targets_\(currentUser!.id.uuidString)"
+                if let data = try? JSONEncoder().encode(items) {
+                    UserDefaults.standard.set(data, forKey: key)
+                }
+            }
+            return
+        }
+        try await client.from("goal_targets").update(item).eq("id", value: item.id).execute()
+    }
+
     func deleteGoalTarget(id: UUID) async throws {
         if AppConfig.useMockServices {
             var items = try await fetchGoalTargets()
