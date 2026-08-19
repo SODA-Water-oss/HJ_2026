@@ -50,27 +50,14 @@ struct GoalsModuleCard: View {
                 }
             }
 
-            // 本周收支（相对周目标）
-            periodSummary(
-                title: "本周",
-                dimension: "每周",
-                income: currentPeriodSum(dimension: "每周", category: "收入", records: supabaseService.allRecords),
-                expense: currentPeriodSum(dimension: "每周", category: "支出", records: supabaseService.allRecords)
-            )
-
-            // 本月收支（相对月目标）
-            periodSummary(
-                title: "本月",
-                dimension: "每月",
-                income: currentPeriodSum(dimension: "每月", category: "收入", records: supabaseService.allRecords),
-                expense: currentPeriodSum(dimension: "每月", category: "支出", records: supabaseService.allRecords)
-            )
-
-            // 其他维度目标条目（日期区间）展示；每年目标进入下方徽章区
-            let otherItems = items.filter { $0.timeDimension == "日期区间" }
-            if !otherItems.isEmpty {
-                Divider()
-                ForEach(otherItems) { item in
+            if items.isEmpty {
+                Text("暂未设置收支目标")
+                    .font(.appBody)
+                    .foregroundColor(AppTheme.textTertiary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 16)
+            } else {
+                ForEach(items) { item in
                     GoalTargetCard(item: item, records: supabaseService.allRecords)
                 }
             }
@@ -100,61 +87,6 @@ struct GoalsModuleCard: View {
         } else if !cloudItems.isEmpty {
             items = cloudItems
             GoalTargetItem.save(cloudItems)
-        }
-    }
-
-    // MARK: - 周/月汇总
-    private func periodSummary(title: String, dimension: String, income: Double, expense: Double) -> some View {
-        let incomeTarget = targetAmount(dimension: dimension, category: "收入")
-        let expenseTarget = targetAmount(dimension: dimension, category: "支出")
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(AppTheme.textPrimary)
-                Spacer()
-            }
-            if incomeTarget == 0 && expenseTarget == 0 {
-                Text("未设置\(title)目标，点右上角「目标设置」添加")
-                    .font(.appSmall)
-                    .foregroundColor(AppTheme.textTertiary)
-            } else {
-                row(label: "收入", current: income, target: incomeTarget, color: .green, currency: CategoryManager.currencySymbol)
-                row(label: "支出", current: expense, target: expenseTarget, color: AppTheme.brandEnd, currency: CategoryManager.currencySymbol)
-            }
-        }
-        .padding(12)
-        .background(AppTheme.background)
-        .cornerRadius(12)
-    }
-
-    private func row(label: String, current: Double, target: Double, color: Color, currency: String) -> some View {
-        let percent = target > 0 ? current / target * 100 : 0
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(label).font(.appSmall).foregroundColor(AppTheme.textSecondary)
-                Spacer()
-                if target > 0 {
-                    Text(String(format: "%@%.0f / ¥%.0f（%.0f%%）", currency, current, target, percent))
-                        .font(.appSmall)
-                        .foregroundColor(percent >= 100 ? Color.green : AppTheme.textPrimary)
-                } else {
-                    Text(String(format: "%@%.0f", currency, current))
-                        .font(.appSmall)
-                        .foregroundColor(AppTheme.textPrimary)
-                }
-            }
-            if target > 0 {
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 3).fill(AppTheme.border)
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(percent >= 100 ? Color.green : color)
-                            .frame(width: geo.size.width * min(1, percent / 100))
-                    }
-                }
-                .frame(height: 6)
-            }
         }
     }
 
@@ -231,34 +163,6 @@ struct GoalsModuleCard: View {
                     .foregroundColor(AppTheme.textTertiary)
             }
         }
-    }
-
-    // MARK: - 计算
-    private func targetAmount(dimension: String, category: String) -> Double {
-        items.first { $0.timeDimension == dimension && $0.category == category }?.amount ?? 0
-    }
-
-    /// 当前周期（本周/本月）某类别的收支合计
-    func currentPeriodSum(dimension: String, category: String, records: [Record]) -> Double {
-        let now = Date()
-        let cal = Calendar.current
-        let start: Date
-        switch dimension {
-        case "每周":
-            var comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
-            comps.weekday = 2
-            start = cal.date(from: comps) ?? now
-        case "每月":
-            let comps = cal.dateComponents([.year, .month], from: now)
-            start = cal.date(from: comps) ?? now
-        default:
-            start = now
-        }
-        let inRange = records.filter { $0.date >= start && $0.date <= now }
-        if category == "收入" {
-            return inRange.filter(\.isIncome).reduce(0) { $0 + $1.amount }
-        }
-        return inRange.filter(\.isExpense).reduce(0) { $0 + $1.amount }
     }
 
     /// 某个目标在历史周期中达成的次数（按目标名称一一匹配；周=52 周、月=24 个月、年=5 年、日期区间=1 次）
