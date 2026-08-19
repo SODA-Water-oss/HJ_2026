@@ -14,7 +14,7 @@
 #
 # 说明:
 #   - 首次运行会引导登录 + 关联项目
-#   - 数据库迁移按 001~015 顺序应用到远程
+#   - 数据库迁移按 001~016 顺序应用到远程
 #   - 部署 3 个 Edge Functions 并注入环境变量
 # ============================================================
 set -euo pipefail
@@ -24,7 +24,7 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$ROOT_DIR"
 
 ENV_FILE=".env.supabase"
-FUNCTIONS=("parse-expense" "delete-account" "spending-review")
+FUNCTIONS=("parse-expense" "delete-account" "spending-review" "aa-bill-add-member")
 
 echo "📋 花计2046 Supabase 部署脚本"
 echo "================================"
@@ -67,7 +67,7 @@ if [ "$(cat supabase/.temp/project-ref 2>/dev/null || echo '')" != "$PROJECT_REF
 fi
 
 # ---------- 5. 数据库迁移 ----------
-echo "🗄️  执行数据库迁移（001~015）..."
+echo "🗄️  执行数据库迁移（001~016）..."
 echo "    ⚠️ 如果此前已在 SQL Editor 手动执行过全部迁移，可跳过（输入 n）"
 read -r -p "    继续执行迁移? [Y/n] " RUN_MIGRATION
 if [[ ! "$RUN_MIGRATION" =~ ^[Nn]$ ]]; then

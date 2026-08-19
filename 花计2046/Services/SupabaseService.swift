@@ -783,4 +783,160 @@ extension GoalTargetItem {
     }
 }
 
+// MARK: - AA 分账共享账单
+struct AABill: Identifiable, Codable, Equatable {
+    var id: UUID
+    var creatorId: UUID
+    var name: String
+    var createdAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case creatorId = "creator_id"
+        case name
+        case createdAt = "created_at"
+    }
+}
+
+struct AABillMember: Identifiable, Codable, Equatable {
+    var id: UUID
+    var billId: UUID
+    var userId: UUID
+    var email: String
+    var createdAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case billId = "bill_id"
+        case userId = "user_id"
+        case email
+        case createdAt = "created_at"
+    }
+}
+
+struct AABillItem: Identifiable, Codable, Equatable {
+    var id: UUID
+    var billId: UUID
+    var userId: UUID
+    var recordId: UUID?
+    var name: String
+    var category: String?
+    var amount: Double
+    var note: String?
+    var createdAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case billId = "bill_id"
+        case userId = "user_id"
+        case recordId = "record_id"
+        case name
+        case category
+        case amount
+        case note
+        case createdAt = "created_at"
+    }
+}
+
+extension SupabaseService {
+    func fetchAABills() async throws -> [AABill] {
+        if AppConfig.useMockServices { return [] }
+        guard currentUser != nil else { return [] }
+        return try await client.from("aa_bills")
+            .select()
+            .order("created_at", ascending: false)
+            .execute().value
+    }
+
+    func createAABill(name: String) async throws -> AABill? {
+        if AppConfig.useMockServices { return nil }
+        guard let userId = currentUser?.id else { return nil }
+        let payload = AABill(id: UUID(), creatorId: userId, name: name, createdAt: Date())
+        let inserted: [AABill] = try await client.from("aa_bills")
+            .insert(payload)
+            .select()
+            .execute().value
+        guard let bill = inserted.first else { return nil }
+        if let email = currentUser?.email {
+            let creatorMember = AABillMember(
+                id: UUID(),
+                billId: bill.id,
+                userId: userId,
+                email: email,
+                createdAt: Date()
+            )
+            try? await client.from("aa_bill_members").insert(creatorMember).execute()
+        }
+        return bill
+    }
+
+    func fetchAABillMembers(billId: UUID) async throws -> [AABillMember] {
+        if AppConfig.useMockServices { return [] }
+        return try await client.from("aa_bill_members")
+            .select()
+            .eq("bill_id", value: billId)
+            .order("created_at", ascending: true)
+            .execute().value
+    }
+
+    func addAABillMembers(billId: UUID, emails: [String]) async throws -> [AABillMember] {
+        if AppConfig.useMockServices { return [] }
+        struct Response: Decodable {
+            let members: [AABillMember]
+        }
+        let request = AABillAddMemberRequest(billId: billId, emails: emails)
+        let response: Response = try await BackendAPI.shared.post(path: "aa-bill-add-member", body: request)
+        return response.members
+    }
+
+    func deleteAABillMember(billId: UUID, memberId: UUID) async throws {
+        if AppConfig.useMockServices { return }
+        try await client.from("aa_bill_members")
+            .delete()
+            .eq("id", value: memberId)
+            .eq("bill_id", value: billId)
+            .execute()
+    }
+
+    func fetchAABillItems(billId: UUID) async throws -> [AABillItem] {
+        if AppConfig.useMockServices { return [] }
+        return try await client.from("aa_bill_items")
+            .select()
+            .eq("bill_id", value: billId)
+            .order("created_at", ascending: true)
+            .execute().value
+    }
+
+    func addAABillItems(_ items: [AABillItem]) async throws {
+        if AppConfig.useMockServices || items.isEmpty { return }
+        try await client.from("aa_bill_items").insert(items).execute()
+    }
+
+    func updateAABillItem(_ item: AABillItem) async throws {
+        if AppConfig.useMockServices { return }
+        try await client.from("aa_bill_items")
+            .update(item)
+            .eq("id", value: item.id)
+            .execute()
+    }
+
+    func deleteAABillItem(id: UUID) async throws {
+        if AppConfig.useMockServices { return }
+        try await client.from("aa_bill_items")
+            .delete()
+            .eq("id", value: id)
+            .execute()
+    }
+}
+
+private struct AABillAddMemberRequest: Encodable {
+    let billId: UUID
+    let emails: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case billId = "bill_id"
+        case emails
+    }
+}
+
 enum NoteMode { case append, replace }
