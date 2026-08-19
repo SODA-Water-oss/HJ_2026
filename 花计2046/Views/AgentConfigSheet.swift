@@ -259,12 +259,7 @@ struct AgentConfigSheet: View {
                         dismiss()
                     } label: {
                         Text("关闭")
-                            .font(.system(size: 15, weight: .medium))
                             .foregroundColor(AppTheme.brandStart)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 6)
-                            .background(Color.white)
-                            .cornerRadius(6)
                     }
                     .buttonStyle(.plain)
                 }
