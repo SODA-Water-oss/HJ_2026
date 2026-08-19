@@ -259,9 +259,17 @@ struct AgentConfigSheet: View {
                         dismiss()
                     } label: {
                         Text("关闭")
+                            .font(.system(size: 15, weight: .medium))
                             .foregroundColor(AppTheme.brandStart)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color.white)
+                            )
+                            .frame(minWidth: 52, minHeight: 28)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(BorderlessButtonStyle())
                 }
             }
             .alert("清除智能体配置", isPresented: $showClearConfirm) {
