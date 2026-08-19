@@ -39,10 +39,26 @@ class GeminiService: ObservableObject {
         let items: [ParsedExpense]
     }
 
-    /// 文字解析入口（DEBUG 走 DeepSeek，Release 走后端 Edge Function）
+    /// 文字解析入口：优先用户配置的智能体，失败自动降级默认智能体
     func parseExpense(input: String) async throws -> [ParsedExpense] {
         Log.info("AI 文字解析: input='\(input.prefix(200))'")
 
+        if let customConfig = await AgentConfigManager.shared.config, customConfig.isValid {
+            do {
+                let items = try await AgentConfigManager.shared.parseExpense(input: input, config: customConfig)
+                Log.info("自定义智能体解析成功: \(customConfig.displayName) items=\(items.count)")
+                return items
+            } catch {
+                let reason = (error as? AgentConfigError)?.errorDescription ?? error.localizedDescription
+                await AgentConfigManager.shared.recordFailure(providerName: customConfig.displayName, reason: reason)
+                Log.warn("自定义智能体解析失败，降级默认智能体: \(reason)")
+            }
+        }
+        return try await parseWithDefault(input: input)
+    }
+
+    /// 默认智能体：DEBUG 走 DeepSeek，Release 走后端 Edge Function
+    private func parseWithDefault(input: String) async throws -> [ParsedExpense] {
         #if DEBUG
         // DEBUG 模式优先使用 DeepSeek 直接解析，便于快速开发和离线测试
         return try await parseWithDeepSeek(input: input)

@@ -1,7 +1,5 @@
 import SwiftUI
-import MessageUI
 import Supabase
-import StoreKit
 
 struct MainTabView: View {
     @EnvironmentObject var supabaseService: SupabaseService
@@ -195,6 +193,7 @@ struct MainTabView: View {
 struct ProfileView: View {
     @EnvironmentObject var supabaseService: SupabaseService
     @ObservedObject private var userSettings = UserSettingsManager.shared
+    @ObservedObject private var agentManager = AgentConfigManager.shared
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject var authManager: AuthManager
     @State private var ledgerLockEnabled = UserSettingsManager.shared.ledgerLockEnabled
@@ -210,7 +209,6 @@ struct ProfileView: View {
     @State private var showCurrencyPicker = false
     @State private var pendingCurrencyName = ""
     @State private var showCurrencyConfirm = false
-    @State private var showFeedbackSheet = false
     @State private var showNameEdit = false
     @State private var nameInput = ""
     @State private var currencyPickerStep = 0
@@ -219,6 +217,7 @@ struct ProfileView: View {
     @State private var showDeleteAccountAlert = false
     @State private var showDeleteAccountConfirmAlert = false
     @State private var isDeletingAccount = false
+    @State private var showAgentConfig = false
     private let currencyOptions: [(name: String, symbol: String)] = [("人民币", "¥"), ("美元", "$"), ("欧元", "€"), ("英镑", "£")]
     
     private var nicknameDisplay: String {
@@ -299,7 +298,6 @@ struct ProfileView: View {
                     .shadow(color: AppTheme.cardShadow, radius: 10, x: 0, y: 4)
                     .padding(.horizontal, 16)
 
-                    
                     Spacer(minLength: 10)
                     
                     // Card 1: 安全
@@ -464,6 +462,33 @@ struct ProfileView: View {
                         }
                         .padding(16)
                         
+                        Divider().padding(.horizontal, 16)
+                        
+                        // 智能体配置
+                        Button(action: { showAgentConfig = true }) {
+                            HStack {
+                                Image(systemName: "cpu")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(AppTheme.brandStart)
+                                    .frame(width: 32)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("智能体配置")
+                                        .font(.appBody)
+                                        .foregroundColor(AppTheme.textPrimary)
+                                    Text(agentManager.hasCustomAgent ? agentManager.config?.displayName ?? "已配置" : "未配置，使用默认智能体")
+                                        .font(.appSmall)
+                                        .foregroundColor(agentManager.hasCustomAgent ? Color(hex: "#10B981") : AppTheme.textTertiary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AppTheme.textTertiary)
+                            }
+                            .padding(16)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        
                     }
                     .background(Color.white)
                     .cornerRadius(12)
@@ -494,36 +519,14 @@ struct ProfileView: View {
                         
                         Divider().padding(.horizontal, 16)
                         
-                        // 操作日志
+                        // 操作记录
                         NavigationLink(destination: UserLogView().environmentObject(supabaseService)) {
                             HStack {
                                 Image(systemName: "doc.text.magnifyingglass")
                                     .font(.system(size: 24))
                                     .foregroundColor(AppTheme.brandStart)
                                     .frame(width: 32)
-                                Text("操作日志")
-                                    .font(.appBody)
-                                    .foregroundColor(AppTheme.textPrimary)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(AppTheme.textTertiary)
-                            }
-                            .padding(16)
-                        }
-                        
-                        Divider().padding(.horizontal, 16)
-                        
-                        // 意见反馈
-                        Button(action: {
-                            showFeedbackSheet = true
-                        }) {
-                            HStack {
-                                Image(systemName: "envelope")
-                                    .font(.system(size: 24))
-                                    .foregroundColor(Color(hex: "#7C3AED"))
-                                    .frame(width: 32)
-                                Text("意见反馈")
+                                Text("操作记录")
                                     .font(.appBody)
                                     .foregroundColor(AppTheme.textPrimary)
                                 Spacer()
@@ -713,8 +716,13 @@ struct ProfileView: View {
                 )
             }
         }
-        .sheet(isPresented: $showFeedbackSheet) {
-            FeedbackSheet()
+        .sheet(isPresented: $showAgentConfig) {
+            AgentConfigSheet()
+        }
+        .sheet(item: $legalDocumentType) { type in
+            NavigationView {
+                LegalDocumentView(documentType: type)
+            }
         }
         .sheet(isPresented: $showCurrencyPicker, onDismiss: {
             if !pendingCurrencyName.isEmpty, pendingCurrencyName != currencySymbol {
@@ -1045,158 +1053,5 @@ extension ProfileView {
         }
         .transition(.opacity)
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showUnlockMethodSheet)
-    }
-}
-
-// MARK: - 意见反馈表单
-
-struct FeedbackSheet: View {
-    @Environment(\.dismiss) var dismiss
-    @EnvironmentObject var supabaseService: SupabaseService
-    @State private var content = ""
-    @State private var contact = ""
-    @State private var isSubmitting = false
-    @State private var showMailCompose = false
-    @State private var showMailAlert = false
-    @State private var mailSubject = ""
-    @State private var mailBody = ""
-    
-    private var trimmedContent: String {
-        content.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-    private var trimmedContact: String {
-        contact.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-    
-    var body: some View {
-        NavigationView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("反馈内容")
-                    .font(.system(size: 17))
-                    .foregroundColor(AppTheme.textSecondary)
-                TextEditor(text: $content)
-                    .frame(minHeight: 140)
-                    .padding(8)
-                    .background(AppTheme.background)
-                    .cornerRadius(8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(AppTheme.border, lineWidth: 1)
-                    )
-                    .overlay(alignment: .topLeading) {
-                        if content.isEmpty {
-                            Text("请描述你的问题或建议…")
-                                .font(.appBody)
-                                .foregroundColor(AppTheme.textTertiary)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 16)
-                                .allowsHitTesting(false)
-                        }
-                    }
-                
-                Text("联系方式（选填）")
-                    .font(.system(size: 17))
-                    .foregroundColor(AppTheme.textSecondary)
-                TextField("邮箱 / 微信 / QQ，方便我们回复你", text: $contact)
-                    .font(.system(size: 17))
-                    .foregroundColor(AppTheme.textPrimary)
-                    .padding(12)
-                    .background(AppTheme.background)
-                    .cornerRadius(8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(AppTheme.border, lineWidth: 1)
-                    )
-                
-                Text("提交后会保存到云端，并尝试用系统邮件发送给我们")
-                    .font(.appSmall)
-                    .foregroundColor(AppTheme.textTertiary)
-                
-                Button(action: submit) {
-                    Text(isSubmitting ? "提交中…" : "提交反馈")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(AppPrimaryButtonStyle())
-                .disabled(isSubmitting || trimmedContent.isEmpty)
-                
-                Spacer()
-            }
-            .padding(20)
-            .navigationTitle("意见反馈")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
-            }
-        }
-        .sheet(isPresented: $showMailCompose) {
-            MailComposeView(
-                to: "poundszero@126.com",
-                subject: mailSubject,
-                body: mailBody,
-                isPresented: $showMailCompose,
-                onFinished: { dismiss() }
-            )
-        }
-        .alert("无法打开邮件", isPresented: $showMailAlert) {
-            Button("确定") { dismiss() }
-        } message: {
-            Text("请在默认邮件App中设置邮箱账号后再试，或手动发送邮件至 poundszero@126.com（你的反馈已保存到云端，不会丢失）。")
-        }
-    }
-    
-    private func submit() {
-        guard !trimmedContent.isEmpty else { return }
-        isSubmitting = true
-        let subject = "花计2046意见反馈"
-        let body = trimmedContent + (trimmedContact.isEmpty ? "" : "\n\n联系方式：\(trimmedContact)")
-        Task {
-            try? await supabaseService.submitFeedback(content: trimmedContent, contact: trimmedContact.isEmpty ? nil : trimmedContact)
-            await MainActor.run {
-                isSubmitting = false
-                mailSubject = subject
-                mailBody = body
-                if MFMailComposeViewController.canSendMail() {
-                    showMailCompose = true
-                } else {
-                    showMailAlert = true
-                }
-            }
-        }
-    }
-}
-
-/// 系统邮件发送封装（可检测设备是否配置了邮箱账号）
-struct MailComposeView: UIViewControllerRepresentable {
-    let to: String
-    let subject: String
-    let body: String
-    @Binding var isPresented: Bool
-    var onFinished: (() -> Void)? = nil
-    
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-    
-    func makeUIViewController(context: Context) -> MFMailComposeViewController {
-        let vc = MFMailComposeViewController()
-        vc.mailComposeDelegate = context.coordinator
-        vc.setToRecipients([to])
-        vc.setSubject(subject)
-        vc.setMessageBody(body, isHTML: false)
-        return vc
-    }
-    
-    func updateUIViewController(_ uiViewController: MFMailComposeViewController, context: Context) {}
-    
-    class Coordinator: NSObject, MFMailComposeViewControllerDelegate {
-        let parent: MailComposeView
-        init(_ parent: MailComposeView) { self.parent = parent }
-        func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
-            let owner = parent
-            owner.isPresented = false
-            controller.dismiss(animated: true) {
-                owner.onFinished?()
-            }
-        }
     }
 }

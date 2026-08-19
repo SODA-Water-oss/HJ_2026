@@ -30,8 +30,9 @@ Deno.serve(async (request) => {
       "records",
       "user_settings",
       "bill_reminders",
-      "subscriptions",
       "user_logs",
+      "feedbacks",
+      "parse_usage",
       "profiles",
     ];
 
@@ -41,6 +42,11 @@ Deno.serve(async (request) => {
         .delete()
         .eq("user_id", userId);
       if (error) {
+        // 兼容旧数据库没有 feedbacks / parse_usage 表的情况
+        if (error.message.includes("does not exist")) {
+          console.warn(`Table ${table} does not exist, skipping.`);
+          continue;
+        }
         console.error(`Failed to delete from ${table}:`, error.message);
         throw new Error(`Failed to delete ${table}`);
       }

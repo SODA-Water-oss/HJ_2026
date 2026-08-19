@@ -57,7 +57,7 @@ struct UserLogView: View {
                         Image(systemName: "doc.text.magnifyingglass")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(AppTheme.brandStart)
-                        Text("操作日志")
+                        Text("操作记录")
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(AppTheme.textPrimary)
                     }
@@ -73,9 +73,27 @@ struct UserLogView: View {
 private struct LogRowView: View {
     let log: UserLog
     
+    private var countText: String? {
+        guard let open = log.detail.lastIndex(of: "("),
+              let close = log.detail.lastIndex(of: ")"),
+              close > open else { return nil }
+        let candidate = log.detail[log.detail.index(after: open)..<close]
+        guard !candidate.isEmpty, candidate.allSatisfy(\.isNumber) else { return nil }
+        return String(candidate)
+    }
+
+    private var strippedText: String {
+        guard let open = log.detail.lastIndex(of: "("),
+              let close = log.detail.lastIndex(of: ")"),
+              close > open else { return log.detail }
+        let candidate = log.detail[log.detail.index(after: open)..<close]
+        guard !candidate.isEmpty, candidate.allSatisfy(\.isNumber) else { return log.detail }
+        return String(log.detail[..<open]).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private var displayText: String {
         let a = log.action
-        let d = log.detail
+        let d = strippedText
         if d.hasPrefix(a) { return d }
         if a == "登录" { return "登录账号" }
         if a == "登出" { return "退出登录" }
@@ -99,7 +117,12 @@ private struct LogRowView: View {
                     .font(.appSmall)
                     .foregroundColor(AppTheme.textTertiary)
             }
-            
+            Spacer()
+            if let countText {
+                Text(countText)
+                    .font(.appBodyMedium)
+                    .foregroundColor(AppTheme.textTertiary)
+            }
         }
         .padding(.vertical, 6)
         .listRowBackground(Color.white)

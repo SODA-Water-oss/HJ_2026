@@ -666,28 +666,6 @@ extension SupabaseService {
     }
 }
 
-// MARK: - 意见反馈
-extension SupabaseService {
-    /// 保存用户反馈到云端 feedbacks 表
-    func submitFeedback(content: String, contact: String?) async throws {
-        guard !AppConfig.useMockServices else { return }
-        guard let userId = currentUser?.id else { return }
-        struct FeedbackPayload: Encodable {
-            let userId: UUID
-            let content: String
-            let contact: String?
-            enum CodingKeys: String, CodingKey {
-                case userId = "user_id"
-                case content
-                case contact
-            }
-        }
-        try await client.from("feedbacks")
-            .insert(FeedbackPayload(userId: userId, content: content, contact: contact))
-            .execute()
-    }
-}
-
 // MARK: - 收支目标（云端长期存储，跨设备同步）
 struct GoalTargetCodable: Codable, Identifiable {
     var id: UUID
@@ -783,23 +761,6 @@ extension GoalTargetItem {
             endDate: endDate.map { ISO8601DateFormatter().string(from: $0) },
             createdAt: nil  // 让数据库默认 now()
         )
-    }
-}
-
-
-// MARK: - 订阅状态同步
-extension SupabaseService {
-    /// 更新当前用户的 premium 状态
-    func updatePremiumStatus(_ isPremium: Bool) async throws {
-        guard !AppConfig.useMockServices,
-              let userId = currentUser?.id else {
-            return
-        }
-        try await client.from("profiles")
-            .update(["is_premium": isPremium])
-            .eq("id", value: userId)
-            .execute()
-        Log.info("profiles.is_premium 已更新: \(isPremium)")
     }
 }
 

@@ -3,8 +3,6 @@ create extension if not exists pgcrypto;
 create table if not exists public.profiles (
     id uuid primary key references auth.users(id) on delete cascade,
     email text not null,
-    is_premium boolean not null default false,
-    stripe_customer_id text,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
 );
@@ -23,7 +21,6 @@ create table if not exists public.expenses (
 
 create index if not exists expenses_user_date_idx on public.expenses(user_id, date desc);
 create index if not exists expenses_user_category_idx on public.expenses(user_id, category);
-create index if not exists profiles_stripe_customer_idx on public.profiles(stripe_customer_id);
 
 create or replace function public.set_updated_at()
 returns trigger

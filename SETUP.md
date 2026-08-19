@@ -34,31 +34,13 @@ Debug 构建可通过 `Configs/Debug.xcconfig` 中的 `INFOPLIST_KEY_USE_MOCK_SE
 
 ---
 
-## 1. App Store Connect（IAP）
+## 1. App Store Connect（免费版）
 
-项目使用 **StoreKit 2 应用内购买** 实现高级版订阅，不再使用 Stripe。
+当前版本为**全免费版**，不包含应用内购买（IAP）或订阅。
 
 1. 登录 [App Store Connect](https://appstoreconnect.apple.com)。
-2. 确保 App 的 Bundle ID 为 `com.nsoft.huaji2046`，并已启用 **In-App Purchase** capability（工程已配置 `花计2046/花计2046.entitlements`）。
-3. 进入「App」→「订阅项目」：
-   - 创建订阅群组
-   - 添加订阅商品：
-     - `com.nsoft.huaji2046.premium.monthly`
-     - `com.nsoft.huaji2046.premium.yearly`
-4. 配置沙盒测试员账号，用于开发测试。
-
-### （可选）服务端二次校验
-
-`supabase/functions/verify-transaction/index.ts` 支持调用 Apple App Store Server API v2 对交易进行二次校验。如需开启，在 Edge Function 环境变量中配置：
-
-```text
-APPLE_ISSUER_ID
-APPLE_KEY_ID
-APPLE_PRIVATE_KEY
-APPLE_BUNDLE_ID = com.nsoft.huaji2046
-```
-
-未配置时，函数会信任 StoreKit 2 在设备端完成的交易验证结果，仅做记录和更新 `profiles.is_premium`。
+2. 确保 App 的 Bundle ID 为 `com.nsoft.huaji2046`。
+3. 定价选择免费。
 
 ---
 
@@ -72,18 +54,23 @@ APPLE_BUNDLE_ID = com.nsoft.huaji2046
    - `004_currency_field.sql`
    - `005_user_settings.sql`
    - `006_bill_reminders.sql`
-   - `007_iap_subscriptions.sql`
+   - `008_bill_reminders_once.sql`
+   - `009_bill_reminders_weekly.sql`
+   - `011_income_category_investment.sql`
+   - `012_goal_targets.sql`
+   - `013_profiles_name.sql`
+   - `014_parse_usage.sql`
 3. 确认 Auth 使用 email/password。
 4. 将项目 URL 与 Anon Key 填入 `Configs/Local.xcconfig`。
 
 ## 3. Edge Functions
 
-部署这三个函数（`parse-expense` 同时支持文字和语音解析）：
+部署以下函数（`parse-expense` 同时支持文字和语音解析）：
 
 ```text
 supabase/functions/parse-expense
-supabase/functions/verify-transaction
 supabase/functions/delete-account
+supabase/functions/spending-review
 ```
 
 函数环境变量：
@@ -92,12 +79,7 @@ supabase/functions/delete-account
 SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
 GEMINI_API_KEY
-
-# 可选：Apple App Store Server API
-APPLE_ISSUER_ID
-APPLE_KEY_ID
-APPLE_PRIVATE_KEY
-APPLE_BUNDLE_ID = com.nsoft.huaji2046
+DEEPSEEK_API_KEY
 ```
 
 ## 4. Xcode Packages
@@ -163,8 +145,7 @@ https://your-domain.com/terms
 - `records` 记账记录
 - `user_settings` 用户设置
 - `bill_reminders` 账单提醒
-- `subscriptions` 订阅记录
-- `user_logs` 操作日志
+- `user_logs` 操作记录
 - `auth.users` 认证账号
 
 部署该函数需要环境变量：
@@ -174,7 +155,7 @@ SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
 ```
 
-> 注意：应用内购买（IAP）订阅无法通过应用取消，用户需要到 iOS 设置 → Apple ID → 订阅中自行取消。
+> 当前版本为免费版，不涉及订阅或应用内购买。
 
 ## 9. 密码重置
 
@@ -226,9 +207,19 @@ xcodebuild test \
   -destination "platform=iOS Simulator,name=iPhone 17 Pro"
 ```
 
-当前状态：62 个测试全部通过。
+当前状态：63 个测试全部通过。
 
-## 12. 已完成的 P2/P3 优化
+## 12. 智能体配置
+
+用户在注册页和「我的 → 智能体配置」中可以配置自己的大模型智能体：
+
+- 支持 DeepSeek、OpenAI、Kimi、通义千问、智谱 GLM、Gemini、豆包及 OpenAI 兼容自定义接口。
+- API Key 保存在本机 Keychain，不上传云端。
+- 保存前会实际调用一次接口验证；Key 无效提示「请正确配置智能体」，欠费/限流/服务异常会提示对应原因。
+- 配置成功后，AI 解析、语音入账和最近收支评价优先调用用户自己的智能体，且不受每日 30 次限制。
+- 用户智能体调用失败时自动临时降级到默认智能体，并在 App 内提示异常原因。
+
+## 13. 已完成的 P2/P3 优化
 
 | 任务 | 说明 |
 |---|---|
@@ -255,7 +246,7 @@ xcodebuild test \
 
 预计工作量 1–2 天（全职）。
 
-## 13. 国际化（已完成基础版）
+## 14. 国际化（已完成基础版）
 
 已创建 `花计2046/Localizable.xcstrings`（String Catalog），收录 **413 条中→英翻译**。
 

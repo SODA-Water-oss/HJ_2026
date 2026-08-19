@@ -2,13 +2,12 @@ import Foundation
 
 /// 错误信息中文化工具
 /// 将 SDK / 网络等英文错误映射为面向用户的中文提示。
-/// 我们的自定义错误（AuthError / IAPError / BackendAPIError）本身已是中文，直接透传。
+/// 我们的自定义错误（AuthError / BackendAPIError）本身已是中文，直接透传。
 extension Error {
     /// 面向用户显示的中文错误描述（未知错误不暴露英文原文，避免用户困惑）
     var userFriendlyDescription: String {
         // 自定义错误：本身是中文
         if let auth = self as? AuthError { return auth.localizedDescription }
-        if let iap = self as? IAPError { return iap.localizedDescription }
         if let api = self as? BackendAPIError { return api.errorDescription ?? "请求失败，请稍后重试" }
 
         // URLSession 网络错误

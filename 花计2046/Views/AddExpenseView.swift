@@ -133,6 +133,7 @@ extension View {
 struct AddExpenseView: View {
     @EnvironmentObject var supabaseService: SupabaseService
     @StateObject private var audioRecorder = AudioRecorder()
+    @ObservedObject private var agentManager = AgentConfigManager.shared
 
     @State private var inputText: String = ""
    @State private var isProcessing = false
@@ -150,6 +151,8 @@ struct AddExpenseView: View {
    @State private var showAIConfirm = false
    @State private var lastParsedInput: String = ""
     @State private var lastParseTime: Date = .distantPast
+    @State private var showAgentFailureAlert = false
+    @State private var agentFailureMessage = ""
 
    // 语音状态跟踪
     @State private var isPressingVoice = false
@@ -215,7 +218,9 @@ struct AddExpenseView: View {
                     ),
                     onDiscard: { inputText = ""; parsedItems = nil; showAIConfirm = false },
                     onSuccess: {
-                        if let userId = supabaseService.currentUser?.id { DailyLimitManager.incrementUsage(for: userId) }
+                        if let userId = supabaseService.currentUser?.id, !AgentConfigManager.cachedHasCustomAgent {
+                            DailyLimitManager.incrementUsage(for: userId)
+                        }
                         inputText = ""; parsedItems = nil; showAIConfirm = false
                     }
                 )
@@ -268,7 +273,14 @@ struct AddExpenseView: View {
         } message: { Text("确定要清除当前输入内容吗？") }
         .alert("每日免费解析", isPresented: $showLimitInfo) {
             Button("知道了", role: .cancel) { }
-        } message: { Text("每个账户每天可免费解析 30 次。只有点击进账确认解析结果后才会消耗次数，解析失败或放弃不计次数。次日自动重置。") }
+        } message: {
+            Text(AgentConfigManager.cachedHasCustomAgent
+                 ? "您已配置自己的智能体，AI 解析不受每日次数限制。"
+                 : "每个账户每天可免费解析 30 次。只有点击进账确认解析结果后才会消耗次数，解析失败或放弃不计次数。次日自动重置。")
+        }
+        .alert("智能体异常", isPresented: $showAgentFailureAlert) {
+            Button("知道了", role: .cancel) { }
+        } message: { Text(agentFailureMessage) }
         .navigationViewStyle(.stack)
     }
 
@@ -327,9 +339,15 @@ struct AddExpenseView: View {
                 Text("今日解析")
                     .font(.system(size: 13))
                     .foregroundColor(AppTheme.textTertiary.opacity(0.8))
-                Text("\(DailyLimitManager.usedCount(for: userId))/\(DailyLimitManager.dailyLimit)")
-                    .font(.system(size: 13))
-                    .foregroundColor(AppTheme.textTertiary.opacity(0.8))
+                if AgentConfigManager.cachedHasCustomAgent {
+                    Text("不限")
+                        .font(.system(size: 13))
+                        .foregroundColor(AppTheme.brandStart)
+                } else {
+                    Text("\(DailyLimitManager.usedCount(for: userId))/\(DailyLimitManager.dailyLimit)")
+                        .font(.system(size: 13))
+                        .foregroundColor(AppTheme.textTertiary.opacity(0.8))
+                }
                 Button(action: { showLimitInfo = true }) {
                     Image(systemName: "exclamationmark.circle")
                         .font(.system(size: 12))
@@ -639,6 +657,11 @@ struct AddExpenseView: View {
                     msg = "解析失败：\(errDesc)"
                 }
                 await MainActor.run {
+                    if let failure = agentManager.lastFailure {
+                        agentFailureMessage = failure.message
+                        showAgentFailureAlert = true
+                        agentManager.clearFailure()
+                    }
                     statusMsg = msg
                     isProcessing = false
                     parseRetryCount += 1
@@ -649,6 +672,11 @@ struct AddExpenseView: View {
             await MainActor.run {
                 isProcessing = false
                 parseRetryCount = 0
+                if let failure = agentManager.lastFailure {
+                    agentFailureMessage = failure.message
+                    showAgentFailureAlert = true
+                    agentManager.clearFailure()
+                }
                 if items.isEmpty {
                     statusMsg = "未解析出有效支出~"
                 } else {

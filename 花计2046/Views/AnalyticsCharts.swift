@@ -192,43 +192,74 @@ struct MonthlyTrendPoint: Identifiable {
 struct MonthlyDualLineChartView: View {
     let points: [MonthlyTrendPoint]
 
+    private struct SeriesPoint: Identifiable {
+        let id: String
+        let monthDisplay: String
+        let type: String
+        let amount: Double
+    }
+
+    private var seriesPoints: [SeriesPoint] {
+        points.flatMap { point in
+            [
+                SeriesPoint(
+                    id: "\(point.month)-收入",
+                    monthDisplay: point.monthDisplay,
+                    type: "收入",
+                    amount: point.income
+                ),
+                SeriesPoint(
+                    id: "\(point.month)-支出",
+                    monthDisplay: point.monthDisplay,
+                    type: "支出",
+                    amount: point.expense
+                )
+            ]
+        }
+    }
+
     var body: some View {
-        Chart(points) { point in
+        Chart(seriesPoints) { point in
             LineMark(
                 x: .value("月份", point.monthDisplay),
-                y: .value("收入", point.income)
+                y: .value("金额", point.amount)
             )
-            .foregroundStyle(.green)
+            .foregroundStyle(by: .value("类型", point.type))
             .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
             .interpolationMethod(.catmullRom)
 
             PointMark(
                 x: .value("月份", point.monthDisplay),
-                y: .value("收入", point.income)
+                y: .value("金额", point.amount)
             )
-            .foregroundStyle(.green)
-            .symbolSize(28)
-
-            LineMark(
-                x: .value("月份", point.monthDisplay),
-                y: .value("支出", point.expense)
-            )
-            .foregroundStyle(AppTheme.brandStart)
-            .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
-            .interpolationMethod(.catmullRom)
-
-            PointMark(
-                x: .value("月份", point.monthDisplay),
-                y: .value("支出", point.expense)
-            )
-            .foregroundStyle(AppTheme.brandStart)
+            .foregroundStyle(by: .value("类型", point.type))
             .symbolSize(28)
         }
         .chartForegroundStyleScale([
             "收入": Color.green,
             "支出": AppTheme.brandStart
         ])
-        .chartLegend(position: .bottom, alignment: .leading)
+        .chartLegend(position: .bottom, alignment: .leading) {
+            HStack(spacing: 16) {
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 8, height: 8)
+                    Text("收入")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(AppTheme.textPrimary)
+                }
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(AppTheme.brandStart)
+                        .frame(width: 8, height: 8)
+                    Text("支出")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(AppTheme.textPrimary)
+                }
+            }
+            .padding(.top, 6)
+        }
         .chartXAxis {
             AxisMarks(values: .automatic(desiredCount: 6)) { _ in
                 AxisGridLine().foregroundStyle(AppTheme.border.opacity(0.4))

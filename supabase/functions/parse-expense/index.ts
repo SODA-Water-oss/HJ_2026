@@ -1,3 +1,5 @@
+import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -6,6 +8,14 @@ const corsHeaders = {
 type ParseRequest =
   | { mode: "text"; input: string }
   | { mode: "audio"; audioBase64: string; mimeType: string };
+
+class HttpError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
 
 type ParsedExpense = {
   type: "expense" | "income";
@@ -21,22 +31,94 @@ Deno.serve(async (request) => {
   }
 
   try {
+    const supabaseURL = requiredEnv("SUPABASE_URL");
+    const serviceRoleKey = requiredEnv("SERVICE_ROLE_KEY");
     const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) {
       throw new Error("Missing GEMINI_API_KEY.");
     }
 
+    // 1. 鉴权：只有已登录用户才能调用，防止匿名刷 AI 额度
+    const authHeader = request.headers.get("Authorization") ?? "";
+    const jwt = authHeader.replace("Bearer ", "");
+    if (!jwt) throw new HttpError(401, "Missing user authorization.");
+
+    const supabase = createClient(supabaseURL, serviceRoleKey);
+    const { data: userData, error: userError } = await supabase.auth.getUser(jwt);
+    if (userError || !userData.user) throw new HttpError(401, "Invalid user session.");
+    const userId = userData.user.id;
+
     const payload = (await request.json()) as ParseRequest;
+    if (!payload || typeof payload !== "object") {
+      throw new HttpError(400, "Invalid request body.");
+    }
+
+    // 2. 输入限制，避免超大请求
+    if (payload.mode === "text") {
+      if (typeof payload.input !== "string" || payload.input.length === 0 || payload.input.length > 2000) {
+        throw new HttpError(400, "Input text is empty or too long.");
+      }
+    } else if (payload.mode === "audio") {
+      if (!payload.audioBase64 || payload.audioBase64.length === 0 || payload.audioBase64.length > 4_000_000) {
+        throw new HttpError(400, "Audio payload is empty or too large.");
+      }
+    } else {
+      throw new HttpError(400, "Unsupported request mode.");
+    }
+
+    // 3. 服务端每日次数限制（默认智能体每天 30 次，防绕过客户端限制）
+    await enforceDailyLimit(supabase, userId);
+
     const parsed = await parseWithGemini(apiKey, payload);
 
     return json({ items: parsed });
   } catch (error) {
+    if (error instanceof HttpError) {
+      return json({ error: error.message }, error.status);
+    }
     return json(
       { error: error instanceof Error ? error.message : "Unknown error." },
       400
     );
   }
 });
+
+async function enforceDailyLimit(
+  supabase: ReturnType<typeof createClient>,
+  userId: string
+) {
+  const today = new Date().toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from("parse_usage")
+    .select("count")
+    .eq("user_id", userId)
+    .eq("usage_date", today)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+
+  const used = Number(data?.count ?? 0);
+  if (used >= 30) {
+    throw new HttpError(429, "Daily free parse limit reached.");
+  }
+
+  const { error: upsertError } = await supabase
+    .from("parse_usage")
+    .upsert(
+      {
+        user_id: userId,
+        usage_date: today,
+        count: used + 1,
+      },
+      { onConflict: "user_id,usage_date" }
+    );
+  if (upsertError) throw new Error(upsertError.message);
+}
+
+function requiredEnv(name: string): string {
+  const value = Deno.env.get(name);
+  if (!value) throw new Error(`Missing ${name}.`);
+  return value;
+}
 
 async function parseWithGemini(
   apiKey: string,

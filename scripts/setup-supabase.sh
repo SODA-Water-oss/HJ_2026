@@ -14,7 +14,7 @@
 #
 # 说明:
 #   - 首次运行会引导登录 + 关联项目
-#   - 数据库迁移按 001~013 顺序应用到远程
+#   - 数据库迁移按 001~014 顺序应用到远程
 #   - 部署 3 个 Edge Functions 并注入环境变量
 # ============================================================
 set -euo pipefail
@@ -24,7 +24,7 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$ROOT_DIR"
 
 ENV_FILE=".env.supabase"
-FUNCTIONS=("parse-expense" "verify-transaction" "delete-account")
+FUNCTIONS=("parse-expense" "delete-account" "spending-review")
 
 echo "📋 花计2046 Supabase 部署脚本"
 echo "================================"
@@ -37,7 +37,7 @@ fi
 echo "✅ supabase CLI 已安装"
 
 # ---------- 2. 登录 ----------
-if [ ! -f "$HOME/.supabase/access-token" ]; then
+if ! supabase projects list >/dev/null 2>&1; then
   echo "🔑 请完成 Supabase 登录（浏览器会打开）..."
   supabase login
 fi
@@ -67,11 +67,11 @@ if [ "$(cat supabase/.temp/project-ref 2>/dev/null || echo '')" != "$PROJECT_REF
 fi
 
 # ---------- 5. 数据库迁移 ----------
-echo "🗄️  执行数据库迁移（001~013）..."
+echo "🗄️  执行数据库迁移（001~014）..."
 echo "    ⚠️ 如果此前已在 SQL Editor 手动执行过全部迁移，可跳过（输入 n）"
 read -r -p "    继续执行迁移? [Y/n] " RUN_MIGRATION
 if [[ ! "$RUN_MIGRATION" =~ ^[Nn]$ ]]; then
-  supabase db push
+  supabase db push --linked --yes
   echo "✅ 迁移完成"
 else
   echo "⏭️  已跳过迁移"
@@ -102,5 +102,5 @@ fi
 
 echo ""
 echo "🎉 全部完成！可在 Supabase 控制台验证："
-echo "   - 数据库: 7 张核心表（profiles/records/user_settings/bill_reminders/subscriptions/user_logs + 系统表）"
+echo "   - 数据库: profiles/records/user_settings/bill_reminders/user_logs/goal_targets 等"
 echo "   - Edge Functions: ${FUNCTIONS[*]}"

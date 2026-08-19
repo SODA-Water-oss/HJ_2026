@@ -248,6 +248,7 @@ class AuthManager: ObservableObject {
         // 清除 SupabaseService 的登录状态
         Task { try? await SupabaseService.shared.signOut() }
         SupabaseService.shared.unreadExpenseCount = 0
+        AgentConfigManager.shared.bind(userID: nil)
         
         DispatchQueue.main.async {
             self.authState = .unauthenticated
@@ -284,6 +285,10 @@ class AuthManager: ObservableObject {
     private func clearLocalUserData() {
         // Keychain
         KeychainHelper.delete(key: sessionKey)
+        if let profile = currentProfile {
+            AgentConfigManager.shared.delete(userID: profile.id)
+        }
+        AgentConfigManager.shared.bind(userID: nil)
         
         // Supabase 状态
         SupabaseService.shared.isAuthenticated = false
@@ -291,9 +296,6 @@ class AuthManager: ObservableObject {
         SupabaseService.shared.userProfile = nil
         SupabaseService.shared.expenses = []
         SupabaseService.shared.unreadExpenseCount = 0
-        
-        // StoreKit 本地订阅缓存
-        UserDefaults.standard.removeObject(forKey: "com.nsoft.huaji2046.is_premium")
         
         // 清除以用户 ID 为前缀的 UserDefaults 数据
         let defaults = UserDefaults.standard
@@ -369,6 +371,7 @@ class AuthManager: ObservableObject {
            email: profile.email
        )
        SupabaseService.shared.userProfile = profile
+       AgentConfigManager.shared.bind(userID: profile.id)
        
        // 从云端加载用户设置
        Task { await UserSettingsManager.shared.loadFromCloud() }
@@ -386,4 +389,3 @@ class AuthManager: ObservableObject {
 }
 
 private struct DeleteAccountRequest: Encodable {}
-

@@ -47,9 +47,15 @@ struct SubscriptionView: View {
                             Image(systemName: "clock.arrow.circlepath")
                                 .foregroundColor(AppTheme.brandStart)
                                 .font(.system(size: 16))
-                            Text("每日免费解析 \(DailyLimitManager.dailyLimit) 次")
-                                .font(.appBody)
-                                .foregroundColor(AppTheme.textSecondary)
+                            if AgentConfigManager.cachedHasCustomAgent {
+                                Text("已配置自己的智能体，AI 解析不限次数")
+                                    .font(.appBody)
+                                    .foregroundColor(AppTheme.textSecondary)
+                            } else {
+                                Text("每日免费解析 \(DailyLimitManager.dailyLimit) 次")
+                                    .font(.appBody)
+                                    .foregroundColor(AppTheme.textSecondary)
+                            }
                         }
                     }
                     .padding(20)
@@ -57,22 +63,6 @@ struct SubscriptionView: View {
                     .background(Color.white)
                     .cornerRadius(16)
                     .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 4)
-                    .padding(.horizontal, 16)
-                    
-                    // 反馈按钮
-                    Button(action: {
-                        let email = "poundszero@126.com"
-                        if let url = URL(string: "mailto:\(email)") {
-                            UIApplication.shared.open(url)
-                        }
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "envelope.fill")
-                            Text("反馈意见")
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(AppPrimaryButtonStyle())
                     .padding(.horizontal, 16)
                     
                     Spacer(minLength: 32)

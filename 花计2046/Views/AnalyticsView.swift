@@ -205,36 +205,38 @@ struct AnalyticsView: View {
                } else {
                ScrollView {
                VStack(spacing: 16) {
-                    // 1. 月小结（当月/搜索月份）
+                    // 1. 资金总览
+                    totalCard
+
+                    // 2. 月度小结
                     monthSummaryCard
 
-                    // 2. 趣味点评（最近收支评价）
-                    AIReviewCard()
-                        .environmentObject(supabaseService)
-
-                    // 3. 收支目标（整体模块）
-                    GoalsModuleCard()
-                        .environmentObject(supabaseService)
-
-                    // 4. 资金总览：12个月收支双折线（标题在卡片内）
-                    totalCard
+                    // 3. 月度收支趋势（收入/支出双折线）
                     if !monthlyTrendPoints.isEmpty {
                         trend12Card
                     }
-                    
-                    // 收入（标题在卡片内，位于支出前）
+
+                    // 4. 最近收支评价
+                    AIReviewCard()
+                        .environmentObject(supabaseService)
+
+                    // 5. 收入分类占比
                     if searchState.type == "全部" || searchState.type == "收入" {
                         if !incomeAnalytics.isEmpty {
-                            categorySection(icon: "arrow.up.circle", title: "收入", data: incomeAnalytics)
+                            categorySection(icon: "chart.pie.fill", title: "收入占比", data: incomeAnalytics)
                         }
                     }
-                    
-                    // 支出（标题在卡片内，位于收入后）
+
+                    // 6. 支出分类占比
                     if searchState.type == "全部" || searchState.type == "支出" {
                         if !expenseAnalytics.isEmpty {
-                            categorySection(icon: "arrow.down.circle", title: "支出", data: expenseAnalytics)
+                            categorySection(icon: "chart.pie.fill", title: "支出占比", data: expenseAnalytics)
                         }
                     }
+
+                    // 收支目标（保持现有模块）
+                    GoalsModuleCard()
+                        .environmentObject(supabaseService)
                 }
             }
             .padding(.top, 8).padding(.horizontal, 16).padding(.bottom, 16)
@@ -462,9 +464,9 @@ extension AnalyticsView {
             }
             .filter { $0.amount > 0 }
 
-            // 近 12 个月收支趋势（双折线）
+            // 近 24 个月收支趋势（双折线，最多显示 24 个月）
             let trendGrouped = Dictionary(grouping: currencyRecords, by: { $0.month })
-            let recentMonths = Array(trendGrouped.keys.sorted().suffix(12))
+            let recentMonths = Array(trendGrouped.keys.sorted().suffix(24))
             let monthlyTrendPoints = recentMonths.compactMap { month -> MonthlyTrendPoint? in
                 let recs = trendGrouped[month] ?? []
                 let income = recs.filter(\.isIncome).reduce(0) { $0 + $1.amount }
@@ -617,9 +619,9 @@ extension AnalyticsView {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 24)
             } else {
-                HStack(spacing: 10) {
-                    summaryValue(title: "月收入", amount: income, prefix: "+", color: .green, currency: effectiveAnalyticsCurrency)
-                    summaryValue(title: "月支出", amount: expense, prefix: "-", color: AppTheme.textSecondary, currency: effectiveAnalyticsCurrency)
+                VStack(alignment: .leading, spacing: 12) {
+                    summaryRow(title: "月收入", amount: income, prefix: "+", color: .green, currency: effectiveAnalyticsCurrency)
+                    summaryRow(title: "月支出", amount: expense, prefix: "-", color: AppTheme.textSecondary, currency: effectiveAnalyticsCurrency)
                 }
                 AppDivider()
                 HStack {
@@ -657,18 +659,18 @@ extension AnalyticsView {
         .frame(maxWidth: .infinity)
     }
 
-    private func summaryValue(title: String, amount: Double, prefix: String, color: Color, currency: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+    private func summaryRow(title: String, amount: Double, prefix: String, color: Color, currency: String) -> some View {
+        HStack {
             Text(title)
-                .font(.appSmall)
+                .font(.appBody)
                 .foregroundColor(AppTheme.textSecondary)
+            Spacer()
             Text(String(format: "%@%@%.2f", prefix, currency, amount))
-                .font(.system(size: 26, weight: .semibold))
+                .font(.system(size: 24, weight: .semibold))
                 .foregroundColor(color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.55)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - 12个月收支双折线卡片
@@ -705,9 +707,9 @@ extension AnalyticsView {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 28)
             } else {
-                HStack(spacing: 10) {
-                    overviewValue(title: "收入", amount: income, prefix: "+", color: .green, currency: effectiveAnalyticsCurrency)
-                    overviewValue(title: "支出", amount: expense, prefix: "-", color: AppTheme.textSecondary, currency: effectiveAnalyticsCurrency)
+                VStack(alignment: .leading, spacing: 12) {
+                    overviewRow(title: "收入", amount: income, prefix: "+", color: .green, currency: effectiveAnalyticsCurrency)
+                    overviewRow(title: "支出", amount: expense, prefix: "-", color: AppTheme.textSecondary, currency: effectiveAnalyticsCurrency)
                 }
                 AppDivider()
                 HStack(alignment: .firstTextBaseline) {
@@ -733,18 +735,18 @@ extension AnalyticsView {
         .frame(maxWidth: .infinity)
     }
 
-    private func overviewValue(title: String, amount: Double, prefix: String, color: Color, currency: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+    private func overviewRow(title: String, amount: Double, prefix: String, color: Color, currency: String) -> some View {
+        HStack {
             Text(title)
-                .font(.appSmall)
+                .font(.appBody)
                 .foregroundColor(AppTheme.textSecondary)
+            Spacer()
             Text(String(format: "%@%@%.2f", prefix, currency, amount))
                 .font(.system(size: 28, weight: .semibold))
                 .foregroundColor(color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.55)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func legendGroup(data: [CategoryAnalytics], start: Int, stride: Int) -> some View {
@@ -777,25 +779,23 @@ extension AnalyticsView {
    
 
     private func categorySection(icon: String, title: String, data: [CategoryAnalytics]) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
+        return VStack(alignment: .leading, spacing: 16) {
             AnalyticsModuleHeader(icon: icon, title: title)
 
-            pieContent(data: data, title: "\(title)占比")
+            pieContent(data: data)
 
             AppDivider()
 
-            categoryContent(data: data, title: "\(title)类别")
+            categoryContent(data: data)
         }
         .cardStyle()
         .frame(maxWidth: .infinity)
     }
 
-    private func pieContent(data: [CategoryAnalytics], title: String) -> some View {
+    private func pieContent(data: [CategoryAnalytics]) -> some View {
         let count = data.count
         let isMany = count > 6
         return VStack(alignment: .leading, spacing: 12) {
-            AnalyticsSubHeader(icon: "chart.pie.fill", title: title)
-
             HStack(alignment: .top, spacing: isMany ? 12 : 24) {
                 PieChartView(data: data)
                     .animation(.spring(response: 0.5, dampingFraction: 0.7), value: data.map { $0.id })
@@ -814,10 +814,8 @@ extension AnalyticsView {
         }
     }
 
-    private func categoryContent(data: [CategoryAnalytics], title: String) -> some View {
+    private func categoryContent(data: [CategoryAnalytics]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            AnalyticsSubHeader(icon: "chart.bar.fill", title: title)
-
             if data.isEmpty {
                 Text("暂无数据")
                     .font(.appBody)

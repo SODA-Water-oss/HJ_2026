@@ -4,8 +4,10 @@ import Foundation
 struct DailyLimitManager {
     static let freeLimit = 30
     
-    /// 当前用户每日限额（全免费模式，固定免费额度）
-    static var dailyLimit: Int { freeLimit }
+    /// 当前用户每日限额（配置自己的智能体后不受次数限制）
+    static var dailyLimit: Int {
+        AgentConfigManager.cachedHasCustomAgent ? 9999 : freeLimit
+    }
     
     /// 以 userID 和日期为键的 UserDefaults key
     private static func key(for userId: UUID) -> String {
@@ -26,7 +28,8 @@ struct DailyLimitManager {
     
     /// 是否有可用次数
     static func canParse(for userId: UUID) -> Bool {
-        remainingCount(for: userId) > 0
+        if AgentConfigManager.cachedHasCustomAgent { return true }
+        return remainingCount(for: userId) > 0
     }
     
     /// 进账成功后调用：增加一次使用

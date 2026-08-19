@@ -3,6 +3,7 @@ import SwiftUI
 struct AuthView: View {
     @EnvironmentObject var authManager: AuthManager
     @EnvironmentObject var supabaseService: SupabaseService
+    @ObservedObject private var agentManager = AgentConfigManager.shared
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
@@ -18,6 +19,9 @@ struct AuthView: View {
     @State private var resetMessage = ""
     @State private var resetErrorMessage = ""
     @State private var isResetting = false
+    @State private var showAgentConfig = false
+    @State private var showPassword = false
+    @State private var showConfirmPassword = false
     @FocusState private var focusedField: Field?
     
     enum Field { case name, email, password, confirmPassword }
@@ -92,10 +96,13 @@ struct AuthView: View {
                                     .font(.system(size: 17))
                                     .foregroundColor(focusedField == .name ? AppTheme.brandStart : AppTheme.textTertiary)
                                     .frame(width: 20)
-                                TextField("昵称", text: $name)
-                                    .font(.appBody)
-                                    .foregroundColor(AppTheme.textPrimary)
-                                    .focused($focusedField, equals: .name)
+                                ZStack(alignment: .leading) {
+                                    fieldPlaceholder("昵称", visible: name.isEmpty)
+                                    TextField("", text: $name)
+                                        .font(.appBody)
+                                        .foregroundColor(AppTheme.textPrimary)
+                                        .focused($focusedField, equals: .name)
+                                }
                             }
                             .padding(.horizontal, 14)
                             .padding(.vertical, 13)
@@ -109,16 +116,19 @@ struct AuthView: View {
                         
                         // 邮箱输入框
                         HStack(spacing: 10) {
-                            Image(systemName: "envelope.fill")
-                                .font(.system(size: 17))
-                                .foregroundColor(focusedField == .email ? AppTheme.brandStart : AppTheme.textTertiary)
-                                .frame(width: 20)
-                            TextField("邮箱", text: $email)
-                                .font(.appBody)
-                                .foregroundColor(AppTheme.textPrimary)
-                                .keyboardType(.emailAddress)
-                                .autocapitalization(.none)
-                                .focused($focusedField, equals: .email)
+                                Image(systemName: "envelope.fill")
+                                    .font(.system(size: 17))
+                                    .foregroundColor(focusedField == .email ? AppTheme.brandStart : AppTheme.textTertiary)
+                                    .frame(width: 20)
+                            ZStack(alignment: .leading) {
+                                fieldPlaceholder("邮箱", visible: email.isEmpty)
+                                TextField("", text: $email)
+                                    .font(.appBody)
+                                    .foregroundColor(AppTheme.textPrimary)
+                                    .keyboardType(.emailAddress)
+                                    .autocapitalization(.none)
+                                    .focused($focusedField, equals: .email)
+                            }
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 13)
@@ -131,14 +141,30 @@ struct AuthView: View {
                         
                         // 密码输入框
                         HStack(spacing: 10) {
-                            Image(systemName: "lock.fill")
-                                .font(.system(size: 17))
-                                .foregroundColor(focusedField == .password ? AppTheme.brandStart : AppTheme.textTertiary)
-                                .frame(width: 20)
-                            SecureField("密码", text: $password)
-                                .font(.appBody)
-                                .foregroundColor(AppTheme.textPrimary)
-                                .focused($focusedField, equals: .password)
+                                Image(systemName: "lock.fill")
+                                    .font(.system(size: 17))
+                                    .foregroundColor(focusedField == .password ? AppTheme.brandStart : AppTheme.textTertiary)
+                                    .frame(width: 20)
+                            ZStack(alignment: .leading) {
+                                fieldPlaceholder("密码", visible: password.isEmpty)
+                                if showPassword {
+                                    TextField("", text: $password)
+                                        .font(.appBody)
+                                        .foregroundColor(AppTheme.textPrimary)
+                                        .focused($focusedField, equals: .password)
+                                } else {
+                                    SecureField("", text: $password)
+                                        .font(.appBody)
+                                        .foregroundColor(AppTheme.textPrimary)
+                                        .focused($focusedField, equals: .password)
+                                }
+                            }
+                            Button(action: { showPassword.toggle() }) {
+                                Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(AppTheme.textSecondary)
+                            }
+                            .buttonStyle(PlainButtonStyle())
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 13)
@@ -156,10 +182,26 @@ struct AuthView: View {
                                     .font(.system(size: 17))
                                     .foregroundColor(focusedField == .confirmPassword ? AppTheme.brandStart : AppTheme.textTertiary)
                                     .frame(width: 20)
-                                SecureField("确认密码", text: $confirmPassword)
-                                    .font(.appBody)
-                                    .foregroundColor(AppTheme.textPrimary)
-                                    .focused($focusedField, equals: .confirmPassword)
+                                ZStack(alignment: .leading) {
+                                    fieldPlaceholder("确认密码", visible: confirmPassword.isEmpty)
+                                    if showConfirmPassword {
+                                        TextField("", text: $confirmPassword)
+                                            .font(.appBody)
+                                            .foregroundColor(AppTheme.textPrimary)
+                                            .focused($focusedField, equals: .confirmPassword)
+                                    } else {
+                                        SecureField("", text: $confirmPassword)
+                                            .font(.appBody)
+                                            .foregroundColor(AppTheme.textPrimary)
+                                            .focused($focusedField, equals: .confirmPassword)
+                                    }
+                                }
+                                Button(action: { showConfirmPassword.toggle() }) {
+                                    Image(systemName: showConfirmPassword ? "eye.slash.fill" : "eye.fill")
+                                        .font(.system(size: 16))
+                                        .foregroundColor(AppTheme.textSecondary)
+                                }
+                                .buttonStyle(PlainButtonStyle())
                             }
                             .padding(.horizontal, 14)
                             .padding(.vertical, 13)
@@ -172,7 +214,39 @@ struct AuthView: View {
                             .transition(.move(edge: .top).combined(with: .opacity))
                         }
                         
-                        // 用户协议（仅注册模式）
+                        // 智能体配置（注册时建议配置，未配置则使用默认智能体）
+                        if !isLogin {
+                            Button(action: { showAgentConfig = true }) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "cpu")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(AppTheme.brandStart)
+                                        .frame(width: 22)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("智能体配置")
+                                            .font(.appBodyMedium)
+                                            .foregroundColor(AppTheme.textPrimary)
+                                        Text(agentManager.hasCustomAgent
+                                             ? agentManager.config?.displayName ?? "已配置"
+                                             : "未配置，将使用默认智能体")
+                                            .font(.appSmall)
+                                            .foregroundColor(agentManager.hasCustomAgent ? Color(hex: "#10B981") : AppTheme.textTertiary)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(AppTheme.textTertiary)
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+                                .background(AppTheme.background)
+                                .cornerRadius(10)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .transition(.opacity)
+                        }
+                        // 用户协议（仅注册模式，位于注册按钮上方）
                         if !isLogin {
                             HStack(alignment: .top, spacing: 8) {
                                 Button(action: { agreedToTerms.toggle() }) {
@@ -181,7 +255,7 @@ struct AuthView: View {
                                         .foregroundColor(agreedToTerms ? AppTheme.brandStart : AppTheme.textTertiary)
                                 }
                                 .buttonStyle(PlainButtonStyle())
-                                
+
                                 HStack(spacing: 4) {
                                     Button(action: {
                                         legalDocumentType = .privacyPolicy
@@ -193,11 +267,11 @@ struct AuthView: View {
                                             .underline()
                                     }
                                     .buttonStyle(PlainButtonStyle())
-                                    
+
                                     Text("和")
                                         .font(.system(size: 13))
                                         .foregroundColor(AppTheme.textSecondary)
-                                    
+
                                     Button(action: {
                                         legalDocumentType = .termsOfService
                                         showLegalDocument = true
@@ -314,8 +388,22 @@ struct AuthView: View {
                 LegalDocumentView(documentType: type)
             }
         }
+        .sheet(isPresented: $showAgentConfig) {
+            AgentConfigSheet()
+        }
     }
     
+    // MARK: - 输入框占位提示
+    @ViewBuilder
+    private func fieldPlaceholder(_ text: String, visible: Bool) -> some View {
+        if visible {
+            Text(text)
+                .font(.appBody)
+                .foregroundColor(Color(hex: "#B0B0B0"))
+                .allowsHitTesting(false)
+        }
+    }
+
     // MARK: - 分段按钮
     @ViewBuilder
     func segmentButton(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
@@ -439,12 +527,20 @@ struct ForgotPasswordView: View {
                     Image(systemName: "envelope.fill")
                         .font(.system(size: 17))
                         .foregroundColor(focused ? AppTheme.brandStart : AppTheme.textTertiary)
-                    TextField("注册邮箱", text: $resetEmail)
-                        .font(.appBody)
-                        .foregroundColor(AppTheme.textPrimary)
-                        .keyboardType(.emailAddress)
-                        .autocapitalization(.none)
-                        .focused($focused)
+                    ZStack(alignment: .leading) {
+                        if resetEmail.isEmpty {
+                            Text("注册邮箱")
+                                .font(.appBody)
+                                .foregroundColor(Color(hex: "#B0B0B0"))
+                                .allowsHitTesting(false)
+                        }
+                        TextField("", text: $resetEmail)
+                            .font(.appBody)
+                            .foregroundColor(AppTheme.textPrimary)
+                            .keyboardType(.emailAddress)
+                            .autocapitalization(.none)
+                            .focused($focused)
+                    }
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 13)
@@ -478,7 +574,7 @@ struct ForgotPasswordView: View {
             }
             Spacer()
         }
-        .background(.ultraThinMaterial)
+        .background(Color.white)
     }
 }
 

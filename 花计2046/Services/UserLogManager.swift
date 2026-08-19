@@ -27,7 +27,7 @@ class UserLogManager: ObservableObject {
     
     private init() {}
     
-    /// 记录一条操作日志（写入 Supabase + 清理旧日志）
+    /// 记录一条操作记录（先写本地缓存，再写入 Supabase，云端长期保留）
     static func log(action: String, detail: String, supabaseService: SupabaseService) async {
         guard let userId = supabaseService.currentUser?.id else { return }
         
@@ -54,21 +54,6 @@ class UserLogManager: ObservableObject {
             } catch {
                 Log.error("写入操作日志失败: \(error.localizedDescription)")
             }
-            
-            // 清理 12 个月前的旧日志
-            do {
-                let twelveMonthsAgo = Calendar.current.date(byAdding: .month, value: -12, to: Date()) ?? Date()
-                let df = ISO8601DateFormatter()
-                let cutoffStr = df.string(from: twelveMonthsAgo)
-                try await supabaseService.client
-                    .from("user_logs")
-                    .delete()
-                    .lt("created_at", value: cutoffStr)
-                    .eq("user_id", value: userId.uuidString)
-                    .execute()
-            } catch {
-                Log.error("清理旧日志失败: \(error.localizedDescription)")
-            }
         }
     }
     
@@ -85,17 +70,12 @@ class UserLogManager: ObservableObject {
         await MainActor.run { self.isLoading = true }
         
         do {
-            let oneMonthAgo = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
-            let df = ISO8601DateFormatter()
-            let cutoffStr = df.string(from: oneMonthAgo)
-            
             let response: [UserLog] = try await supabaseService.client
                 .from("user_logs")
                 .select()
                 .eq("user_id", value: userId.uuidString)
-                .gte("created_at", value: cutoffStr)
                 .order("created_at", ascending: false)
-                .limit(200)
+                .limit(500)
                 .execute()
                 .value
             

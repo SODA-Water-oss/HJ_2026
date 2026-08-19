@@ -9,8 +9,5 @@
 // MARK: - Release 专用密钥占位
 SUPABASE_ANON_KEY = your-anon-key
 
-
-#include "Local.xcconfig"
-
 // Debug/Release 均不使用 Mock（连接真实后端）
 USE_MOCK_SERVICES = NO

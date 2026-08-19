@@ -226,14 +226,21 @@ struct MonthExpenseGroupTests {
 
 // MARK: - 每日限额测试
 
+@Suite(.serialized)
 struct DailyLimitManagerTests {
+    private static func resetFreeMode() {
+        UserDefaults.standard.set(false, forKey: "agent_configured")
+    }
+
     @Test func defaultDailyLimitIsFreeLimit() {
+        Self.resetFreeMode()
         // 测试环境默认无订阅缓存，应为免费额度
         #expect(DailyLimitManager.freeLimit == 30)
         #expect(DailyLimitManager.dailyLimit == 30)
     }
 
     @Test func incrementAndUsedCountTrackPerUser() {
+        Self.resetFreeMode()
         let userId = UUID()  // 每个测试用独立 UUID，避免 UserDefaults 相互污染
         let before = DailyLimitManager.usedCount(for: userId)
         DailyLimitManager.incrementUsage(for: userId)
@@ -243,6 +250,7 @@ struct DailyLimitManagerTests {
     }
 
     @Test func remainingAndCanParseStayConsistent() {
+        Self.resetFreeMode()
         let userId = UUID()
         let startUsed = DailyLimitManager.usedCount(for: userId)
         let remaining = DailyLimitManager.remainingCount(for: userId)
@@ -251,6 +259,7 @@ struct DailyLimitManagerTests {
     }
 
     @Test func remainingNeverNegative() {
+        Self.resetFreeMode()
         let userId = UUID()
         // 连续递增远超额度，remainingCount 不应为负
         for _ in 0..<(DailyLimitManager.dailyLimit + 50) {
@@ -260,7 +269,15 @@ struct DailyLimitManagerTests {
     }
 
     @Test func dailyLimitFixedInFreeMode() {
+        Self.resetFreeMode()
         // 全免费模式：每日限额固定为免费额度，不依赖任何订阅状态
         #expect(DailyLimitManager.dailyLimit == DailyLimitManager.freeLimit)
+    }
+
+    @Test func customAgentDisablesDailyLimit() {
+        UserDefaults.standard.set(true, forKey: "agent_configured")
+        defer { UserDefaults.standard.set(false, forKey: "agent_configured") }
+        #expect(DailyLimitManager.dailyLimit == 9999)
+        #expect(DailyLimitManager.canParse(for: UUID()))
     }
 }
