@@ -60,6 +60,7 @@ Debug 构建可通过 `Configs/Debug.xcconfig` 中的 `INFOPLIST_KEY_USE_MOCK_SE
    - `012_goal_targets.sql`
    - `013_profiles_name.sql`
    - `014_parse_usage.sql`
+   - `015_goal_comparison.sql`
 3. 确认 Auth 使用 email/password。
 4. 将项目 URL 与 Anon Key 填入 `Configs/Local.xcconfig`。
 

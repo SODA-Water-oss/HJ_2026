@@ -7,6 +7,7 @@ struct GoalTargetItem: Codable, Identifiable {
     var category: String        // "收入" / "支出"
     var timeDimension: String   // "每周" / "每月" / "每年" / "日期区间"
     var amount: Double
+    var comparison: String?     // "大于等于" / "小于等于" / "等于"，旧数据为空时按大于等于处理
     var startDate: Date?
     var endDate: Date?
     var createdAt: Date?    // 目标创建时间（判定上一周期是否可算，旧数据为 nil 视为可判定）
@@ -18,6 +19,22 @@ struct GoalTargetItem: Codable, Identifiable {
     }
 
     static let timeDimensions = ["每周", "每月", "每年", "日期区间"]
+    static let comparisons = ["大于等于", "小于等于", "等于"]
+
+    var comparisonDisplay: String {
+        comparison ?? "大于等于"
+    }
+
+    func isAchieved(actual: Double) -> Bool {
+        switch comparisonDisplay {
+        case "小于等于":
+            return actual <= amount
+        case "等于":
+            return abs(actual - amount) < 0.01
+        default:
+            return actual >= amount
+        }
+    }
 
     static func load() -> [GoalTargetItem] {
         guard let data = UserDefaults.standard.data(forKey: "goal_target_items"),
@@ -250,7 +267,7 @@ struct GoalsModuleCard: View {
         } else {
             actual = recs.filter(\.isExpense).reduce(0) { $0 + $1.amount }
         }
-        return actual >= item.amount
+        return item.isAchieved(actual: actual)
     }
 }
 
@@ -270,7 +287,7 @@ struct GoalTargetCard: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(AppTheme.textPrimary)
                 Spacer()
-                Text(String(format: "¥%.0f", item.amount))
+                Text("\(item.comparisonDisplay) ¥\(Int(item.amount))")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(AppTheme.textSecondary)
             }
@@ -318,7 +335,7 @@ struct GoalTargetCard: View {
         } else {
             actual = recs.filter(\.isExpense).reduce(0) { $0 + $1.amount }
         }
-        return actual >= item.amount
+        return item.isAchieved(actual: actual)
     }
 
     private var percent: Double {
@@ -354,10 +371,10 @@ struct GoalTargetCard: View {
     }
 
     private var progressText: String {
-        let achieved = percent >= 100
+        let achieved = item.isAchieved(actual: actual)
         let label = item.category == "收入" ? "收入" : "支出"
         if achieved {
-            return "🎉 已完成：\(label) ¥\(Int(actual))，超出目标 \(Int(percent - 100))%"
+            return "🎉 已完成：\(label) ¥\(Int(actual))"
         } else if actual > 0 {
             return "当前\(label) ¥\(Int(actual))，完成 \(Int(percent))%"
         } else {
@@ -370,7 +387,7 @@ struct GoalTargetCard: View {
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 4).fill(AppTheme.border)
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(percent >= 100 ? Color.green : AppTheme.brandStart)
+                    .fill(item.isAchieved(actual: actual) ? Color.green : AppTheme.brandStart)
                     .frame(width: geo.size.width * min(1, percent / 100))
             }
         }
@@ -412,7 +429,7 @@ struct GoalTargetSettingSheet: View {
                                     Text("\(item.displayName) · \(item.timeDimension)")
                                         .font(.appBody)
                                         .foregroundColor(AppTheme.textPrimary)
-                                    Text(String(format: "¥%.0f", item.amount))
+                                    Text("\(item.comparisonDisplay) ¥\(Int(item.amount))")
                                         .font(.appSmall)
                                         .foregroundColor(AppTheme.textSecondary)
                                     if item.timeDimension == "日期区间", let s = item.startDate, let e = item.endDate {
@@ -495,6 +512,7 @@ struct GoalTargetAddSheet: View {
     @State private var name = ""
     @State private var category = "支出"
     @State private var timeDimension = "每月"
+    @State private var comparison = "大于等于"
     @State private var amount = ""
     @State private var startDate = Date()
     @State private var endDate = Date().addingTimeInterval(30 * 24 * 60 * 60)
@@ -526,6 +544,13 @@ struct GoalTargetAddSheet: View {
                     TextField("金额（元）", text: $amount)
                         .keyboardType(.decimalPad)
                 }
+                Section("达成条件") {
+                    Picker("与目标金额的关系", selection: $comparison) {
+                        ForEach(GoalTargetItem.comparisons, id: \.self) { option in
+                            Text(option).tag(option)
+                        }
+                    }
+                }
             }
             .scrollContentBackground(.hidden)
             .navigationTitle("增加目标")
@@ -553,6 +578,7 @@ struct GoalTargetAddSheet: View {
                             category: category,
                             timeDimension: timeDimension,
                             amount: value,
+                            comparison: comparison,
                             startDate: timeDimension == "日期区间" ? startDate : nil,
                             endDate: timeDimension == "日期区间" ? endDate : nil,
                             createdAt: Date()

@@ -674,6 +674,7 @@ struct GoalTargetCodable: Codable, Identifiable {
     var category: String
     var timeDimension: String
     var amount: Double
+    var comparison: String?
     var startDate: String?
     var endDate: String?
     var createdAt: String?
@@ -685,6 +686,7 @@ struct GoalTargetCodable: Codable, Identifiable {
         case category
         case timeDimension = "time_dimension"
         case amount
+        case comparison
         case startDate = "start_date"
         case endDate = "end_date"
         case createdAt = "created_at"
@@ -744,6 +746,7 @@ extension GoalTargetItem {
         self.category = codable.category
         self.timeDimension = codable.timeDimension
         self.amount = codable.amount
+        self.comparison = codable.comparison ?? "大于等于"
         if let raw = codable.startDate { self.startDate = ISO8601DateFormatter().date(from: raw) }
         if let raw = codable.endDate { self.endDate = ISO8601DateFormatter().date(from: raw) }
         if let raw = codable.createdAt { self.createdAt = ISO8601DateFormatter().date(from: raw) }
@@ -757,6 +760,7 @@ extension GoalTargetItem {
             category: category,
             timeDimension: timeDimension,
             amount: amount,
+            comparison: comparison ?? "大于等于",
             startDate: startDate.map { ISO8601DateFormatter().string(from: $0) },
             endDate: endDate.map { ISO8601DateFormatter().string(from: $0) },
             createdAt: nil  // 让数据库默认 now()
