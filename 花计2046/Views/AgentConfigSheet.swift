@@ -265,10 +265,6 @@ struct AgentConfigSheet: View {
                             .padding(.vertical, 6)
                             .background(Color.white)
                             .cornerRadius(6)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .stroke(AppTheme.border, lineWidth: 1)
-                            )
                     }
                     .buttonStyle(.plain)
                 }
