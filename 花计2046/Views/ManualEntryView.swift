@@ -54,7 +54,7 @@ struct ManualEntryView: View {
                         if validCount > 0 {
                             HStack(spacing: 12) {
                                 if incomeTotal > 0 { Text("收入 \(currencySymbol)\(String(format: "%.2f", incomeTotal))").font(.appBodyMedium).foregroundColor(.green) }
-                                if expenseTotal > 0 { Text("支出 \(currencySymbol)\(String(format: "%.2f", expenseTotal))").font(.appBodyMedium).foregroundColor(AppTheme.brandStart) }
+                                if expenseTotal > 0 { Text("支出 \(currencySymbol)\(String(format: "%.2f", expenseTotal))").font(.appBodyMedium).foregroundColor(AppTheme.textSecondary) }
                             }
                         }
                     }
@@ -106,7 +106,7 @@ struct ManualEntryView: View {
                             Text("支出\(expenseCount)笔")
                                 .frame(minWidth: 64, alignment: .leading)
                                 .font(.system(size: 17, weight: .regular))
-                                .foregroundColor(AppTheme.brandStart)
+                                .foregroundColor(AppTheme.textSecondary)
                         }
                     }
                     Spacer()
@@ -161,9 +161,13 @@ struct ManualEntryView: View {
                             batchType = .expense
                         }) {
                             Text("转支出").font(.system(size: 13, weight: .medium))
-                                .foregroundColor(batchType == .expense ? .white : Color(hex: "#C0C0C0"))
+                                .foregroundColor(AppTheme.textSecondary)
                                 .padding(.horizontal, 10).padding(.vertical, 6).frame(minWidth: 52)
-                                .background(batchType == .expense ? AppTheme.brandStart : Color(hex: "#E8E8E8"))
+                                .background(batchType == .expense ? AppTheme.textSecondary.opacity(0.22) : Color(hex: "#E8E8E8"))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(batchType == .expense ? AppTheme.textSecondary.opacity(0.5) : Color.clear, lineWidth: 1)
+                                )
                         }
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                         .disabled(validCount == 0)
@@ -304,19 +308,19 @@ struct ManualEntryView: View {
        }
    }
    
-   @ViewBuilder
+    @ViewBuilder
     private func rowCardView(at index: Int) -> some View {
         let row = rows[index]
-        let typeColor: Color = row.type == .expense ? AppTheme.brandStart : .green
+        let typeColor: Color = row.type == .expense ? AppTheme.textSecondary : .green
         HStack(spacing: 10) {
             Image(systemName: "square.and.pencil")
                 .font(.system(size: 16))
                 .foregroundColor(typeColor.opacity(0.5))
             Text(row.type == .expense ? "支" : "收")
                 .font(.system(size: 17, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(typeColor)
                 .frame(width: 26, height: 26)
-                .background(typeColor)
+                .background(typeColor.opacity(0.15))
                 .clipShape(Circle())
             VStack(alignment: .leading, spacing: 3) {
                 Text(row.merchant.isEmpty ? "未命名" : row.merchant)

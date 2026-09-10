@@ -331,7 +331,7 @@ struct BillReminderView: View {
             Text("暂无账单提醒")
                 .font(.appTitle)
                 .foregroundColor(AppTheme.textPrimary)
-            Text("点击下方添加提醒账单开始")
+            Text("点击下方新建账单提醒开始")
                 .font(.appBody)
                 .foregroundColor(AppTheme.textSecondary)
         }
@@ -348,7 +348,7 @@ struct BillReminderView: View {
             HStack(spacing: 8) {
                 Image(systemName: "plus.circle.fill")
                     .font(.system(size: 16))
-                Text("添加提醒账单")
+                Text("新建账单提醒")
                     .font(.appBodyMedium)
             }
             .frame(maxWidth: .infinity)
@@ -699,10 +699,6 @@ struct BillFormView: View {
                     Color.clear.frame(height: 4)
                     
                     VStack(alignment: .leading, spacing: 16) {
-                        Text(bill == nil ? "添加提醒账单" : "编辑账单")
-                            .font(.appTitle)
-                            .foregroundColor(AppTheme.textPrimary)
-                        
                         // Name
                         VStack(alignment: .leading, spacing: 6) {
                             Text("名称").font(.system(size: 17)).foregroundColor(AppTheme.textSecondary)
@@ -947,7 +943,7 @@ struct BillFormView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text(bill == nil ? "添加提醒账单" : "编辑账单")
+                    Text(bill == nil ? "新建账单提醒" : "编辑账单")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(AppTheme.textPrimary)
                 }

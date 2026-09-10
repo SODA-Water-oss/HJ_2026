@@ -118,7 +118,7 @@ struct ExpenseRowView: View {
                 }
                 .buttonStyle(PlainButtonStyle())
             }
-            Circle().fill((expense.isExpense ? AppTheme.brandStart : Color.green).opacity(0.15)).frame(width: 44, height: 44).overlay(Text(expense.isExpense ? "支" : "收").font(.system(size: 21, weight: .semibold)).foregroundColor(expense.isExpense ? AppTheme.brandStart : .green))
+            Circle().fill((expense.isExpense ? AppTheme.textSecondary : Color.green).opacity(0.15)).frame(width: 44, height: 44).overlay(Text(expense.isExpense ? "支" : "收").font(.system(size: 21, weight: .semibold)).foregroundColor(expense.isExpense ? AppTheme.textSecondary : .green))
             VStack(alignment: .leading, spacing: 4) {
                 Text(expense.merchant.count > 6 ? String(expense.merchant.prefix(6)) + "..." : expense.merchant).font(.appBodyMedium).foregroundColor(AppTheme.textPrimary).lineLimit(1)
                 Text(expense.category).font(.system(size: 13)).foregroundColor(categoryColor).padding(.horizontal, 6).padding(.vertical, 2).background(categoryColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 4))
@@ -131,7 +131,7 @@ struct ExpenseRowView: View {
                 Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundColor(AppTheme.textTertiary.opacity(0.5)).padding(.leading, 4)
             }
         }
-        .padding(16).background(ZStack { Color.white; RecordWatermark(expense: expense) }).overlay(HStack(spacing: 0) { Rectangle().fill(expense.isExpense ? AppTheme.brandStart : .green).frame(width: 3); Spacer(minLength: 0) }.allowsHitTesting(false)).cornerRadius(12).shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
+        .padding(16).background(ZStack { Color.white; RecordWatermark(expense: expense) }).overlay(HStack(spacing: 0) { Rectangle().fill(expense.isExpense ? AppTheme.textSecondary : .green).frame(width: 3); Spacer(minLength: 0) }.allowsHitTesting(false)).cornerRadius(12).shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
         .scaleEffect(rowBounce)
         .background(GeometryReader { geo in
             Color.clear.preference(key: RowFrameKey.self, value: [expense.id: geo.frame(in: .named("expenseList"))])

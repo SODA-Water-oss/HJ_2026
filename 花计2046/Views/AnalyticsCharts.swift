@@ -72,9 +72,29 @@ struct MonthlyBarChartView: View {
         }
         .chartForegroundStyleScale([
             "收入": Color.green,
-            "支出": AppTheme.brandStart
+            "支出": AppTheme.textSecondary
         ])
-        .chartLegend(position: .bottom, alignment: .leading)
+        .chartLegend(position: .bottom, alignment: .leading) {
+            HStack(spacing: 16) {
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 8, height: 8)
+                    Text("收入")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(AppTheme.textTertiary)
+                }
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(AppTheme.textSecondary)
+                        .frame(width: 8, height: 8)
+                    Text("支出")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(AppTheme.textTertiary)
+                }
+            }
+            .padding(.top, 6)
+        }
         .chartXAxis {
             AxisMarks(values: .automatic(desiredCount: 6)) { _ in
                 AxisGridLine().foregroundStyle(AppTheme.border.opacity(0.4))
@@ -155,7 +175,7 @@ struct DailyScatterChartView: View {
         }
         .chartForegroundStyleScale([
             "收入": Color.green,
-            "支出": AppTheme.brandStart
+            "支出": AppTheme.textSecondary
         ])
         .chartLegend(position: .bottom, alignment: .leading)
         .chartXAxis {
@@ -237,7 +257,7 @@ struct MonthlyDualLineChartView: View {
         }
         .chartForegroundStyleScale([
             "收入": Color.green,
-            "支出": AppTheme.brandStart
+            "支出": AppTheme.textSecondary
         ])
         .chartLegend(position: .bottom, alignment: .leading) {
             HStack(spacing: 16) {
@@ -247,15 +267,15 @@ struct MonthlyDualLineChartView: View {
                         .frame(width: 8, height: 8)
                     Text("收入")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .foregroundColor(AppTheme.textTertiary)
                 }
                 HStack(spacing: 5) {
                     Circle()
-                        .fill(AppTheme.brandStart)
+                        .fill(AppTheme.textSecondary)
                         .frame(width: 8, height: 8)
                     Text("支出")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .foregroundColor(AppTheme.textTertiary)
                 }
             }
             .padding(.top, 6)
@@ -285,29 +305,40 @@ struct MonthlyDualLineChartView: View {
 struct AnalyticsModuleHeader<Trailing: View>: View {
     let icon: String
     let title: String
-    var titleFont: Font = .system(size: 17, weight: .semibold)
+    var titleFont: Font = .system(size: 18, weight: .semibold)
+    var iconColor: Color?
     @ViewBuilder var trailing: () -> Trailing
 
-    init(icon: String, title: String, titleFont: Font = .system(size: 17, weight: .semibold), @ViewBuilder trailing: @escaping () -> Trailing) {
+    init(icon: String, title: String, titleFont: Font = .system(size: 18, weight: .semibold), iconColor: Color? = nil, @ViewBuilder trailing: @escaping () -> Trailing) {
         self.icon = icon
         self.title = title
         self.titleFont = titleFont
+        self.iconColor = iconColor
         self.trailing = trailing
     }
 
-    init(icon: String, title: String, titleFont: Font = .system(size: 17, weight: .semibold)) where Trailing == EmptyView {
+    init(icon: String, title: String, titleFont: Font = .system(size: 18, weight: .semibold), iconColor: Color? = nil) where Trailing == EmptyView {
         self.icon = icon
         self.title = title
         self.titleFont = titleFont
+        self.iconColor = iconColor
         self.trailing = { EmptyView() }
     }
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(AppTheme.brandGradient)
-                .frame(width: 24)
+            Group {
+                if let iconColor {
+                    Image(systemName: icon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(iconColor)
+                } else {
+                    Image(systemName: icon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(AppTheme.brandGradient)
+                }
+            }
+            .frame(width: 24)
             Text(title)
                 .font(titleFont)
                 .foregroundColor(AppTheme.textPrimary)
@@ -329,14 +360,14 @@ struct AnalyticsSubHeader: View {
     }
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(AppTheme.brandStart)
-                .frame(width: 20)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(AppTheme.brandGradient)
+                .frame(width: 24)
             Text(title)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(AppTheme.textSecondary)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(AppTheme.textPrimary)
             Spacer()
         }
     }

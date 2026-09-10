@@ -96,7 +96,7 @@ struct AIConfirmView: View {
                             Text("支出\(expenseCount)笔")
                                 .frame(minWidth: 64, alignment: .leading)
                                 .font(.system(size: 17, weight: .regular))
-                                .foregroundColor(AppTheme.brandStart)
+                                .foregroundColor(AppTheme.textSecondary)
                         }
                     }
                     
@@ -163,10 +163,14 @@ struct AIConfirmView: View {
                         }) {
                             Text("转支出")
                                 .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(batchType == .expense ? .white : Color(hex: "#C0C0C0"))
+                                .foregroundColor(AppTheme.textSecondary)
                                 .padding(.horizontal, 10).padding(.vertical, 6)
                                 .frame(minWidth: 84)
-                                .background(batchType == .expense ? AppTheme.brandStart : Color(hex: "#E8E8E8"))
+                                .background(batchType == .expense ? AppTheme.textSecondary.opacity(0.22) : Color(hex: "#E8E8E8"))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(batchType == .expense ? AppTheme.textSecondary.opacity(0.5) : Color.clear, lineWidth: 1)
+                                )
                         }
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
@@ -359,12 +363,12 @@ struct ExpenseEditRow: View {
         HStack(spacing: 10) {
             Image(systemName: "square.and.pencil")
                 .font(.system(size: 13))
-                .foregroundColor((item.type == .expense ? AppTheme.brandStart : .green).opacity(0.5))
+                .foregroundColor((item.type == .expense ? AppTheme.textSecondary : .green).opacity(0.5))
             Text(item.type == .expense ? "支" : "收")
                 .font(.system(size: 17, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(item.type == .expense ? AppTheme.textSecondary : .green)
                 .frame(width: 26, height: 26)
-                .background(item.type == .expense ? AppTheme.brandStart : .green)
+                .background((item.type == .expense ? AppTheme.textSecondary : Color.green).opacity(0.15))
                 .clipShape(Circle())
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.merchant.isEmpty ? "未命名" : item.merchant)
@@ -456,4 +460,3 @@ struct KeyboardDoneTextField: UIViewRepresentable {
 
 
 // MARK: - 带"完成"键盘工具栏的多行文本编辑器
-

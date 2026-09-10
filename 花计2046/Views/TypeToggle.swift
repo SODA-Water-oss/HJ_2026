@@ -18,10 +18,14 @@ struct TypeToggle: View {
             Button(action: { onSelect(.expense) }) {
                 Text("支出")
                     .font(.system(size: 17, weight: .medium))
-                    .foregroundColor(type == .expense ? .white : AppTheme.brandStart)
+                    .foregroundColor(AppTheme.textSecondary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .background(type == .expense ? AppTheme.brandStart : Color.white)
+                    .background(type == .expense ? AppTheme.textSecondary.opacity(0.22) : Color.white)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 7)
+                            .stroke(type == .expense ? AppTheme.textSecondary.opacity(0.5) : Color.clear, lineWidth: 1)
+                    )
                     .cornerRadius(7)
             }
         }

@@ -55,9 +55,13 @@ struct EditRowOverlay: View {
                         Button(action: { switchType(to: .expense) }) {
                             Text("支出")
                                 .font(.system(size: 17, weight: .medium))
-                                .foregroundColor(editType == .expense ? .white : AppTheme.brandStart)
+                                .foregroundColor(AppTheme.textSecondary)
                                 .frame(maxWidth: .infinity).padding(.vertical, 6)
-                                .background(editType == .expense ? AppTheme.brandStart : Color.clear)
+                                .background(editType == .expense ? AppTheme.textSecondary.opacity(0.22) : Color.clear)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(editType == .expense ? AppTheme.textSecondary.opacity(0.5) : Color.clear, lineWidth: 1)
+                                )
                                 .cornerRadius(6)
                         }
                     }

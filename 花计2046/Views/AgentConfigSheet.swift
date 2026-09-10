@@ -253,6 +253,8 @@ struct AgentConfigSheet: View {
             .background(AppTheme.background.ignoresSafeArea())
             .navigationTitle("智能体配置")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color.white, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
@@ -267,11 +269,16 @@ struct AgentConfigSheet: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .fill(Color.white)
                             )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(AppTheme.border, lineWidth: 1)
+                            )
                             .frame(minWidth: 52, minHeight: 28)
                     }
-                    .buttonStyle(BorderlessButtonStyle())
+                    .buttonStyle(.plain)
                 }
             }
+            .preferredColorScheme(.light)
             .alert("清除智能体配置", isPresented: $showClearConfirm) {
                 Button("取消", role: .cancel) { }
                 Button("确认清除", role: .destructive) {
