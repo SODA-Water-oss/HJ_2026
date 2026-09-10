@@ -262,13 +262,13 @@ struct EditExpenseView: View {
                         // Save Button
                         VStack(spacing: 12) {
                             Button(action: saveChanges) {
-                                Text(isSaving ? "保存中..." : "保存修改")
+                                Text(isSaving ? "保存中..." : "保存")
                                     .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(AppPrimaryButtonStyle())
                             .disabled(isSaving)
                             Button(action: { dismiss() }) {
-                                Text("取消修改")
+                                Text("取消")
                                     .frame(maxWidth: .infinity)
                             }
                             .disabled(isSaving)
@@ -520,6 +520,5 @@ struct CategoryEditPicker: View {
     }
 
 }
-
 
 

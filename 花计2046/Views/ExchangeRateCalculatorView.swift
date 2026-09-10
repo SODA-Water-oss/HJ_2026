@@ -10,6 +10,7 @@ struct ExchangeRateCalculatorView: View {
     @State private var liveRates: [String: Double] = [:]
     @State private var lastUpdated: Date?
     @State private var rateError: String?
+    @FocusState private var isAmountFocused: Bool
     
     struct CurrencyInfo: Identifiable, Equatable {
         let id: String
@@ -75,6 +76,7 @@ struct ExchangeRateCalculatorView: View {
                         HStack(spacing: 8) {
                             TextField("输入金额", text: $amount)
                                 .keyboardType(.decimalPad)
+                                .focused($isAmountFocused)
                                 .font(.system(size: 17))
                                 .foregroundColor(AppTheme.textPrimary)
                                 .padding(12)
@@ -212,6 +214,15 @@ struct ExchangeRateCalculatorView: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(AppTheme.textPrimary)
                 }
+            }
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("完成") {
+                    isAmountFocused = false
+                }
+                .foregroundColor(AppTheme.brandStart)
             }
         }
         .scrollDismissesKeyboard(.immediately)

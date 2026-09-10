@@ -23,7 +23,6 @@ struct ToolsView: View {
         ToolItem(id: "bill_reminder", icon: "calendar.badge.clock", title: "定期账单提醒", desc: "房租、会员费、月供到期提醒，不再忘缴", isActive: true, status: "使用"),
         ToolItem(id: "exchange_rate", icon: "arrow.left.arrow.right", title: "汇率换算", desc: "多币种实时汇率换算，出差旅行好帮手", isActive: true, status: "使用"),
         ToolItem(id: "aa_split", icon: "person.2", title: "AA分账", desc: "平均或自定义分摊，自动计算每人应付与差额", isActive: true, status: "使用"),
-        ToolItem(id: "expense_analysis", icon: "chart.pie", title: "支出占比分析", desc: "按类别查看各月支出分布与趋势", isActive: false, status: "即将上线"),
         ToolItem(id: "discount_calculator", icon: "percent", title: "折扣计算器", desc: "输入原价和折扣，自动算出折后价和节省金额", isActive: false, status: "即将上线"),
     ]
     
@@ -41,6 +40,10 @@ struct ToolsView: View {
         }
         return result
     }
+
+    private var displayedTools: [ToolItem] {
+        tools.isEmpty ? orderedTools : tools
+    }
     
     var body: some View {
         NavigationView {
@@ -50,7 +53,7 @@ struct ToolsView: View {
                     
                     // MARK: - 待开发工具列表
                     // MARK: - 工具列表（拖拽排序）
-                    ForEach(tools) { tool in
+                    ForEach(displayedTools) { tool in
                         toolCardContent(tool: tool)
                     }
                     .animation(.easeInOut(duration: 0.2), value: tools)
@@ -58,8 +61,11 @@ struct ToolsView: View {
                 .task {
                     // 先显示本地排序，避免等待云端；task 挂在外层 VStack 确保触发
                     if tools.isEmpty { tools = orderedTools }
-                    // 后台从云端拉取排序（跨设备），拉取后刷新
-                    await UserSettingsManager.shared.loadFromCloud()
+                    // 本地缓存过期或为空时才从云端拉取，避免每次打开重复同步
+                    let lastSync = UserDefaults.standard.object(forKey: "tool_order_synced_at") as? Date ?? .distantPast
+                    if toolOrderRaw.isEmpty || Date().timeIntervalSince(lastSync) > 60 {
+                        await UserSettingsManager.shared.loadFromCloud()
+                    }
                     // 拉取期间用户已改过排序 → 保持本地新顺序，不被云端旧数据覆盖
                     if !lastLocalOrder.isEmpty {
                         UserDefaults.standard.set(lastLocalOrder, forKey: "tool_order")
@@ -122,6 +128,7 @@ struct ToolsView: View {
         let order = tools.map { $0.id }.joined(separator: ",")
         toolOrderRaw = order
         lastLocalOrder = order
+        UserDefaults.standard.set(Date(), forKey: "tool_order_synced_at")
         // 云端同步（跨设备）
         Task { await UserSettingsManager.shared.saveToCloud() }
     }

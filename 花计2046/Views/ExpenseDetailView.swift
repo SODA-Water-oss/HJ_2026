@@ -112,8 +112,6 @@ struct ExpenseDetailView: View {
                 EditExpenseView(expense: currentExpense) {
                     // Sync from cache first (optimistic update already ran)
                     if let updated = supabaseService.allRecords.first(where: { $0.id == currentExpense.id }) { currentExpense = updated }
-                    // Then refresh from server in background
-                    Task { await refreshExpense() }
                 }
                 .environmentObject(supabaseService)
             }
@@ -147,16 +145,6 @@ struct ExpenseDetailView: View {
         }
     }
     
-    func refreshExpense() async {
-        do {
-            let expenses = try await supabaseService.fetchExpenses()
-            if let updated = expenses.first(where: { $0.id == currentExpense.id }) {
-                await MainActor.run { currentExpense = updated }
-            }
-        } catch {
-            print("Failed to refresh expense: \(error)")
-        }
-    }
 }
 
 struct DetailRow: View {
