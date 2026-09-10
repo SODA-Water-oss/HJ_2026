@@ -59,3 +59,29 @@
 - Xcode 项目添加新文件引用（SweepScrollDriver / WheelPickers / ExpenseRowView / BatchOperations）
 - 密钥从源码移到 Info.plist / Build Config
 - 价格页（SubscriptionView）完善国际化文案
+
+## 已知问题与修复记录
+
+### 2026-09-10 项目从 /Volumes/MyData 卷迁移到 /Users/poundszero/MyData 后 Xcode 无法构建
+
+**症状**
+- Xcode 打开项目卡在 "Resolving Package Graph"，随后 `fatalError`
+- 命令行报 `Could not resolve package dependencies`；联网失败时 `Failed to clone repository`
+- 编译报 `xctest-dynamic-overlay/Sources/IssueReporting/Internal/SwiftTesting.swift:374:24: error: cannot find type '_Test' in scope`
+
+**根因（两个叠加）**
+1. SPM 依赖缓存损坏/迁移后与旧卷路径解绑，且本机访问 github.com 不稳定（443 超时）
+2. `xctest-dynamic-overlay` v1.10.1 用符号链接共享 `_Test.swift`，迁移时符号链接丢失：
+   - `Sources/IssueReporting/Symbolic Links/IssueReportingPackageSupport` → `../../IssueReportingPackageSupport`
+   - `Sources/IssueReportingTestSupport/Symbolic Links/IssueReportingPackageSupport` → `../../IssueReportingPackageSupport`
+
+**修复步骤**
+1. 退出 Xcode，删除该项目 DerivedData：`rm -rf ~/Library/Developer/Xcode/DerivedData/花计2046-*`
+2. 用项目本地健康缓存播种全局 SwiftPM 缓存（离线解析，不联网）：
+   `cp -R "$PWD/SourcePackages/repositories/." ~/Library/Caches/org.swift.swiftpm/repositories/`
+3. 恢复两个丢失的符号链接（项目本地 `SourcePackages/checkouts/xctest-dynamic-overlay` 与 DerivedData 同名 checkout 都补）
+4. 验证：`xcodebuild -list -project 花计2046.xcodeproj` 能列出 target/scheme，再跑模拟器 Debug 构建确认 `BUILD SUCCEEDED`
+
+**注意事项**
+- 本机 github.com 连通性差时，依赖解析走本地缓存；新增/升级 SPM 依赖前必须先恢复网络（VPN/代理）
+- 上述符号链接是手工补丁；联网后 Xcode 重新 resolve 会重新生成 checkouts，无需保留
