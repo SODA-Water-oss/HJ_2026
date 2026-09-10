@@ -235,8 +235,8 @@ struct DailyLimitManagerTests {
     @Test func defaultDailyLimitIsFreeLimit() {
         Self.resetFreeMode()
         // 测试环境默认无订阅缓存，应为免费额度
-        #expect(DailyLimitManager.freeLimit == 30)
-        #expect(DailyLimitManager.dailyLimit == 30)
+        #expect(DailyLimitManager.freeLimit == 10)
+        #expect(DailyLimitManager.dailyLimit == 10)
     }
 
     @Test func incrementAndUsedCountTrackPerUser() {

@@ -2,7 +2,7 @@ import Foundation
 
 /// 每日解析次数管理
 struct DailyLimitManager {
-    static let freeLimit = 30
+    static let freeLimit = 10
     
     /// 当前用户每日限额（配置自己的智能体后不受次数限制）
     static var dailyLimit: Int {

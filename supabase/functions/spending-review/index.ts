@@ -37,7 +37,7 @@ Deno.serve(async (request) => {
     const profileName = String(profileRow?.name ?? "").trim();
     const userName = profileName || metaName || guessNameFromEmail(email);
 
-    // 3. 查询最近收支（窗口近30天，但对外统一称“最近”，不暴露具体天数）
+    // 3. 查询最近收支（近30天）和近12个月趋势
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const { data: records, error: recordsError } = await supabase
       .from("records")
@@ -47,10 +47,19 @@ Deno.serve(async (request) => {
       .limit(500);
     if (recordsError) throw new Error(recordsError.message);
 
-    // 3. 汇总趣味维度
-    const summary = buildSummary(records ?? []);
+    const trendSince = new Date();
+    trendSince.setMonth(trendSince.getMonth() - 12);
+    const { data: trendRecords, error: trendError } = await supabase
+      .from("records")
+      .select("type, amount, category, date")
+      .eq("user_id", userId)
+      .gte("date", trendSince.toISOString())
+      .limit(2000);
+    if (trendError) throw new Error(trendError.message);
 
-    // 4. 调 Gemini 生成点评
+    const summary = buildSummary(records ?? [], trendRecords ?? []);
+
+    // 4. 调 DeepSeek 生成点评
     const review = await generateReview(deepSeekKey, summary, userName);
 
     return json({ review });
@@ -62,7 +71,16 @@ Deno.serve(async (request) => {
   }
 });
 
-function buildSummary(records: Array<{ type: string; amount: number; category: string; merchant: string; date: string }>) {
+function buildSummary(
+  records: Array<{ type: string; amount: number; category: string; merchant: string; date: string }>,
+  trendRecords: Array<{ type: string; amount: number; category: string; date: string }>
+) {
+  const recent = summarizeRecords(records);
+  const trend = buildMonthlyTrend(trendRecords);
+  return { recent, trend };
+}
+
+function summarizeRecords(records: Array<{ type: string; amount: number; category: string; merchant: string; date: string }>) {
   let expense = 0, income = 0, count = 0;
   let maxExpense = { amount: 0, merchant: "" };
   const catExpense: Record<string, number> = {};
@@ -98,6 +116,47 @@ function buildSummary(records: Array<{ type: string; amount: number; category: s
   };
 }
 
+function buildMonthlyTrend(records: Array<{ type: string; amount: number; category: string; date: string }>) {
+  const monthly: Record<string, { income: number; expense: number }> = {};
+  for (const r of records) {
+    const month = (r.date ?? "").slice(0, 7);
+    if (!month) continue;
+    const amount = Number(r.amount) || 0;
+    const bucket = monthly[month] ?? { income: 0, expense: 0 };
+    if (r.type === "income") {
+      bucket.income += amount;
+    } else {
+      bucket.expense += amount;
+    }
+    monthly[month] = bucket;
+  }
+
+  const months = Object.keys(monthly).sort().slice(-12);
+  const incomeTrend = months.map((month) => Math.round(monthly[month].income));
+  const expenseTrend = months.map((month) => Math.round(monthly[month].expense));
+  const totalIncome = incomeTrend.reduce((sum, value) => sum + value, 0);
+  const totalExpense = expenseTrend.reduce((sum, value) => sum + value, 0);
+
+  let trendDirection = "平稳";
+  if (expenseTrend.length >= 2) {
+    const latest = expenseTrend[expenseTrend.length - 1];
+    const previous = expenseTrend[expenseTrend.length - 2];
+    if (latest > previous * 1.15) trendDirection = "上升";
+    else if (latest < previous * 0.85) trendDirection = "下降";
+  }
+
+  const peakMonth = months[expenseTrend.indexOf(Math.max(...expenseTrend))] ?? "";
+  return {
+    months,
+    incomeTrend,
+    expenseTrend,
+    totalIncome: Math.round(totalIncome),
+    totalExpense: Math.round(totalExpense),
+    trendDirection,
+    peakMonth,
+  };
+}
+
 // 从邮箱前缀推测一个自然称呼（拉丁字母首字母大写；纯数字/乱码则返回空）
 function guessNameFromEmail(email: string): string {
   const prefix = (email.split("@")[0] ?? "").trim();
@@ -117,13 +176,14 @@ async function generateReview(apiKey: string, summary: Record<string, unknown>, 
       ? `用户的称呼：${userName}（这是从邮箱/昵称推测的，未必是真名；如果合适就自然带进点评让语气更亲近，如果显得生硬就不要硬叫，直接用「你」）。`
       : "",
     "如果上面有用户称呼，点评中可自然地带上一两次（例如开头轻轻带一句），让语气更亲近；没有称呼则直接用「你」。",
-    "根据下面的数据，写一段 30-45 字的中文点评（比之前更精简，只保留最有趣的一句精华）。",
+    "根据下面的数据，写一段 25-35 字的中文点评，只保留最核心、最有智慧的一句。",
     "要求：",
     "1. 主体全部使用正常中文文字，不要用 emoji 代替文字，也不要堆砌图标",
     "2. 最多在结尾加 1 个小表情表达态度，例如 🌱、✨、💪，不加也可以",
-    "3. 精简俏皮、幽默善意，可以调侃消费习惯，但绝不低俗、不嘲讽、不伤害用户",
-    "4. 数据自然融入，不罗列数字，可适度夸张；结尾给一点温暖鼓励",
-    "5. 直接输出点评文本，用「你」称呼，不要引号、不要任何前缀、不要分点编号、不要解释",
+    "3. 既要结合近30天收支的具体观察，也要结合近12个月整体趋势，用一句话点出关键",
+    "4. 客观、幽默、善意，可以调侃消费习惯，但绝不低俗、不嘲讽、不伤害用户",
+    "5. 数据自然融入，不罗列数字，可适度夸张；结尾给一点温暖鼓励",
+    "6. 直接输出点评文本，用「你」称呼，不要引号、不要任何前缀、不要分点编号、不要解释",
     "",
     "数据如下：",
     JSON.stringify(summary),
@@ -143,7 +203,7 @@ async function generateReview(apiKey: string, summary: Record<string, unknown>, 
         { role: "user", content: prompt },
       ],
       temperature: 0.9,
-      max_tokens: 300,
+      max_tokens: 180,
     }),
   });
 
@@ -152,6 +212,7 @@ async function generateReview(apiKey: string, summary: Record<string, unknown>, 
   }
 
   const data = await response.json();
+  console.log("spending-review DeepSeek usage", data?.usage ?? "unavailable");
   const text = data?.choices?.[0]?.message?.content;
   if (typeof text !== "string" || text.trim().length === 0) {
     throw new Error("DeepSeek returned no text.");

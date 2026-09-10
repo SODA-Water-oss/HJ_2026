@@ -193,7 +193,7 @@ struct AnalyticsView: View {
                     .padding(.top, showSearch ? 6 : 10)
                     .padding(.bottom, showSearch ? 4 : 6)
                 }
-                if supabaseService.allRecords.isEmpty && supabaseService.isRecordsLoading {
+                if supabaseService.allRecords.isEmpty && (!supabaseService.isPreloaded || supabaseService.isRecordsLoading || !analyticsReady) {
                     Spacer()
                     PawPrintLoading().offset(y: 5)
                     Spacer()
@@ -205,32 +205,32 @@ struct AnalyticsView: View {
                } else {
                ScrollView {
                VStack(spacing: 16) {
-                    // 1. 资金总览
-                    totalCard
-
-                    // 2. 月度小结
+                    // 1. 月度小结
                     monthSummaryCard
 
-                    // 3. 月度收支趋势（收入/支出双折线）
+                    // 2. 月度收支趋势（收入/支出双折线）
                     if !monthlyTrendPoints.isEmpty {
                         trend12Card
                     }
 
-                    // 4. 最近收支评价
+                    // 3. 最近收支评价
                     AIReviewCard()
                         .environmentObject(supabaseService)
+
+                    // 4. 资金总览
+                    totalCard
 
                     // 5. 收入分类占比
                     if searchState.type == "全部" || searchState.type == "收入" {
                         if !incomeAnalytics.isEmpty {
-                            categorySection(icon: "chart.pie.fill", title: "收入占比", data: incomeAnalytics)
+                            categorySection(icon: "chart.pie.fill", title: "收入占比", iconColor: .green, data: incomeAnalytics)
                         }
                     }
 
                     // 6. 支出分类占比
                     if searchState.type == "全部" || searchState.type == "支出" {
                         if !expenseAnalytics.isEmpty {
-                            categorySection(icon: "chart.pie.fill", title: "支出占比", data: expenseAnalytics)
+                            categorySection(icon: "chart.pie.fill", title: "支出占比", iconColor: AppTheme.textSecondary, data: expenseAnalytics)
                         }
                     }
 
@@ -265,9 +265,32 @@ struct AnalyticsView: View {
         .sheet(isPresented: $showYearPicker) { YearWheelPicker(selection: $searchState.year, options: yearOptions).presentationDetents([.height(230)]) }
         .sheet(isPresented: $showMonthPicker) { MonthWheelPicker(selection: $searchState.month, options: monthOptions).presentationDetents([.height(270)]) }
         .sheet(isPresented: $showCategoryPicker) { CategoryWheelPicker(selection: $searchState.category, options: categories).presentationDetents([.height(230)]) }
-        .onAppear { rebuildSnapshot() }
+        .onAppear {
+            if supabaseService.allRecords.isEmpty {
+                Task {
+                    try? await supabaseService.preloadAllRecords()
+                    rebuildSnapshot()
+                }
+            }
+            rebuildSnapshot()
+        }
         .onChange(of: snapshotKey) { _ in rebuildSnapshot() }
-        .onReceive(supabaseService.$allRecords) { _ in rebuildSnapshot() }
+        .onReceive(supabaseService.$allRecords) { _ in
+            analyticsReady = false
+            rebuildSnapshot()
+        }
+        .onReceive(supabaseService.$isRecordsLoading) { loading in
+            if !loading {
+                analyticsReady = false
+                rebuildSnapshot()
+            }
+        }
+        .onReceive(supabaseService.$isPreloaded) { _ in
+            if !supabaseService.allRecords.isEmpty {
+                analyticsReady = false
+                rebuildSnapshot()
+            }
+        }
         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: showSearch)
    }
     
@@ -613,7 +636,7 @@ extension AnalyticsView {
         return VStack(alignment: .leading, spacing: 14) {
             AnalyticsModuleHeader(icon: "calendar", title: "\(currentMonthTitle) 小结")
             if currentMonthRecords.isEmpty {
-                Text("该月暂无记录")
+                Text("暂无记录")
                     .font(.appBody)
                     .foregroundColor(AppTheme.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -701,7 +724,7 @@ extension AnalyticsView {
                 }
             }
             if analyticsRecords.isEmpty {
-                Text("该币种暂无记录")
+                Text("暂无记录")
                     .font(.appBody)
                     .foregroundColor(AppTheme.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -719,7 +742,7 @@ extension AnalyticsView {
                     Spacer()
                     Text(String(format: "%@%@%.2f", net >= 0 ? "+" : "", effectiveAnalyticsCurrency, net))
                         .font(.system(size: 30, weight: .semibold))
-                        .foregroundColor(net >= 0 ? .green : AppTheme.brandStart)
+                        .foregroundColor(AppTheme.brandEnd)
                         .lineLimit(1)
                         .minimumScaleFactor(0.55)
                 }
@@ -778,9 +801,14 @@ extension AnalyticsView {
    }
    
 
-    private func categorySection(icon: String, title: String, data: [CategoryAnalytics]) -> some View {
+    private func categorySection(icon: String, title: String, iconColor: Color = AppTheme.brandStart, data: [CategoryAnalytics]) -> some View {
         return VStack(alignment: .leading, spacing: 16) {
-            AnalyticsModuleHeader(icon: icon, title: title)
+            AnalyticsModuleHeader(
+                icon: icon,
+                title: title,
+                titleFont: Font.system(size: 18, weight: .semibold),
+                iconColor: iconColor
+            )
 
             pieContent(data: data)
 

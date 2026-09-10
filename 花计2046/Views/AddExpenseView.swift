@@ -276,7 +276,7 @@ struct AddExpenseView: View {
         } message: {
             Text(AgentConfigManager.cachedHasCustomAgent
                  ? "您已配置自己的智能体，AI 解析不受每日次数限制。"
-                 : "每个账户每天可免费解析 30 次。只有点击进账确认解析结果后才会消耗次数，解析失败或放弃不计次数。次日自动重置。")
+                 : "每个账户每天可免费解析 10 次。只有点击进账确认解析结果后才会消耗次数，解析失败或放弃不计次数。次日自动重置。")
         }
         .alert("智能体异常", isPresented: $showAgentFailureAlert) {
             Button("知道了", role: .cancel) { }

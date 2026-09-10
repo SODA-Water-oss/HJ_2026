@@ -159,6 +159,17 @@ final class AgentConfigManager: ObservableObject {
         lastFailure = nil
     }
 
+    /// 结构化解析任务使用低成本模型，避免推理模型产生高额思考 token。
+    private func modelForStructuredTasks(_ config: AgentConfig) -> AgentConfig {
+        guard config.providerID == "deepseek", config.model.lowercased().contains("reasoner") else {
+            return config
+        }
+        Log.info("DeepSeek reasoner 不用于结构化解析，临时切换为 deepseek-chat 以节省 token")
+        var copy = config
+        copy.model = "deepseek-chat"
+        return copy
+    }
+
     /// 删除指定用户的智能体配置（注销账号时调用）
     func delete(userID: UUID) {
         KeychainHelper.delete(key: keychainKey(for: userID))
@@ -191,23 +202,16 @@ final class AgentConfigManager: ObservableObject {
     // MARK: - 记账解析
 
     func parseExpense(input: String, config: AgentConfig) async throws -> [GeminiService.ParsedExpense] {
-        let prompt = "你是一个智能记账助手。请从用户的输入中提取每一笔收支信息。" +
-            "规则：type=expense（支出）或income（收入），根据语义判断。" +
-            "merchant=名称(不含金额/单位/标点)。" +
-            "amount=金额数字。支出category从[餐饮,交通,购物,娱乐,住房,日用,服饰,通讯,医疗,教育,其他]中选择。" +
-            "收入category从[工资,奖金,兼职,投资,理财,礼金,退款,其他]中选择。" +
-            "注意：多笔每笔输出一项。名称通常是金额前面的词。不要输出备注。" +
-            "用户输入：" + input + "。" +
-            "请以JSON格式输出：{\"items\":[{\"type\":\"expense\",\"merchant\":\"名称\",\"amount\":金额数字,\"category\":\"类别\"}]}"
+        let systemPrompt = "你是记账解析器。从输入提取每笔收支，只输出 JSON，不解释。格式：{\"items\":[{\"type\":\"expense|income\",\"amount\":数字,\"category\":\"类别\",\"merchant\":\"名称\"}]}。支出类别：餐饮,交通,购物,娱乐,住房,日用,服饰,通讯,医疗,教育,其他；收入类别：工资,奖金,兼职,投资,理财,礼金,退款,其他。多笔逐项输出。"
 
         let raw = try await callChat(
-            config: config,
+            config: modelForStructuredTasks(config),
             messages: [
-                ["role": "system", "content": "你是一个精准的记账解析助手，只输出JSON格式。"],
-                ["role": "user", "content": prompt]
+                ["role": "system", "content": systemPrompt],
+                ["role": "user", "content": input]
             ],
             jsonMode: true,
-            maxTokens: 1024
+            maxTokens: 512
         )
 
         guard let jsonData = extractJSON(from: raw) else {
@@ -223,13 +227,14 @@ final class AgentConfigManager: ObservableObject {
         let summary = buildSummary(records)
         let prompt = [
             "你是一个爱写手帐、说话俏皮的记账达人，正在给用户写一段最近收支手帐点评。",
-            "根据下面的数据，写一段 30-45 字的中文点评，只保留最有趣的一句精华。",
+            "根据下面的数据，写一段 25-35 字的中文点评，只保留最核心、最有智慧的一句。",
             "要求：",
             "1. 主体全部使用正常中文文字，不要用 emoji 代替文字，也不要堆砌图标",
             "2. 最多在结尾加 1 个小表情表达态度，例如 🌱、✨、💪，不加也可以",
-            "3. 精简俏皮、幽默善意，可以调侃消费习惯，但绝不低俗、不嘲讽、不伤害用户",
-            "4. 数据自然融入，不罗列数字，可适度夸张；结尾给一点温暖鼓励",
-            "5. 直接输出点评文本，用「你」称呼，不要引号、不要任何前缀、不要分点编号、不要解释",
+            "3. 既要结合近30天收支的具体观察，也要结合近12个月整体趋势，用一句话点出关键",
+            "4. 客观、幽默、善意，可以调侃消费习惯，但绝不低俗、不嘲讽、不伤害用户",
+            "5. 数据自然融入，不罗列数字，可适度夸张；结尾给一点温暖鼓励",
+            "6. 直接输出点评文本，用「你」称呼，不要引号、不要任何前缀、不要分点编号、不要解释",
             "",
             "数据如下：",
             summary
@@ -242,7 +247,7 @@ final class AgentConfigManager: ObservableObject {
                 ["role": "user", "content": prompt]
             ],
             jsonMode: false,
-            maxTokens: 300
+            maxTokens: 160
         )
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { throw AgentConfigError.unknown("返回内容为空") }
@@ -298,15 +303,28 @@ final class AgentConfigManager: ObservableObject {
         }
 
         struct ChatResponse: Decodable {
+            struct Usage: Decodable {
+                let promptTokens: Int
+                let completionTokens: Int
+
+                enum CodingKeys: String, CodingKey {
+                    case promptTokens = "prompt_tokens"
+                    case completionTokens = "completion_tokens"
+                }
+            }
             struct Choice: Decodable {
                 struct Message: Decodable { let content: String }
                 let message: Message
             }
             let choices: [Choice]
+            let usage: Usage?
         }
 
         do {
             let decoded = try JSONDecoder().decode(ChatResponse.self, from: data)
+            if let usage = decoded.usage {
+                Log.info("智能体 token: \(config.displayName) prompt=\(usage.promptTokens) completion=\(usage.completionTokens) total=\(usage.promptTokens + usage.completionTokens)")
+            }
             guard let content = decoded.choices.first?.message.content, !content.isEmpty else {
                 throw AgentConfigError.unknown("返回内容为空")
             }
@@ -380,6 +398,28 @@ final class AgentConfigManager: ObservableObject {
     }
 
     private func buildSummary(_ records: [Record]) -> String {
+        let now = Date()
+        let calendar = Calendar.current
+        let recentStart = calendar.date(byAdding: .day, value: -30, to: now) ?? now
+        let trendStart = calendar.date(byAdding: .month, value: -12, to: now) ?? now
+        let recentRecords = records.filter { $0.date >= recentStart }
+        let trendRecords = records.filter { $0.date >= trendStart }
+
+        let recent = summarizeRecords(recentRecords)
+        let trend = monthlyTrend(trendRecords)
+
+        let summary: [String: Any] = [
+            "recent": recent,
+            "trend": trend
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: summary),
+           let json = String(data: data, encoding: .utf8) {
+            return json
+        }
+        return "{}"
+    }
+
+    private func summarizeRecords(_ records: [Record]) -> [String: Any] {
         var expense = 0.0
         var income = 0.0
         var count = 0
@@ -402,7 +442,7 @@ final class AgentConfigManager: ObservableObject {
         let topCategory = categoryExpense.sorted { $0.value > $1.value }.first?.key ?? "无"
         let diningRatio = expense > 0 ? Int((categoryExpense["餐饮"] ?? 0) / expense * 100) : 0
         let avgExpense = count > 0 ? Int(expense / Double(count)) : 0
-        let summary: [String: Any] = [
+        return [
             "expense": Int(expense),
             "income": Int(income),
             "recordCount": count,
@@ -412,11 +452,55 @@ final class AgentConfigManager: ObservableObject {
             "diningRatio": diningRatio,
             "avgExpense": avgExpense
         ]
-        if let data = try? JSONSerialization.data(withJSONObject: summary),
-           let json = String(data: data, encoding: .utf8) {
-            return json
+    }
+
+    private func monthlyTrend(_ records: [Record]) -> [String: Any] {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM"
+        var monthly: [String: (income: Double, expense: Double)] = [:]
+        for record in records {
+            let key = formatter.string(from: record.date)
+            var bucket = monthly[key] ?? (0, 0)
+            if record.isIncome {
+                bucket.income += record.amount
+            } else {
+                bucket.expense += record.amount
+            }
+            monthly[key] = bucket
         }
-        return "{}"
+
+        let months = monthly.keys.sorted().suffix(12)
+        let incomeTrend = months.map { Int(monthly[$0]?.income ?? 0) }
+        let expenseTrend = months.map { Int(monthly[$0]?.expense ?? 0) }
+        let totalIncome = incomeTrend.reduce(0, +)
+        let totalExpense = expenseTrend.reduce(0, +)
+
+        var trendDirection = "平稳"
+        if expenseTrend.count >= 2 {
+            let latest = expenseTrend[expenseTrend.count - 1]
+            let previous = expenseTrend[expenseTrend.count - 2]
+            if previous > 0 {
+                if latest > Int(Double(previous) * 1.15) {
+                    trendDirection = "上升"
+                } else if latest < Int(Double(previous) * 0.85) {
+                    trendDirection = "下降"
+                }
+            }
+        }
+
+        let maxExpense = expenseTrend.max() ?? 0
+        let peakMonth = expenseTrend.firstIndex(of: maxExpense)
+            .map { months[months.index(months.startIndex, offsetBy: $0)] } ?? ""
+
+        return [
+            "months": Array(months),
+            "incomeTrend": incomeTrend,
+            "expenseTrend": expenseTrend,
+            "totalIncome": totalIncome,
+            "totalExpense": totalExpense,
+            "trendDirection": trendDirection,
+            "peakMonth": peakMonth
+        ]
     }
 
     private func keychainKey(for userID: UUID?) -> String {
