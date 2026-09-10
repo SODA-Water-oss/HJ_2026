@@ -230,7 +230,7 @@ TRANSLATIONS = {
     "清除内容": "Clear", "确认清除": "Confirm Clear",
     "确定要清除当前输入内容吗？": "Clear the current input?",
     "每日免费解析": "Free Daily Parsing",
-    "每个账户每天可免费解析 30 次。只有点击进账确认解析结果后才会消耗次数，解析失败或放弃不计次数。次日自动重置。": "Each account gets 30 free parses per day. Quota is used only after you confirm and save results. It resets daily.",
+    "每个账户每天可免费解析 10 次。只有点击进账确认解析结果后才会消耗次数，解析失败或放弃不计次数。次日自动重置。": "Each account gets 10 free parses per day. Quota is used only after you confirm and save results. It resets daily.",
     "错误": "Error",
     "（可点击[解析内容]再试试）": "(Tap \"Parse Content\" to try again)",
     "今日解析": "Today's Parsing",
