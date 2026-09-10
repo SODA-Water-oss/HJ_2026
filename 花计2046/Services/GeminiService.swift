@@ -27,11 +27,21 @@ class GeminiService: ObservableObject {
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            type = try container.decodeIfPresent(RecordType.self, forKey: .type) ?? .expense
             amount = try container.decode(Double.self, forKey: .amount)
             category = try container.decode(String.self, forKey: .category)
             merchant = try container.decode(String.self, forKey: .merchant)
             note = try container.decodeIfPresent(String.self, forKey: .note)
+            let rawType = try container.decodeIfPresent(String.self, forKey: .type) ?? "expense"
+            type = Self.parseType(rawType, category: category, merchant: merchant)
+        }
+
+        private static func parseType(_ raw: String, category: String, merchant: String) -> RecordType {
+            let t = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if t == "income" || t == "收入" || t == "入账" || t == "进账" { return .income }
+            if t == "expense" || t == "支出" || t == "消费" || t == "花费" { return .expense }
+            let hint = "\(category) \(merchant)"
+            let incomeKeywords = ["工资", "奖金", "兼职", "投资", "理财", "礼金", "退款", "报销", "红包", "利息", "分红", "入账", "收入", "进账"]
+            return incomeKeywords.contains(where: { hint.contains($0) }) ? .income : .expense
         }
     }
 
@@ -79,18 +89,9 @@ class GeminiService: ObservableObject {
 
     /// DEBUG 模式：使用 DeepSeek API 解析文字
     private func parseWithDeepSeek(input: String) async throws -> [ParsedExpense] {
-        let prompt = "你是一个智能记账助手。请从用户的输入中提取每一笔收支信息。" +
-            "规则：type=expense（支出）或income（收入），根据语义判断。" +
-            "merchant=名称(不含金额/单位/标点)。" +
-            "amount=金额数字。支出category从[餐饮,交通,购物,娱乐,住房,日用,服饰,通讯,医疗,教育,其他]中选择。" +
-            "收入category从[工资,奖金,兼职,投资,理财,礼金,退款,其他]中选择。" +
-            "注意：多笔每笔输出一项。名称通常是金额前面的词。不要输出备注。" +
-            "用户输入：" + input + "。" +
-            "请以JSON格式输出：{\"items\":[{\"type\":\"expense\",\"merchant\":\"名称\",\"amount\":金额数字,\"category\":\"类别\"}]}"
-
         let result: ParseResult
         do {
-            result = try await callDeepSeek(prompt: prompt)
+            result = try await callDeepSeek(input: input)
         } catch {
             let fallback = fallbackParse(input: input)
             if !fallback.isEmpty { return fallback }
@@ -126,21 +127,29 @@ class GeminiService: ObservableObject {
         let matches = pattern.matches(in: input, range: nsRange)
         var results: [ParsedExpense] = []
         let expenseCats = ["餐饮","交通","购物","娱乐","住房","日用","服饰","通讯","医疗","教育","其他"]
+        let incomeCats = ["工资","奖金","兼职","投资","理财","礼金","退款","其他"]
+        let incomeKeywords = ["工资","奖金","兼职","投资","理财","礼金","退款","报销","红包","利息","分红","入账","收入","进账"]
         for match in matches {
            guard match.numberOfRanges == 3 else { continue }
             guard let nameRange = Range(match.range(at: 1), in: input),
                   let amountRange = Range(match.range(at: 2), in: input) else { continue }
             let name = String(input[nameRange])
             guard let amount = Double(String(input[amountRange])), amount > 0, amount < 99999999 else { continue }
+            let isIncome = incomeKeywords.contains(where: { name.contains($0) })
             var category = "其他"
-            for cat in expenseCats where cat == name || name.contains(cat.prefix(1)) { category = cat; break }
-            results.append(ParsedExpense(type: .expense, amount: amount, category: category, merchant: name, note: nil))
+            if isIncome {
+                for cat in incomeCats where cat == name || name.contains(cat) { category = cat; break }
+                if category == "其他" { category = "工资" }
+            } else {
+                for cat in expenseCats where cat == name || name.contains(cat.prefix(1)) { category = cat; break }
+            }
+            results.append(ParsedExpense(type: isIncome ? .income : .expense, amount: amount, category: category, merchant: name, note: nil))
         }
         return results
     }
 
     /// 调用 DeepSeek Chat API
-    private func callDeepSeek(prompt: String) async throws -> ParseResult {
+    private func callDeepSeek(input: String) async throws -> ParseResult {
         guard let url = URL(string: "https://api.deepseek.com/v1/chat/completions") else { throw NSError(domain: "DeepSeek", code: -1, userInfo: [NSLocalizedDescriptionKey: "URL配置错误"]) }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -148,15 +157,16 @@ class GeminiService: ObservableObject {
         request.setValue("Bearer \(AppConfig.deepSeekAPIKey)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 30
 
+        let systemPrompt = "你是记账解析器。从输入提取每笔收支，只输出 JSON，不解释。格式：{\"items\":[{\"type\":\"expense|income\",\"amount\":数字,\"category\":\"类别\",\"merchant\":\"名称\"}]}。type 只能是 \"expense\" 或 \"income\"。工资、奖金、兼职、投资、理财、礼金、退款、报销、红包等收到钱的属于收入，type=income；花钱消费属于支出，type=expense。支出类别：餐饮,交通,购物,娱乐,住房,日用,服饰,通讯,医疗,教育,其他；收入类别：工资,奖金,兼职,投资,理财,礼金,退款,其他。多笔逐项输出。"
         let body: [String: Any] = [
-           "model": "deepseek-v4-flash",
+           "model": "deepseek-chat",
            "messages": [
-                ["role": "system", "content": "你是一个精准的记账解析助手，只输出JSON格式。"],
-                ["role": "user", "content": prompt]
+                ["role": "system", "content": systemPrompt],
+                ["role": "user", "content": input]
             ],
             "response_format": ["type": "json_object"],
             "temperature": 0.1,
-            "max_tokens": 1024
+            "max_tokens": 512
         ]
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -188,6 +198,11 @@ class GeminiService: ObservableObject {
             let raw = String(data: data, encoding: .utf8)?.prefix(300) ?? ""
             Log.error("DeepSeek 响应格式异常: \(raw)")
             throw NSError(domain: "DeepSeek", code: 0, userInfo: [NSLocalizedDescriptionKey: "响应格式异常"])
+        }
+        if let usage = root["usage"] as? [String: Any] {
+            let promptTokens = usage["prompt_tokens"] as? Int ?? 0
+            let completionTokens = usage["completion_tokens"] as? Int ?? 0
+            Log.info("DeepSeek token: prompt=\(promptTokens) completion=\(completionTokens) total=\(promptTokens + completionTokens)")
         }
 
         guard let jsonData = extractJSON(from: content) else {

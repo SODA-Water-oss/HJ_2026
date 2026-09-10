@@ -66,7 +66,7 @@ Deno.serve(async (request) => {
       throw new HttpError(400, "Unsupported request mode.");
     }
 
-    // 3. 服务端每日次数限制（默认智能体每天 30 次，防绕过客户端限制）
+    // 3. 服务端每日次数限制（默认智能体每天 10 次，防绕过客户端限制）
     await enforceDailyLimit(supabase, userId);
 
     const parsed = await parseWithGemini(apiKey, payload);
@@ -97,7 +97,7 @@ async function enforceDailyLimit(
   if (error) throw new Error(error.message);
 
   const used = Number(data?.count ?? 0);
-  if (used >= 30) {
+  if (used >= 10) {
     throw new HttpError(429, "Daily free parse limit reached.");
   }
 
@@ -130,7 +130,12 @@ async function parseWithGemini(
         "你是一个智能记账助手。请从用户输入中提取每一笔收支信息。",
         "只输出合法 JSON，结构如下：",
         '{"items":[{"type":"expense"或"income","amount":数字,"category":"类别","merchant":"商家名称","note":"备注(可选)"}]}',
-        "所有字段必须使用中文，不要输出 markdown。",
+        "type 字段只能是英文 \"expense\"（支出）或 \"income\"（收入），不要用中文或其它词。",
+        "其余字段（category/merchant/note）使用中文。不要输出 markdown。",
+        "判定收支的规则：",
+        "凡属于工资、奖金、兼职、投资、理财收益、礼金、退款、报销、红包、利息、分红等收到钱的，一律 type=\"income\"。",
+        "凡属于花钱消费、付款、转账给别人、缴纳费用等的，一律 type=\"expense\"。",
+        "示例：\"工资 5000\" → {\"type\":\"income\",\"category\":\"工资\",...}；\"买咖啡 25\" → {\"type\":\"expense\",\"category\":\"餐饮\",...}。",
         "支出类别从：餐饮,交通,购物,娱乐,住房,日用,服饰,通讯,医疗,教育,其他 中选择。",
         "收入类别从：工资,奖金,兼职,投资,理财,礼金,退款,其他 中选择。",
         "商家名称通常是金额前面的词，去掉金额和标点。",
@@ -183,14 +188,35 @@ async function parseWithGemini(
     throw new Error("Gemini returned no items.");
   }
 
+  const incomeKeywords = ["工资", "奖金", "兼职", "投资", "理财", "礼金", "退款", "报销", "红包", "利息", "分红", "入账", "收入", "进账"];
+
   return items
-    .map((item) => ({
-      type: ["expense", "income"].includes(item.type) ? item.type : "expense",
-      amount: Number.isFinite(item.amount) && item.amount > 0 ? item.amount : 0,
-      category: item.category || "其他",
-      merchant: item.merchant || "未知",
-      note: item.note ?? null,
-    }))
+    .map((item) => {
+      const rawType = String(item.type ?? "").trim().toLowerCase();
+      const rawCategory = String(item.category ?? "").trim();
+      const rawMerchant = String(item.merchant ?? "").trim();
+
+      let type: "expense" | "income";
+      if (rawType === "income" || rawType === "收入" || rawType === "入账" || rawType === "进账") {
+        type = "income";
+      } else if (rawType === "expense" || rawType === "支出" || rawType === "消费" || rawType === "花费") {
+        type = "expense";
+      } else {
+        const hint = `${rawCategory} ${rawMerchant}`;
+        type = incomeKeywords.some((kw) => hint.includes(kw)) ? "income" : "expense";
+      }
+
+      const amount = Number.isFinite(item.amount) && item.amount > 0 ? item.amount : 0;
+      const category = rawCategory && rawCategory !== "其他" ? rawCategory : (type === "income" ? "工资" : "其他");
+
+      return {
+        type,
+        amount,
+        category,
+        merchant: rawMerchant || "未知",
+        note: item.note ?? null,
+      };
+    })
     .filter((item) => item.amount > 0);
 }
 
