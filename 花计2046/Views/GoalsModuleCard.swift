@@ -7,7 +7,7 @@ struct GoalTargetItem: Codable, Identifiable {
     var category: String        // "收入" / "支出"
     var timeDimension: String   // "每周" / "每月" / "每年" / "日期区间"
     var amount: Double
-    var comparison: String?     // "大于等于" / "小于等于" / "等于"，旧数据为空时按大于等于处理
+    var comparison: String?     // "大于" / "小于" / "等于"，旧数据兼容映射
     var startDate: Date?
     var endDate: Date?
     var createdAt: Date?    // 目标创建时间（判定上一周期是否可算，旧数据为 nil 视为可判定）
@@ -19,20 +19,25 @@ struct GoalTargetItem: Codable, Identifiable {
     }
 
     static let timeDimensions = ["每周", "每月", "每年", "日期区间"]
-    static let comparisons = ["大于等于", "小于等于", "等于"]
+    static let comparisons = ["大于", "小于", "等于"]
 
     var comparisonDisplay: String {
-        comparison ?? "大于等于"
+        switch comparison {
+        case "大于等于": return "大于"
+        case "小于等于": return "小于"
+        case "等于": return "等于"
+        default: return comparison ?? "大于"
+        }
     }
 
     func isAchieved(actual: Double) -> Bool {
         switch comparisonDisplay {
-        case "小于等于":
-            return actual <= amount
+        case "小于":
+            return actual < amount
         case "等于":
             return abs(actual - amount) < 0.01
         default:
-            return actual >= amount
+            return actual > amount
         }
     }
 
@@ -54,17 +59,20 @@ struct GoalTargetItem: Codable, Identifiable {
 // MARK: - 收支目标整体模块
 struct GoalsModuleCard: View {
     @EnvironmentObject var supabaseService: SupabaseService
-    @State private var showTargetSetting = false
     @State private var items: [GoalTargetItem] = GoalTargetItem.load()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             AnalyticsModuleHeader(icon: "target", title: "收支目标") {
-                Button(action: { showTargetSetting = true }) {
+                NavigationLink {
+                    GoalTargetSettingPage(items: $items)
+                        .environmentObject(supabaseService)
+                } label: {
                     Label("目标设置", systemImage: "slider.horizontal.3")
                         .font(.system(size: 13))
                         .foregroundColor(AppTheme.brandStart)
                 }
+                .buttonStyle(.plain)
             }
 
             if items.isEmpty {
@@ -86,9 +94,6 @@ struct GoalsModuleCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardStyle()
         .task { await syncGoalTargets() }
-        .sheet(isPresented: $showTargetSetting) {
-            GoalTargetSettingSheet(items: $items)
-        }
     }
 
     /// 云端同步：先显示本地缓存，再拉取云端（换设备可恢复）；首次升级时把本地旧目标上传云端
@@ -109,30 +114,27 @@ struct GoalsModuleCard: View {
 
     // MARK: - 历史达成徽章（长期显示）
     private var achievementBadges: some View {
-        // 只展示「上一周期开始时目标已存在」的目标；刚设置的目标不判定，避免误显示未达成
+        // 只展示「上一周期结束前目标已存在」且真实达成的目标；刚设置的目标不判定
         let badgeItems = items.filter {
-            ($0.timeDimension == "每周" || $0.timeDimension == "每月" || $0.timeDimension == "每年" || $0.timeDimension == "日期区间") && badgeEligible($0)
+            ($0.timeDimension == "每周" || $0.timeDimension == "每月" || $0.timeDimension == "每年" || $0.timeDimension == "日期区间")
+                && badgeEligible($0)
+                && (achievedLastPeriod(for: $0) || achievedCountTotal(for: $0) > 0)
         }
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Image(systemName: "medal.fill")
-                    .font(.system(size: 15))
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(AppTheme.brandGradient)
+                    .frame(width: 24)
                 Text("目标达成徽章")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(AppTheme.textPrimary)
                 Spacer()
             }
             if badgeItems.isEmpty {
-                if items.isEmpty {
-                    Text("设置目标并达成即可获得对应徽章")
-                        .font(.appTiny)
-                        .foregroundColor(AppTheme.textTertiary)
-                } else {
-                    Text("目标刚设置，从下一个完整周期起判定达成情况")
-                        .font(.appTiny)
-                        .foregroundColor(AppTheme.textTertiary)
-                }
+                Text("目标设置后，每个统计周期结束显示徽章颁发结果。")
+                    .font(.appTiny)
+                    .foregroundColor(AppTheme.textTertiary)
             } else {
                 ForEach(badgeItems) { item in
                     badgeRow(
@@ -205,15 +207,18 @@ struct GoalsModuleCard: View {
         }
     }
 
-    /// 目标是否可判定上一周期：目标创建时间不晚于上一周期开始才算（旧数据 createdAt 为 nil 视为可判定）
+    /// 目标是否可判定上一周期：必须有创建时间，且不晚于上一周期结束
     private func badgeEligible(_ item: GoalTargetItem) -> Bool {
         if item.timeDimension == "日期区间" {
             // 固定起止日期的目标：区间已结束才判定达成
             guard let end = item.endDate else { return false }
-            return end <= Date()
+            guard end <= Date() else { return false }
+            guard let createdAt = item.createdAt else { return false }
+            return createdAt <= end
         }
-        guard let createdAt = item.createdAt, let range = previousPeriodRange(for: item) else { return true }
-        return createdAt <= range.start
+        guard let createdAt = item.createdAt else { return false }
+        guard let range = previousPeriodRange(for: item) else { return false }
+        return createdAt <= range.end
     }
 
     /// 上一完整周期是否达成（上周/上月/上年），未达成不显示徽章
@@ -233,22 +238,25 @@ struct GoalsModuleCard: View {
         let cal = Calendar.current
         let now = Date()
         var count = 0
+        let thisWeekStart = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)) ?? now
+        let thisMonthStart = cal.date(from: cal.dateComponents([.year, .month], from: now)) ?? now
+        let thisYearStart = cal.date(from: cal.dateComponents([.year], from: now)) ?? now
         switch item.timeDimension {
         case "每周":
-            for i in 0..<52 {
-                let end = cal.date(byAdding: .day, value: -7 * i, to: now) ?? now
-                let start = cal.date(byAdding: .day, value: -7, to: end) ?? end
+            for i in 1..<53 {
+                let end = cal.date(byAdding: .weekOfYear, value: -(i - 1), to: thisWeekStart) ?? thisWeekStart
+                let start = cal.date(byAdding: .weekOfYear, value: -1, to: end) ?? end
                 if achieved(records: records, start: start, end: end, item: item) { count += 1 }
             }
         case "每月":
-            for i in 0..<24 {
-                let end = cal.date(byAdding: .month, value: -i, to: now) ?? now
+            for i in 1..<25 {
+                let end = cal.date(byAdding: .month, value: -(i - 1), to: thisMonthStart) ?? thisMonthStart
                 let start = cal.date(byAdding: .month, value: -1, to: end) ?? end
                 if achieved(records: records, start: start, end: end, item: item) { count += 1 }
             }
         case "每年":
-            for i in 0..<5 {
-                let end = cal.date(byAdding: .year, value: -i, to: now) ?? now
+            for i in 1..<6 {
+                let end = cal.date(byAdding: .year, value: -(i - 1), to: thisYearStart) ?? thisYearStart
                 let start = cal.date(byAdding: .year, value: -1, to: end) ?? end
                 if achieved(records: records, start: start, end: end, item: item) { count += 1 }
             }
@@ -260,6 +268,7 @@ struct GoalsModuleCard: View {
 
     private func achieved(records: [Record], start: Date, end: Date, item: GoalTargetItem) -> Bool {
         guard item.amount > 0 else { return false }
+        if let createdAt = item.createdAt, createdAt > end { return false }
         let recs = records.filter { $0.date >= start && $0.date < end }
         let actual: Double
         if item.category == "收入" {
@@ -280,7 +289,7 @@ struct GoalTargetCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Image(systemName: item.category == "收入" ? "arrow.up.circle" : "arrow.down.circle")
+                Image(systemName: goalComparisonIcon(comparison: item.comparisonDisplay, filled: false))
                     .font(.system(size: 15))
                     .foregroundColor(item.category == "收入" ? .green : AppTheme.textSecondary)
                 Text("\(item.displayName) · \(item.timeDimension)")
@@ -294,7 +303,7 @@ struct GoalTargetCard: View {
             progressBar
             Text(progressText)
                 .font(.appTiny)
-                .foregroundColor(AppTheme.textTertiary)
+                .foregroundColor(progressTextColor)
             if achievedCount > 0 {
                 Text("累计达成 \(achievedCount) 次")
                     .font(.appTiny)
@@ -302,7 +311,7 @@ struct GoalTargetCard: View {
             }
         }
         .padding(12)
-        .background(AppTheme.background)
+        .background(item.category == "收入" ? Color.green.opacity(0.08) : AppTheme.textSecondary.opacity(0.08))
         .cornerRadius(12)
     }
 
@@ -311,15 +320,16 @@ struct GoalTargetCard: View {
         let cal = Calendar.current
         let now = Date()
         var count = 0
+        let thisYearStart = cal.date(from: cal.dateComponents([.year], from: now)) ?? now
         switch item.timeDimension {
         case "每年":
-            for i in 0..<5 {
-                let end = cal.date(byAdding: .year, value: -i, to: now) ?? now
+            for i in 1..<6 {
+                let end = cal.date(byAdding: .year, value: -(i - 1), to: thisYearStart) ?? thisYearStart
                 let start = cal.date(byAdding: .year, value: -1, to: end) ?? end
                 if achieved(start: start, end: end) { count += 1 }
             }
         case "日期区间":
-            if let s = item.startDate, let e = item.endDate, e >= s, achieved(start: s, end: e) { count = 1 }
+            if let s = item.startDate, let e = item.endDate, e >= s, e <= now, achieved(start: s, end: e) { count = 1 }
         default:
             break
         }
@@ -328,6 +338,7 @@ struct GoalTargetCard: View {
 
     private func achieved(start: Date, end: Date) -> Bool {
         guard item.amount > 0 else { return false }
+        if let createdAt = item.createdAt, createdAt > end { return false }
         let recs = records.filter { $0.date >= start && $0.date < end }
         let actual: Double
         if item.category == "收入" {
@@ -350,7 +361,9 @@ struct GoalTargetCard: View {
         let cal = Calendar.current
         let range: (start: Date, end: Date)?
         switch item.timeDimension {
-        case "每周": range = (cal.date(byAdding: .day, value: -7, to: now) ?? now, now)
+        case "每周":
+            let weekStart = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)) ?? now
+            range = (weekStart, now)
         case "每月":
             let comps = cal.dateComponents([.year, .month], from: now)
             range = (cal.date(from: comps) ?? now, now)
@@ -373,12 +386,31 @@ struct GoalTargetCard: View {
     private var progressText: String {
         let achieved = item.isAchieved(actual: actual)
         let label = item.category == "收入" ? "收入" : "支出"
+        let comparison = item.comparisonDisplay
+        if actual > item.amount {
+            let excess = (actual - item.amount) / item.amount * 100
+            if comparison == "大于" {
+                return "🎉 \(periodLabel)\(label) ¥\(Int(actual))，超额 \(Int(excess))%"
+            } else if comparison == "小于" {
+                return "\(periodLabel)\(label) ¥\(Int(actual))，超额 \(Int(excess))%"
+            }
+        }
         if achieved {
-            return "🎉 已完成：\(label) ¥\(Int(actual))"
+            return "🎉 \(periodLabel)\(label) ¥\(Int(actual))，已完成"
         } else if actual > 0 {
-            return "当前\(label) ¥\(Int(actual))，完成 \(Int(percent))%"
+            return "\(periodLabel)\(label) ¥\(Int(actual))，完成 \(Int(percent))%"
         } else {
-            return "本周期暂无\(label)记录，完成 0%"
+            return "\(periodLabel)暂无\(label)记录，完成 0%"
+        }
+    }
+
+    private var periodLabel: String {
+        switch item.timeDimension {
+        case "每周": return "本周"
+        case "每月": return "本月"
+        case "每年": return "本年度"
+        case "日期区间": return "本时段"
+        default: return "本周期"
         }
     }
 
@@ -387,128 +419,182 @@ struct GoalTargetCard: View {
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 4).fill(AppTheme.border)
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(item.isAchieved(actual: actual) ? Color.green : AppTheme.brandStart)
+                    .fill(item.category == "收入" ? Color.green : AppTheme.textSecondary)
                     .frame(width: geo.size.width * min(1, percent / 100))
             }
         }
         .frame(height: 8)
     }
+
+    private var progressTextColor: Color {
+        let comparison = item.comparisonDisplay
+        if comparison == "小于", actual > item.amount {
+            return AppTheme.brandEnd
+        }
+        return AppTheme.textTertiary
+    }
 }
 
-// MARK: - 目标设置（空页面 + 增加条目；只可删除不可修改）
-struct GoalTargetSettingSheet: View {
+// MARK: - 目标设置（整页，参考账单提醒排版）
+struct GoalTargetSettingPage: View {
     @Binding var items: [GoalTargetItem]
     @EnvironmentObject var supabaseService: SupabaseService
-    @Environment(\.dismiss) private var dismiss
     @State private var showAddForm = false
     @State private var pendingDelete: GoalTargetItem?
     @State private var editingItem: GoalTargetItem?
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
+        ScrollView {
+            VStack(spacing: 16) {
+                Color.clear.frame(height: 4)
+
                 if items.isEmpty {
-                    VStack(spacing: 12) {
-                        Spacer()
-                        Image(systemName: "target")
-                            .font(.system(size: 40))
-                            .foregroundColor(AppTheme.textTertiary)
-                        Text("暂无目标")
-                            .font(.appBody)
-                            .foregroundColor(AppTheme.textSecondary)
-                        Text("点击下方「增加目标」添加收支目标")
-                            .font(.appSmall)
-                            .foregroundColor(AppTheme.textTertiary)
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity)
-                } else {
-                    List {
-                        ForEach(items) { item in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("\(item.displayName) · \(item.timeDimension)")
-                                        .font(.appBody)
-                                        .foregroundColor(AppTheme.textPrimary)
-                                    Text("\(item.comparisonDisplay) ¥\(Int(item.amount))")
-                                        .font(.appSmall)
-                                        .foregroundColor(AppTheme.textSecondary)
-                                    if item.timeDimension == "日期区间", let s = item.startDate, let e = item.endDate {
-                                        Text("\(s.formatted(date: .abbreviated, time: .omitted)) ~ \(e.formatted(date: .abbreviated, time: .omitted))")
-                                            .font(.appTiny)
-                                            .foregroundColor(AppTheme.textTertiary)
-                                    }
-                                }
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    editingItem = item
-                                }
-                                Spacer()
-                                Button(role: .destructive) {
-                                    pendingDelete = item
-                                } label: {
-                                    Image(systemName: "trash")
-                                }
-                            }
-                        }
-                    }
-                    .listStyle(.insetGrouped)
-                    .scrollContentBackground(.hidden)
+                    emptyState
                 }
 
-                Text("点击目标条目可编辑，删除后不可恢复")
-                    .font(.system(size: 12))
-                    .foregroundColor(.gray)
-                    .padding(.vertical, 8)
-
-                Button(action: { showAddForm = true }) {
-                    Label("增加目标", systemImage: "plus")
-                        .frame(maxWidth: .infinity)
+                ForEach(items) { item in
+                    goalCard(item)
                 }
-                .buttonStyle(AppPrimaryButtonStyle())
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
+
+                addGoalButton
+
+                Spacer(minLength: 24)
             }
-            .navigationTitle("目标设置")
-            .navigationBarTitleDisplayMode(.inline)
-            .background(Color.white)
-            .toolbarBackground(Color.white, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("关闭") { dismiss() }
+        }
+        .background(AppTheme.background.ignoresSafeArea())
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(Color.white, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                HStack(spacing: 6) {
+                    Image(systemName: "target")
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(AppTheme.brandStart)
-                }
-            }
-            .sheet(isPresented: $showAddForm) {
-                GoalTargetAddSheet(items: $items)
-            }
-            .sheet(item: $editingItem) { item in
-                GoalTargetAddSheet(items: $items, editingItem: item)
-            }
-            .alert("确认删除", isPresented: Binding(
-                get: { pendingDelete != nil },
-                set: { if !$0 { pendingDelete = nil } }
-            )) {
-                Button("取消", role: .cancel) { pendingDelete = nil }
-                Button("删除", role: .destructive) {
-                    if let target = pendingDelete {
-                        items.removeAll { $0.id == target.id }
-                        GoalTargetItem.save(items)
-                        // 同步删除云端目标
-                        Task { try? await supabaseService.deleteGoalTarget(id: target.id) }
-                    }
-                    pendingDelete = nil
-                }
-            } message: {
-                if let target = pendingDelete {
-                    Text("确定删除「\(target.displayName)」吗？删除后不可恢复。")
-                } else {
-                    Text("确定删除该目标吗？")
+                    Text("目标设置")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(AppTheme.textPrimary)
                 }
             }
         }
+        .sheet(isPresented: $showAddForm) {
+            GoalTargetAddSheet(items: $items)
+        }
+        .sheet(item: $editingItem) { item in
+            GoalTargetAddSheet(items: $items, editingItem: item)
+        }
+        .alert("确认删除", isPresented: Binding(
+            get: { pendingDelete != nil },
+            set: { if !$0 { pendingDelete = nil } }
+        )) {
+            Button("取消", role: .cancel) { pendingDelete = nil }
+            Button("删除", role: .destructive) {
+                if let target = pendingDelete {
+                    items.removeAll { $0.id == target.id }
+                    GoalTargetItem.save(items)
+                    Task { try? await supabaseService.deleteGoalTarget(id: target.id) }
+                }
+                pendingDelete = nil
+            }
+        } message: {
+            if let target = pendingDelete {
+                Text("确定删除「\(target.displayName)」吗？删除后不可恢复。")
+            } else {
+                Text("确定删除该目标吗？")
+            }
+        }
         .preferredColorScheme(.light)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "target")
+                .font(.system(size: 40))
+                .foregroundColor(AppTheme.textTertiary)
+            Text("暂无目标")
+                .font(.appTitle)
+                .foregroundColor(AppTheme.textPrimary)
+            Text("点击下方新建目标开始")
+                .font(.appBody)
+                .foregroundColor(AppTheme.textSecondary)
+        }
+        .padding(40)
+        .frame(maxWidth: .infinity)
+        .background(Color.white)
+        .cornerRadius(16)
+        .shadow(color: AppTheme.cardShadow, radius: 10, x: 0, y: 4)
+        .padding(.horizontal, 20)
+    }
+
+    private var addGoalButton: some View {
+        Button(action: { showAddForm = true }) {
+            HStack(spacing: 8) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 16))
+                Text("新建目标")
+                    .font(.appBodyMedium)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(AppPrimaryButtonStyle())
+        .padding(.horizontal, 20)
+    }
+
+    private func goalCard(_ item: GoalTargetItem) -> some View {
+        let categoryColor: Color = item.category == "收入" ? .green : AppTheme.textSecondary
+        return VStack(spacing: 0) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(categoryColor.opacity(0.15))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: goalComparisonIcon(comparison: item.comparisonDisplay, filled: true))
+                        .font(.system(size: 16))
+                        .foregroundColor(categoryColor)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.displayName)
+                        .font(.appBodyMedium)
+                        .foregroundColor(AppTheme.textPrimary)
+                    HStack(spacing: 6) {
+                        Text(item.category)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(categoryColor)
+                        Text(item.timeDimension)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(AppTheme.textSecondary)
+                    }
+                    Text("\(item.comparisonDisplay) ¥\(Int(item.amount))")
+                        .font(.appSmall)
+                        .foregroundColor(categoryColor)
+                    if item.timeDimension == "日期区间", let s = item.startDate, let e = item.endDate {
+                        Text("\(goalChineseDate(s)) ~ \(goalChineseDate(e))")
+                            .font(.system(size: 12))
+                            .foregroundColor(AppTheme.textTertiary)
+                    }
+                }
+
+                Spacer()
+
+                Button {
+                    pendingDelete = item
+                } label: {
+                    Image(systemName: "trash")
+                        .foregroundColor(AppTheme.brandEnd)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(16)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                editingItem = item
+            }
+        }
+        .background(Color.white)
+        .cornerRadius(12)
+        .shadow(color: AppTheme.cardShadow, radius: 4, x: 0, y: 2)
+        .padding(.horizontal, 16)
     }
 }
 
@@ -521,7 +607,7 @@ struct GoalTargetAddSheet: View {
     @State private var name = ""
     @State private var category = "支出"
     @State private var timeDimension = "每月"
-    @State private var comparison = "大于等于"
+    @State private var comparison = "大于"
     @State private var amount = ""
     @State private var startDate = Date()
     @State private var endDate = Date().addingTimeInterval(30 * 24 * 60 * 60)
@@ -530,106 +616,142 @@ struct GoalTargetAddSheet: View {
     @State private var initialized = false
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("目标名称") {
-                    TextField("如：每月存5000", text: $name)
-                }
-                Section("目标类型") {
-                    Picker("类型", selection: $category) {
-                        Text("支出目标").tag("支出")
-                        Text("收入目标").tag("收入")
-                    }
-                }
-                Section("时间维度") {
-                    Picker("时间", selection: $timeDimension) {
-                        ForEach(GoalTargetItem.timeDimensions, id: \.self) { Text($0).tag($0) }
-                    }
-                    if timeDimension == "日期区间" {
-                        DatePicker("开始日期", selection: $startDate, displayedComponents: .date)
-                        DatePicker("结束日期", selection: $endDate, displayedComponents: .date)
-                    }
-                }
-                Section("目标金额") {
-                    TextField("金额（元）", text: $amount)
-                        .keyboardType(.decimalPad)
-                }
-                Section("达成条件") {
-                    Picker("与目标金额的关系", selection: $comparison) {
-                        ForEach(GoalTargetItem.comparisons, id: \.self) { option in
-                            Text(option).tag(option)
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 16) {
+                    Color.clear.frame(height: 4)
+
+                    VStack(alignment: .leading, spacing: 16) {
+                        // 目标名称
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("目标名称")
+                                .font(.system(size: 17))
+                                .foregroundColor(AppTheme.textSecondary)
+                            TextField("如：每月存5000", text: $name)
+                                .font(.system(size: 17))
+                                .foregroundColor(AppTheme.textPrimary)
+                                .tint(AppTheme.textPrimary)
+                                .padding(12)
+                                .background(AppTheme.background)
+                                .cornerRadius(AppTheme.elementRadius)
+                                .onChange(of: name) { _, newValue in
+                                    if newValue.count > 20 { name = String(newValue.prefix(20)) }
+                                }
+                        }
+
+                        // 目标类型
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("目标类型")
+                                .font(.system(size: 17))
+                                .foregroundColor(AppTheme.textSecondary)
+                            HStack(spacing: 12) {
+                                typeOptionButton(
+                                    title: "收入目标",
+                                    icon: "arrow.up.circle",
+                                    color: .green,
+                                    value: "收入"
+                                )
+                                typeOptionButton(
+                                    title: "支出目标",
+                                    icon: "arrow.down.circle",
+                                    color: AppTheme.textSecondary,
+                                    value: "支出"
+                                )
+                            }
+                        }
+
+                        // 时间维度
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("时间维度")
+                                .font(.system(size: 17))
+                                .foregroundColor(AppTheme.textSecondary)
+                            HStack(spacing: 0) {
+                                ForEach(GoalTargetItem.timeDimensions, id: \.self) { dim in
+                                    Button(action: { timeDimension = dim }) {
+                                        Text(dim)
+                                            .font(.system(size: 15, weight: .medium))
+                                            .foregroundStyle(timeDimension == dim ? AnyShapeStyle(Color.white) : AnyShapeStyle(AppTheme.brandGradient))
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 10)
+                                            .background(Group { if timeDimension == dim { AppTheme.brandGradient } else { AppTheme.background } })
+                                            .cornerRadius(7)
+                                    }
+                                }
+                            }
+                            .background(AppTheme.background)
+                            .cornerRadius(8)
+                            if timeDimension == "日期区间" {
+                                DatePicker("开始日期", selection: $startDate, displayedComponents: .date)
+                                    .environment(\.locale, Locale(identifier: "zh_CN"))
+                                DatePicker("结束日期", selection: $endDate, displayedComponents: .date)
+                                    .environment(\.locale, Locale(identifier: "zh_CN"))
+                            }
+                        }
+
+                        // 达成条件
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("达成条件")
+                                .font(.system(size: 17))
+                                .foregroundColor(AppTheme.textSecondary)
+                            HStack(spacing: 0) {
+                                ForEach(GoalTargetItem.comparisons, id: \.self) { option in
+                                    Button(action: { comparison = option }) {
+                                        Text(option)
+                                            .font(.system(size: 15, weight: .medium))
+                                            .foregroundStyle(comparison == option ? AnyShapeStyle(Color.white) : AnyShapeStyle(AppTheme.brandGradient))
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 10)
+                                            .background(Group { if comparison == option { AppTheme.brandGradient } else { AppTheme.background } })
+                                            .cornerRadius(7)
+                                    }
+                                }
+                            }
+                            .background(AppTheme.background)
+                            .cornerRadius(8)
+                        }
+
+                        // 目标金额
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("目标金额")
+                                .font(.system(size: 17))
+                                .foregroundColor(AppTheme.textSecondary)
+                            TextField("金额（元）", text: $amount)
+                                .keyboardType(.decimalPad)
+                                .font(.system(size: 17))
+                                .foregroundColor(AppTheme.textPrimary)
+                                .tint(AppTheme.textPrimary)
+                                .padding(12)
+                                .background(AppTheme.background)
+                                .cornerRadius(AppTheme.elementRadius)
                         }
                     }
+                    .whiteCardContainer()
+
+                    VStack(spacing: 12) {
+                        Button(action: saveTarget) {
+                            Text("保存")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(AppPrimaryButtonStyle())
+
+                        Button(action: { dismiss() }) {
+                            Text("取消")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(AppSecondaryButtonStyle())
+                    }
+                    .padding(.horizontal, 20)
+
+                    Spacer(minLength: 16)
                 }
             }
-            .scrollContentBackground(.hidden)
-            .navigationTitle(editingItem == nil ? "增加目标" : "编辑目标")
+            .background(AppTheme.background.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
-            .background(Color.white)
-            .toolbarBackground(Color.white, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !trimmedName.isEmpty else {
-                            validationMessage = "请填写目标名称"
-                            showValidationAlert = true
-                            return
-                        }
-                        guard let value = Double(amount), value > 0 else {
-                            validationMessage = "请填写有效的目标金额"
-                            showValidationAlert = true
-                            return
-                        }
-                        if let editingItem, let index = items.firstIndex(where: { $0.id == editingItem.id }) {
-                            var updated = items[index]
-                            updated.name = trimmedName
-                            updated.category = category
-                            updated.timeDimension = timeDimension
-                            updated.amount = value
-                            updated.comparison = comparison
-                            updated.startDate = timeDimension == "日期区间" ? startDate : nil
-                            updated.endDate = timeDimension == "日期区间" ? endDate : nil
-                            items[index] = updated
-                            if let userId = supabaseService.currentUser?.id {
-                                Task { try? await supabaseService.updateGoalTarget(updated.toCodable(userId: userId)) }
-                            }
-                        } else {
-                            let item = GoalTargetItem(
-                                id: UUID(),
-                                name: trimmedName,
-                                category: category,
-                                timeDimension: timeDimension,
-                                amount: value,
-                                comparison: comparison,
-                                startDate: timeDimension == "日期区间" ? startDate : nil,
-                                endDate: timeDimension == "日期区间" ? endDate : nil,
-                                createdAt: Date()
-                            )
-                            items.append(item)
-                            if let userId = supabaseService.currentUser?.id {
-                                Task { try? await supabaseService.addGoalTarget(item.toCodable(userId: userId)) }
-                            }
-                        }
-                        GoalTargetItem.save(items)
-                        dismiss()
-                    }
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 5)
-                    .background(Color.white)
-                    .cornerRadius(6)
-                }
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.black)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 5)
-                        .background(Color.white)
-                        .cornerRadius(6)
+                ToolbarItem(placement: .principal) {
+                    Text(editingItem == nil ? "新建目标" : "编辑目标")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(AppTheme.textPrimary)
                 }
             }
         }
@@ -650,6 +772,95 @@ struct GoalTargetAddSheet: View {
             Text(validationMessage)
         }
         .preferredColorScheme(.light)
+    }
+
+    private func saveTarget() {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else {
+            validationMessage = "请填写目标名称"
+            showValidationAlert = true
+            return
+        }
+        guard let value = Double(amount), value > 0 else {
+            validationMessage = "请填写有效的目标金额"
+            showValidationAlert = true
+            return
+        }
+        if let editingItem, let index = items.firstIndex(where: { $0.id == editingItem.id }) {
+            var updated = items[index]
+            updated.name = trimmedName
+            updated.category = category
+            updated.timeDimension = timeDimension
+            updated.amount = value
+            updated.comparison = comparison
+            updated.startDate = timeDimension == "日期区间" ? startDate : nil
+            updated.endDate = timeDimension == "日期区间" ? endDate : nil
+            items[index] = updated
+            if let userId = supabaseService.currentUser?.id {
+                Task { try? await supabaseService.updateGoalTarget(updated.toCodable(userId: userId)) }
+            }
+        } else {
+            let item = GoalTargetItem(
+                id: UUID(),
+                name: trimmedName,
+                category: category,
+                timeDimension: timeDimension,
+                amount: value,
+                comparison: comparison,
+                startDate: timeDimension == "日期区间" ? startDate : nil,
+                endDate: timeDimension == "日期区间" ? endDate : nil,
+                createdAt: Date()
+            )
+            items.append(item)
+            if let userId = supabaseService.currentUser?.id {
+                Task { try? await supabaseService.addGoalTarget(item.toCodable(userId: userId)) }
+            }
+        }
+        GoalTargetItem.save(items)
+        dismiss()
+    }
+
+    private func typeOptionButton(title: String, icon: String, color: Color, value: String) -> some View {
+        let isSelected = category == value
+        return Button {
+            category = value
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : icon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(color)
+                Text(title)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(color)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(isSelected ? color.opacity(0.12) : AppTheme.background)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isSelected ? color.opacity(0.5) : AppTheme.border, lineWidth: 1)
+            )
+            .cornerRadius(8)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private func goalChineseDate(_ date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "zh_CN")
+    formatter.dateFormat = "yyyy年M月d日"
+    return formatter.string(from: date)
+}
+
+private func goalComparisonIcon(comparison: String, filled: Bool) -> String {
+    switch comparison {
+    case "小于":
+        return filled ? "arrow.down.circle.fill" : "arrow.down.circle"
+    case "等于":
+        return filled ? "equal.circle.fill" : "equal.circle"
+    default:
+        return filled ? "arrow.up.circle.fill" : "arrow.up.circle"
     }
 }
 
