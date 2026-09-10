@@ -23,9 +23,36 @@ struct BackendAPI {
     private let decoder: JSONDecoder = {
         let d = JSONDecoder()
         d.keyDecodingStrategy = .useDefaultKeys
+        d.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let raw = try container.decode(String.self)
+            guard let date = Self.parseISODate(raw) else {
+                throw DecodingError.dataCorrupted(.init(
+                    codingPath: container.codingPath,
+                    debugDescription: "Invalid date format: \(raw)"
+                ))
+            }
+            return date
+        }
         return d
     }()
     private let encoder = JSONEncoder()
+
+    private static func parseISODate(_ raw: String) -> Date? {
+        let normalized = raw.replacingOccurrences(
+            of: #"\.(\d{3})\d+"#,
+            with: ".$1",
+            options: .regularExpression
+        )
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = fractional.date(from: normalized) {
+            return date
+        }
+        let whole = ISO8601DateFormatter()
+        whole.formatOptions = [.withInternetDateTime]
+        return whole.date(from: normalized)
+    }
 
     func post<Request: Encodable, Response: Decodable>(
         path: String,

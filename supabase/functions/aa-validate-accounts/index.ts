@@ -20,39 +20,18 @@ Deno.serve(async (request) => {
     const supabase = createClient(supabaseURL, serviceRoleKey);
     const { data: userData, error: userError } = await supabase.auth.getUser(jwt);
     if (userError || !userData.user) throw new HttpError(401, "Invalid user session.");
-    const userId = userData.user.id;
 
     const body = await request.json();
-    const rawEmails = Array.isArray(body?.emails)
-      ? body.emails
-      : body?.email
-        ? [body.email]
+    const rawAccounts = Array.isArray(body?.accounts)
+      ? body.accounts
+      : Array.isArray(body?.emails)
+        ? body.emails
         : [];
-    const accounts = [...new Set(rawEmails
-      .map((e: unknown) => String(e).trim().toLowerCase())
-      .filter((e: string) => e.length > 0)
+    const accounts = [...new Set(rawAccounts
+      .map((value: unknown) => String(value).trim().toLowerCase())
+      .filter((value: string) => value.length > 0)
     )];
-    if (!body?.bill_id || accounts.length === 0) {
-      throw new HttpError(400, "Missing bill_id or email.");
-    }
-
-    const billId = String(body.bill_id);
-
-    const { data: bill, error: billError } = await supabase
-      .from("aa_bills")
-      .select("id, creator_id")
-      .eq("id", billId)
-      .maybeSingle();
-    if (billError || !bill) throw new HttpError(404, "Bill not found.");
-
-    const { data: memberRows } = await supabase
-      .from("aa_bill_members")
-      .select("user_id")
-      .eq("bill_id", billId);
-    const isMember = (memberRows ?? []).some((m) => m.user_id === userId);
-    if (bill.creator_id !== userId && !isMember) {
-      throw new HttpError(403, "You are not a member of this bill.");
-    }
+    if (accounts.length === 0) throw new HttpError(400, "Missing accounts.");
 
     const { data: profiles, error: profileError } = await supabase
       .from("profiles")
@@ -64,24 +43,9 @@ Deno.serve(async (request) => {
     for (const profile of profiles) {
       matchedAccounts.add(profile.email.toLowerCase());
     }
-    const missingAccounts = accounts.filter((account) => !matchedAccounts.has(account));
+    const missing = accounts.filter((account) => !matchedAccounts.has(account));
 
-    const rows = profiles.map((p) => ({
-      bill_id: billId,
-      user_id: p.id,
-      email: p.email,
-    }));
-
-    const { data: members, error: insertError } = await supabase
-      .from("aa_bill_members")
-      .upsert(
-        rows,
-        { onConflict: "bill_id,user_id" }
-      )
-      .select()
-    if (insertError) throw new Error(insertError.message);
-
-    return json({ members, missing: missingAccounts });
+    return json({ accounts, missing });
   } catch (error) {
     if (error instanceof HttpError) {
       return json({ error: error.message }, error.status);

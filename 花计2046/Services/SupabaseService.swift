@@ -209,6 +209,7 @@ class SupabaseService: ObservableObject {
             recordsLoadError = true
             Log.error("刷新全部记录失败: \(error)")
         }
+        isPreloaded = true
         isRecordsLoading = false
     }
 
@@ -761,7 +762,9 @@ extension GoalTargetItem {
         self.category = codable.category
         self.timeDimension = codable.timeDimension
         self.amount = codable.amount
-        self.comparison = codable.comparison ?? "大于等于"
+        self.comparison = codable.comparison.map {
+            $0 == "大于等于" ? "大于" : ($0 == "小于等于" ? "小于" : $0)
+        } ?? "大于"
         if let raw = codable.startDate { self.startDate = ISO8601DateFormatter().date(from: raw) }
         if let raw = codable.endDate { self.endDate = ISO8601DateFormatter().date(from: raw) }
         if let raw = codable.createdAt { self.createdAt = ISO8601DateFormatter().date(from: raw) }
@@ -775,10 +778,12 @@ extension GoalTargetItem {
             category: category,
             timeDimension: timeDimension,
             amount: amount,
-            comparison: comparison ?? "大于等于",
+            comparison: comparison.map {
+                $0 == "大于等于" ? "大于" : ($0 == "小于等于" ? "小于" : $0)
+            } ?? "大于",
             startDate: startDate.map { ISO8601DateFormatter().string(from: $0) },
             endDate: endDate.map { ISO8601DateFormatter().string(from: $0) },
-            createdAt: nil  // 让数据库默认 now()
+            createdAt: createdAt.map { ISO8601DateFormatter().string(from: $0) }
         )
     }
 }
@@ -788,13 +793,31 @@ struct AABill: Identifiable, Codable, Equatable {
     var id: UUID
     var creatorId: UUID
     var name: String
+    var splitCount: Int?
     var createdAt: Date?
+    var updatedAt: Date?
 
     enum CodingKeys: String, CodingKey {
         case id
         case creatorId = "creator_id"
         case name
+        case splitCount = "split_count"
         case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+enum AABillError: LocalizedError {
+    case notLoggedIn
+    case noResult
+
+    var errorDescription: String? {
+        switch self {
+        case .notLoggedIn:
+            return "登录状态已失效，请重新登录"
+        case .noResult:
+            return "创建失败，请稍后重试"
+        }
     }
 }
 
@@ -838,6 +861,16 @@ struct AABillItem: Identifiable, Codable, Equatable {
     }
 }
 
+private struct AABillItemSummary: Decodable {
+    let billId: UUID
+    let amount: Double
+
+    enum CodingKeys: String, CodingKey {
+        case billId = "bill_id"
+        case amount
+    }
+}
+
 extension SupabaseService {
     func fetchAABills() async throws -> [AABill] {
         if AppConfig.useMockServices { return [] }
@@ -848,26 +881,72 @@ extension SupabaseService {
             .execute().value
     }
 
-    func createAABill(name: String) async throws -> AABill? {
-        if AppConfig.useMockServices { return nil }
-        guard let userId = currentUser?.id else { return nil }
-        let payload = AABill(id: UUID(), creatorId: userId, name: name, createdAt: Date())
+    func createAABill(
+        name: String,
+        items: [AABillItem] = [],
+        memberEmails: [String] = [],
+        splitCount: Int? = nil
+    ) async throws -> AABill {
+        if AppConfig.useMockServices {
+            throw AABillError.noResult
+        }
+        guard let userId = currentUser?.id else {
+            throw AABillError.notLoggedIn
+        }
+        let payload = AABill(
+            id: UUID(),
+            creatorId: userId,
+            name: name,
+            splitCount: splitCount,
+            createdAt: Date()
+        )
         let inserted: [AABill] = try await client.from("aa_bills")
             .insert(payload)
             .select()
             .execute().value
-        guard let bill = inserted.first else { return nil }
+        guard let bill = inserted.first else {
+            throw AABillError.noResult
+        }
+        let creatorMember: AABillMember?
         if let email = currentUser?.email {
-            let creatorMember = AABillMember(
+            creatorMember = AABillMember(
                 id: UUID(),
                 billId: bill.id,
                 userId: userId,
                 email: email,
                 createdAt: Date()
             )
-            try? await client.from("aa_bill_members").insert(creatorMember).execute()
+        } else {
+            creatorMember = nil
         }
-        return bill
+        let billItems = items.map { item in
+            var copy = item
+            copy.billId = bill.id
+            return copy
+        }
+        do {
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                if !billItems.isEmpty {
+                    group.addTask {
+                        try await self.addAABillItems(billItems)
+                    }
+                }
+                if !memberEmails.isEmpty {
+                    group.addTask {
+                        _ = try await self.addAABillMembers(billId: bill.id, emails: memberEmails)
+                    }
+                }
+                if let creatorMember {
+                    group.addTask {
+                        try await self.client.from("aa_bill_members").insert(creatorMember).execute()
+                    }
+                }
+            }
+            return bill
+        } catch {
+            try? await deleteAABill(id: bill.id)
+            throw error
+        }
     }
 
     func fetchAABillMembers(billId: UUID) async throws -> [AABillMember] {
@@ -879,14 +958,27 @@ extension SupabaseService {
             .execute().value
     }
 
-    func addAABillMembers(billId: UUID, emails: [String]) async throws -> [AABillMember] {
-        if AppConfig.useMockServices { return [] }
-        struct Response: Decodable {
-            let members: [AABillMember]
+    func addAABillMembers(billId: UUID, emails: [String]) async throws -> AABillAddMemberResult {
+        if AppConfig.useMockServices {
+            return AABillAddMemberResult(members: [], missing: emails)
         }
         let request = AABillAddMemberRequest(billId: billId, emails: emails)
-        let response: Response = try await BackendAPI.shared.post(path: "aa-bill-add-member", body: request)
-        return response.members
+        return try await BackendAPI.shared.post(path: "aa-bill-add-member", body: request)
+    }
+
+    func validateAABillAccounts(_ accounts: [String]) async throws -> [String] {
+        if AppConfig.useMockServices { return accounts }
+        struct Request: Encodable {
+            let accounts: [String]
+        }
+        struct Response: Decodable {
+            let missing: [String]
+        }
+        let response: Response = try await BackendAPI.shared.post(
+            path: "aa-validate-accounts",
+            body: Request(accounts: accounts)
+        )
+        return response.missing
     }
 
     func deleteAABillMember(billId: UUID, memberId: UUID) async throws {
@@ -898,6 +990,16 @@ extension SupabaseService {
             .execute()
     }
 
+    func leaveAABill(billId: UUID) async throws {
+        if AppConfig.useMockServices { return }
+        guard let userId = currentUser?.id else { return }
+        try await client.from("aa_bill_members")
+            .delete()
+            .eq("bill_id", value: billId)
+            .eq("user_id", value: userId)
+            .execute()
+    }
+
     func fetchAABillItems(billId: UUID) async throws -> [AABillItem] {
         if AppConfig.useMockServices { return [] }
         return try await client.from("aa_bill_items")
@@ -905,6 +1007,22 @@ extension SupabaseService {
             .eq("bill_id", value: billId)
             .order("created_at", ascending: true)
             .execute().value
+    }
+
+    func fetchAABillItemSummaries(billIds: [UUID]) async throws -> [UUID: (count: Int, amount: Double)] {
+        if AppConfig.useMockServices || billIds.isEmpty { return [:] }
+        let rows: [AABillItemSummary] = try await client.from("aa_bill_items")
+            .select("bill_id, amount")
+            .in("bill_id", values: billIds.map { $0 as any PostgrestFilterValue })
+            .execute().value
+        var result: [UUID: (count: Int, amount: Double)] = [:]
+        for row in rows {
+            var summary = result[row.billId] ?? (0, 0)
+            summary.count += 1
+            summary.amount += row.amount
+            result[row.billId] = summary
+        }
+        return result
     }
 
     func addAABillItems(_ items: [AABillItem]) async throws {
@@ -927,6 +1045,30 @@ extension SupabaseService {
             .eq("id", value: id)
             .execute()
     }
+
+    func deleteAABill(id: UUID) async throws {
+        if AppConfig.useMockServices { return }
+        try await client.from("aa_bills")
+            .delete()
+            .eq("id", value: id)
+            .execute()
+    }
+
+    func updateAABillSplitCount(id: UUID, splitCount: Int) async throws {
+        if AppConfig.useMockServices { return }
+        try await client.from("aa_bills")
+            .update(["split_count": splitCount])
+            .eq("id", value: id)
+            .execute()
+    }
+
+    func updateAABillName(id: UUID, name: String) async throws {
+        if AppConfig.useMockServices { return }
+        try await client.from("aa_bills")
+            .update(["name": name])
+            .eq("id", value: id)
+            .execute()
+    }
 }
 
 private struct AABillAddMemberRequest: Encodable {
@@ -937,6 +1079,11 @@ private struct AABillAddMemberRequest: Encodable {
         case billId = "bill_id"
         case emails
     }
+}
+
+struct AABillAddMemberResult: Decodable {
+    let members: [AABillMember]
+    let missing: [String]?
 }
 
 enum NoteMode { case append, replace }
