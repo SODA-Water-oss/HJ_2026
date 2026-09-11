@@ -281,3 +281,32 @@ struct DailyLimitManagerTests {
         #expect(DailyLimitManager.canParse(for: UUID()))
     }
 }
+
+
+// MARK: - 收支判型测试
+
+struct ParsedExpenseTypeTests {
+    private func decode(_ json: String) throws -> GeminiService.ParsedExpense {
+        try JSONDecoder().decode(GeminiService.ParsedExpense.self, from: Data(json.utf8))
+    }
+
+    @Test func incomeCategoryOverridesExpenseType() throws {
+        let item = try decode(#"{"type":"expense","amount":5000,"category":"工资","merchant":"公司"}"#)
+        #expect(item.type == .income)
+    }
+
+    @Test func expenseCategoryOverridesIncomeType() throws {
+        let item = try decode(#"{"type":"income","amount":25,"category":"购物","merchant":"超市"}"#)
+        #expect(item.type == .expense)
+    }
+
+    @Test func missingTypeFallsBackToIncomeKeyword() throws {
+        let item = try decode(#"{"amount":300,"category":"其他","merchant":"报销车费"}"#)
+        #expect(item.type == .income)
+    }
+
+    @Test func plainExpenseStaysExpense() throws {
+        let item = try decode(#"{"type":"expense","amount":30,"category":"餐饮","merchant":"咖啡"}"#)
+        #expect(item.type == .expense)
+    }
+}

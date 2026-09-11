@@ -188,7 +188,9 @@ async function parseWithGemini(
     throw new Error("Gemini returned no items.");
   }
 
-  const incomeKeywords = ["工资", "奖金", "兼职", "投资", "理财", "礼金", "退款", "报销", "红包", "利息", "分红", "入账", "收入", "进账"];
+  const incomeCategories = ["工资", "奖金", "兼职", "投资", "理财", "礼金", "退款", "报销", "红包", "利息", "分红"];
+  const expenseCategories = ["餐饮", "交通", "购物", "娱乐", "住房", "日用", "服饰", "通讯", "医疗", "教育"];
+  const incomeKeywords = [...incomeCategories, "入账", "收入", "进账"];
 
   return items
     .map((item) => {
@@ -197,7 +199,12 @@ async function parseWithGemini(
       const rawMerchant = String(item.merchant ?? "").trim();
 
       let type: "expense" | "income";
-      if (rawType === "income" || rawType === "收入" || rawType === "入账" || rawType === "进账") {
+      // 类别强信号优先，修正模型 type 字段误判（如 type=expense 但 category=工资）
+      if (incomeCategories.includes(rawCategory)) {
+        type = "income";
+      } else if (expenseCategories.includes(rawCategory)) {
+        type = "expense";
+      } else if (rawType === "income" || rawType === "收入" || rawType === "入账" || rawType === "进账") {
         type = "income";
       } else if (rawType === "expense" || rawType === "支出" || rawType === "消费" || rawType === "花费") {
         type = "expense";

@@ -31,16 +31,27 @@ class GeminiService: ObservableObject {
             category = try container.decode(String.self, forKey: .category)
             merchant = try container.decode(String.self, forKey: .merchant)
             note = try container.decodeIfPresent(String.self, forKey: .note)
-            let rawType = try container.decodeIfPresent(String.self, forKey: .type) ?? "expense"
+            let rawType = try container.decodeIfPresent(String.self, forKey: .type) ?? ""
             type = Self.parseType(rawType, category: category, merchant: merchant)
         }
 
+        private static let incomeCategories = ["工资", "奖金", "兼职", "投资", "理财", "礼金", "退款", "报销", "红包", "利息", "分红"]
+        private static let expenseCategories = ["餐饮", "交通", "购物", "娱乐", "住房", "日用", "服饰", "通讯", "医疗", "教育"]
+
         private static func parseType(_ raw: String, category: String, merchant: String) -> RecordType {
+            // 1) 类别强信号优先：类别明确属于收入/支出时，修正模型 type 字段的误判（如 type=expense 但 category=工资）
+            let cat = category.trimmingCharacters(in: .whitespacesAndNewlines)
+            if incomeCategories.contains(cat) { return .income }
+            if expenseCategories.contains(cat) { return .expense }
+
+            // 2) 类型字段判断
             let t = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             if t == "income" || t == "收入" || t == "入账" || t == "进账" { return .income }
             if t == "expense" || t == "支出" || t == "消费" || t == "花费" { return .expense }
+
+            // 3) 关键词兜底（类别为"其他"或非法时）
             let hint = "\(category) \(merchant)"
-            let incomeKeywords = ["工资", "奖金", "兼职", "投资", "理财", "礼金", "退款", "报销", "红包", "利息", "分红", "入账", "收入", "进账"]
+            let incomeKeywords = incomeCategories + ["入账", "收入", "进账"]
             return incomeKeywords.contains(where: { hint.contains($0) }) ? .income : .expense
         }
     }

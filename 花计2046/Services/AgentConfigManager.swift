@@ -202,7 +202,7 @@ final class AgentConfigManager: ObservableObject {
     // MARK: - 记账解析
 
     func parseExpense(input: String, config: AgentConfig) async throws -> [GeminiService.ParsedExpense] {
-        let systemPrompt = "你是记账解析器。从输入提取每笔收支，只输出 JSON，不解释。格式：{\"items\":[{\"type\":\"expense|income\",\"amount\":数字,\"category\":\"类别\",\"merchant\":\"名称\"}]}。支出类别：餐饮,交通,购物,娱乐,住房,日用,服饰,通讯,医疗,教育,其他；收入类别：工资,奖金,兼职,投资,理财,礼金,退款,其他。多笔逐项输出。"
+        let systemPrompt = "你是记账解析器。从输入提取每笔收支，只输出 JSON，不解释。格式：{\"items\":[{\"type\":\"expense|income\",\"amount\":数字,\"category\":\"类别\",\"merchant\":\"名称\"}]}。type 只能是 \"expense\" 或 \"income\"。判定规则：工资、奖金、兼职、投资、理财、礼金、退款、报销、红包、利息、分红等收到钱的属于收入，type=income；花钱消费、付款、转账给别人、缴纳费用等属于支出，type=expense。支出类别：餐饮,交通,购物,娱乐,住房,日用,服饰,通讯,医疗,教育,其他；收入类别：工资,奖金,兼职,投资,理财,礼金,退款,其他。多笔逐项输出。"
 
         let raw = try await callChat(
             config: modelForStructuredTasks(config),
