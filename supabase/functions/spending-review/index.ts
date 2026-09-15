@@ -13,8 +13,9 @@ Deno.serve(async (request) => {
   try {
     const supabaseURL = requiredEnv("SUPABASE_URL");
     const serviceRoleKey = requiredEnv("SERVICE_ROLE_KEY");
-    const deepSeekKey = Deno.env.get("DEEPSEEK_API_KEY");
-    if (!deepSeekKey) throw new Error("Missing DEEPSEEK_API_KEY.");
+    const deepSeekKey = Deno.env.get("DEEPSEEK_API_KEY") ?? "";
+    const geminiKey = Deno.env.get("GEMINI_API_KEY") ?? "";
+    if (!deepSeekKey && !geminiKey) throw new Error("Missing DEEPSEEK_API_KEY and GEMINI_API_KEY.");
 
     // 1. 鉴权
     const authHeader = request.headers.get("Authorization") ?? "";
@@ -59,8 +60,15 @@ Deno.serve(async (request) => {
 
     const summary = buildSummary(records ?? [], trendRecords ?? []);
 
-    // 4. 调 DeepSeek 生成点评
-    const review = await generateReview(deepSeekKey, summary, userName);
+    // 4. 生成点评：优先 DeepSeek，失败（余额不足/网络等）自动降级 Gemini
+    let review: string;
+    try {
+      review = await generateReview(deepSeekKey, summary, userName);
+    } catch (deepSeekError) {
+      if (!geminiKey) throw deepSeekError;
+      console.warn("DeepSeek 点评失败，降级 Gemini:", deepSeekError instanceof Error ? deepSeekError.message : deepSeekError);
+      review = await generateReviewWithGemini(geminiKey, summary, userName);
+    }
 
     return json({ review });
   } catch (error) {
@@ -169,8 +177,8 @@ function guessNameFromEmail(email: string): string {
     .join(" ");
 }
 
-async function generateReview(apiKey: string, summary: Record<string, unknown>, userName: string): Promise<string> {
-  const prompt = [
+function buildReviewPrompt(summary: Record<string, unknown>, userName: string): string {
+  return [
     "你是一个爱写手帐、说话俏皮的记账达人，正在给用户写一段最近收支手帐点评。",
     userName
       ? `用户的称呼：${userName}（这是从邮箱/昵称推测的，未必是真名；如果合适就自然带进点评让语气更亲近，如果显得生硬就不要硬叫，直接用「你」）。`
@@ -188,6 +196,11 @@ async function generateReview(apiKey: string, summary: Record<string, unknown>, 
     "数据如下：",
     JSON.stringify(summary),
   ].join("\n");
+}
+
+async function generateReview(apiKey: string, summary: Record<string, unknown>, userName: string): Promise<string> {
+  if (!apiKey) throw new Error("Missing DEEPSEEK_API_KEY.");
+  const prompt = buildReviewPrompt(summary, userName);
 
   // 使用 DeepSeek（OpenAI 兼容接口），国内访问稳定
   const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
@@ -218,6 +231,46 @@ async function generateReview(apiKey: string, summary: Record<string, unknown>, 
     throw new Error("DeepSeek returned no text.");
   }
   return text.trim();
+}
+
+async function generateReviewWithGemini(apiKey: string, summary: Record<string, unknown>, userName: string): Promise<string> {
+  const prompt = buildReviewPrompt(summary, userName);
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.9,
+          maxOutputTokens: 512,
+          thinkingConfig: { thinkingLevel: "low" },
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Gemini request failed: ${response.status}: ${body.slice(0, 300)}`);
+  }
+
+  const data = await response.json();
+  const parts: Array<{ text?: string }> =
+    Array.isArray(data?.candidates?.[0]?.content?.parts)
+      ? data.candidates[0].content.parts
+      : [];
+  // thinking 模型会把最终回答放在 content.parts 的 text 里；直接拼接所有片段即可
+  const text = parts
+    .map((part) => (typeof part.text === "string" ? part.text : ""))
+    .join("")
+    .trim();
+  if (!text) throw new Error("Gemini returned no text.");
+  return text;
 }
 
 function requiredEnv(name: string): string {

@@ -11,6 +11,7 @@ struct AIReviewCard: View {
     @State private var cursorBlink = true
     @State private var showAgentFailureAlert = false
     @State private var agentFailureMessage = ""
+    @State private var loadFailed = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -23,12 +24,26 @@ struct AIReviewCard: View {
                     }
                 }
 
-                // 内容区：无内容时一律显示闪烁光标（等待 AI 生成）
+                // 内容区：无内容时显示光标（等待 AI 生成），失败时显示提示并支持重试
                 if fullText.isEmpty {
-                    HStack(spacing: 2) {
-                        cursorView
+                    if loadFailed {
+                        Button(action: { load() }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 14))
+                                Text("生成失败，点击重试")
+                                    .font(.system(size: 15))
+                            }
+                            .foregroundColor(AppTheme.textSecondary)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.vertical, 18)
+                    } else {
+                        HStack(spacing: 2) {
+                            cursorView
+                        }
+                        .padding(.vertical, 18)
                     }
-                    .padding(.vertical, 18)
                 } else {
                     // 打字机显示 + 打字中光标闪烁
                     Text(typingContent)
@@ -109,6 +124,7 @@ struct AIReviewCard: View {
     private func load() {
         guard !AppConfig.useMockServices else { return }
         isLoading = true
+        loadFailed = false
         Task {
             do {
                 let review: String
@@ -148,6 +164,7 @@ struct AIReviewCard: View {
                 Log.error("最近收支评价生成失败: \(error.localizedDescription)")
                 await MainActor.run {
                     isLoading = false
+                    loadFailed = true
                 }
             }
         }
