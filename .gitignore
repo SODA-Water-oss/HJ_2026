@@ -50,3 +50,6 @@ BuildCheck/
 BuildDeviceDiag/
 BuildDeviceNoASan/
 BuildSim/
+
+# Git bundle 备份（不应入库）
+*.bundle
